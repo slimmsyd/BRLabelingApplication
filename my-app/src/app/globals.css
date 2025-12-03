@@ -1,0 +1,43 @@
+@import "tailwindcss";
+
+:root {
+  /* Box RAW Labs Dark Theme */
+  --background: #121212;       /* Specific grey from reference */
+  --sidebar-bg: #121212;       /* Matching sidebar to main background */
+  --surface: #1E1E1E;          /* Card background */
+  --surface-hover: #27272a;    /* Card hover state */
+  
+  --foreground: #ffffff;
+  --foreground-secondary: #a1a1aa; /* Zinc-400 */
+  --foreground-tertiary: #71717a;  /* Zinc-500 */
+  
+  --border: #27272a;           /* Zinc-800 */
+  
+  --accent-primary: #3B82F6;   /* Keeping blue for primary actions */
+  --accent-glow: rgba(59, 130, 246, 0.15);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-sidebar-bg: var(--sidebar-bg);
+  --color-surface: var(--surface);
+  --color-surface-hover: var(--surface-hover);
+  
+  --color-foreground: var(--foreground);
+  --color-foreground-secondary: var(--foreground-secondary);
+  --color-foreground-tertiary: var(--foreground-tertiary);
+  
+  --color-border: var(--border);
+  
+  --color-accent-primary: var(--accent-primary);
+  --color-accent-glow: var(--accent-glow);
+  
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans), -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+}
