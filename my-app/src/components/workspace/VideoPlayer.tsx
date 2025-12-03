@@ -272,11 +272,15 @@ const VideoPlayer = ({ videoRef, activeCam, setActiveCam }: VideoPlayerProps) =>
 
                         <div className="flex items-center gap-4">
                             {/* Volume Control */}
-                            <div className="relative flex items-center gap-2">
+                            <div
+                                className="relative flex items-center gap-2"
+                                onMouseEnter={() => setShowVolumeSlider(true)}
+                                onMouseLeave={() => setShowVolumeSlider(false)}
+                            >
                                 <button
-                                    onClick={() => setShowVolumeSlider(!showVolumeSlider)}
+                                    onClick={toggleMute}
                                     className="text-white/70 hover:text-white transition-colors"
-                                    title={showVolumeSlider ? "Close volume" : "Open volume control"}
+                                    title={isMuted ? "Unmute" : "Mute"}
                                 >
                                     {getVolumeIcon()}
                                 </button>
