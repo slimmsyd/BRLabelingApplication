@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import WorkspaceHeader from '@/components/workspace/WorkspaceHeader';
 import VideoPlayer from '@/components/workspace/VideoPlayer';
 import EventLog, { EventData } from '@/components/workspace/EventLog';
@@ -20,6 +20,7 @@ export default function WorkspacePage() {
     const [visibilityFlags, setVisibilityFlags] = useState<string[]>([]);
     const [knockdown, setKnockdown] = useState(false);
     const [punchQuality, setPunchQuality] = useState('1');
+    const [stance, setStance] = useState('Orthodox');
     const [activeTimeMode, setActiveTimeMode] = useState<'start' | 'end'>('start');
     const [activeCam, setActiveCam] = useState('CAM 1');
 
@@ -32,6 +33,7 @@ export default function WorkspacePage() {
             visibilityFlags: [] as string[],
             knockdown: false,
             punchQuality: '1',
+            stance: 'Orthodox',
         },
         'Boxer B': {
             punchType: 'Jab',
@@ -40,8 +42,39 @@ export default function WorkspacePage() {
             visibilityFlags: [] as string[],
             knockdown: false,
             punchQuality: '1',
+            stance: 'Southpaw',
         },
     });
+
+    const [isSubmitted, setIsSubmitted] = useState(false);
+    const [isQCMode, setIsQCMode] = useState(false);
+    const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
+
+    // Load from localStorage on mount and backfill IDs
+    useEffect(() => {
+        const savedEvents = localStorage.getItem('workspace_events');
+        const savedBoxerStates = localStorage.getItem('workspace_boxerStates');
+        const savedIsSubmitted = localStorage.getItem('workspace_isSubmitted');
+
+        if (savedEvents) {
+            const parsedEvents: EventData[] = JSON.parse(savedEvents);
+            // Backfill IDs if missing
+            const eventsWithIds = parsedEvents.map(e => ({
+                ...e,
+                id: e.id || crypto.randomUUID()
+            }));
+            setEvents(eventsWithIds);
+        }
+        if (savedBoxerStates) setBoxerStates(JSON.parse(savedBoxerStates));
+        if (savedIsSubmitted) setIsSubmitted(JSON.parse(savedIsSubmitted));
+    }, []);
+
+    // Save to localStorage whenever critical state changes
+    useEffect(() => {
+        localStorage.setItem('workspace_events', JSON.stringify(events));
+        localStorage.setItem('workspace_boxerStates', JSON.stringify(boxerStates));
+        localStorage.setItem('workspace_isSubmitted', JSON.stringify(isSubmitted));
+    }, [events, boxerStates, isSubmitted]);
 
     // Handle boxer change with state preservation
     const handleBoxerChange = (newBoxer: string) => {
@@ -55,6 +88,7 @@ export default function WorkspacePage() {
                 visibilityFlags,
                 knockdown,
                 punchQuality,
+                stance,
             },
         });
 
@@ -69,13 +103,61 @@ export default function WorkspacePage() {
         setVisibilityFlags(savedState.visibilityFlags);
         setKnockdown(savedState.knockdown);
         setPunchQuality(savedState.punchQuality);
+        setStance(savedState.stance);
     };
 
-    const handleLogEvent = (newEvent: EventData) => {
+    const handleLogEvent = (newEventData: Omit<EventData, 'id'>) => {
+        const newEvent: EventData = {
+            ...newEventData,
+            id: crypto.randomUUID(),
+        };
+
         setEvents([newEvent, ...events]);
-        // Reset times after logging
+
+        // Only reset times if NOT in QC mode (correction mode keeps the time)
+        if (!isQCMode) {
+            setStartTime('');
+            setEndTime('');
+        }
+    };
+
+    const handleUpdateEvent = (updatedEventData: Omit<EventData, 'id'>) => {
+        if (!selectedEventId) return;
+
+        setEvents(events.map(event =>
+            event.id === selectedEventId
+                ? { ...updatedEventData, id: selectedEventId }
+                : event
+        ));
+
+        // Clear selection and reset form after update
+        setSelectedEventId(null);
         setStartTime('');
         setEndTime('');
+        // Reset other form fields to defaults or keep them?
+        // Usually better to reset to "ready for next log" state
+        setBoxer('Boxer A');
+        setPunchType('Jab');
+        setHand('Left');
+        setTarget('Head');
+        setVisibilityFlags([]);
+        setKnockdown(false);
+        setPunchQuality('1');
+        setStance('Orthodox');
+    };
+
+    const handleCancelEdit = () => {
+        setSelectedEventId(null);
+        setStartTime('');
+        setEndTime('');
+        setBoxer('Boxer A');
+        setPunchType('Jab');
+        setHand('Left');
+        setTarget('Head');
+        setVisibilityFlags([]);
+        setKnockdown(false);
+        setPunchQuality('1');
+        setStance('Orthodox');
     };
 
     const getCurrentTime = () => {
@@ -102,6 +184,9 @@ export default function WorkspacePage() {
 
     const handleDeleteEvent = (index: number) => {
         setEvents(events.filter((_, i) => i !== index));
+        if (selectedEventId && events[index].id === selectedEventId) {
+            handleCancelEdit();
+        }
     };
 
     const parseTimeToSeconds = (timeStr: string): number => {
@@ -120,6 +205,57 @@ export default function WorkspacePage() {
         return mins * 60 + secs + ms / 100;
     };
 
+    const handleSeek = (event: EventData) => {
+        if (videoRef.current) {
+            const seconds = parseTimeToSeconds(event.startTime);
+            videoRef.current.currentTime = seconds;
+        }
+
+        // Only allow editing in QC mode
+        if (isQCMode) {
+            setSelectedEventId(event.id);
+            // Populate form with event data
+            setBoxer(event.boxer);
+            setPunchType(event.punchType);
+            setHand(event.hand);
+            setTarget(event.target);
+            setVisibilityFlags(event.visibilityFlags);
+            setKnockdown(event.knockdown);
+            setPunchQuality(event.punchQuality);
+            setStance(event.stance || 'Orthodox');
+            setStartTime(event.startTime);
+            setEndTime(event.endTime);
+        }
+    };
+
+    const handleSelectEvent = (event: EventData) => {
+        // Populate form with event data
+        setSelectedEventId(event.id);
+        setBoxer(event.boxer);
+        setPunchType(event.punchType);
+        setHand(event.hand);
+        setTarget(event.target);
+        setVisibilityFlags(event.visibilityFlags);
+        setKnockdown(event.knockdown);
+        setPunchQuality(event.punchQuality);
+        setStance(event.stance || 'Orthodox');
+        setStartTime(event.startTime);
+        setEndTime(event.endTime);
+
+        // Optional: Seek to start time for context
+        if (videoRef.current) {
+            const seconds = parseTimeToSeconds(event.startTime);
+            videoRef.current.currentTime = seconds;
+        }
+    };
+
+    // Helper function to convert visibility flags to boolean matrix
+    const visibilityFlagsToMatrix = (flags: string[]): number[] => {
+        // Fixed order: Full Body, Profile, Origin, Trajectory, Impact
+        const flagOrder = ['Full Body', 'Profile', 'Origin', 'Trajectory', 'Impact'];
+        return flagOrder.map(flag => flags.includes(flag) ? 1 : 0);
+    };
+
     const handleSaveProgress = () => {
         const transformEvents = (boxerEvents: EventData[]) => {
             return boxerEvents.map(event => ({
@@ -132,7 +268,7 @@ export default function WorkspacePage() {
                 startTime: parseTimeToSeconds(event.startTime),
                 stoppageKo: false,
                 target: event.target,
-                visibility: event.visibilityFlags.length > 0 ? 1 : 0
+                visibility: visibilityFlagsToMatrix(event.visibilityFlags)
             }));
         };
 
@@ -146,6 +282,9 @@ export default function WorkspacePage() {
         };
 
         console.log('Saving Progress:', JSON.stringify(payload, null, 2));
+        // Explicit save to localStorage (redundant with useEffect but good for immediate feedback if needed)
+        localStorage.setItem('workspace_events', JSON.stringify(events));
+        localStorage.setItem('workspace_boxerStates', JSON.stringify(boxerStates));
     };
 
     const handleSubmit = () => {
@@ -160,7 +299,7 @@ export default function WorkspacePage() {
                 startTime: parseTimeToSeconds(event.startTime),
                 stoppageKo: false,
                 target: event.target,
-                visibility: event.visibilityFlags.length > 0 ? 1 : 0
+                visibility: visibilityFlagsToMatrix(event.visibilityFlags)
             }));
         };
 
@@ -174,12 +313,31 @@ export default function WorkspacePage() {
         };
 
         console.log('Submitting Final Data:', JSON.stringify(payload, null, 2));
-        // Here you would typically make an API call
+        setIsSubmitted(true);
+        localStorage.setItem('workspace_isSubmitted', 'true');
     };
+
+    const isReadOnly = isSubmitted || isQCMode;
+    // In direct edit mode, sidebar is NOT read-only if we are in QC mode.
+    // It is only read-only if submitted and NOT in QC mode.
+    // Actually, if submitted, we might want to allow QC edits?
+    // The requirement says "QC side... editing the current fight's database".
+    // So if isQCMode is true, we should allow editing even if isSubmitted is true?
+    // Let's assume QC mode overrides submission lock for the purpose of correction.
+    const isSidebarReadOnly = isSubmitted && !isQCMode;
 
     return (
         <div className="min-h-screen bg-background text-foreground flex flex-col font-sans">
-            <WorkspaceHeader onSave={handleSaveProgress} onSubmit={handleSubmit} />
+            <WorkspaceHeader
+                onSave={handleSaveProgress}
+                onSubmit={handleSubmit}
+                readOnly={isSubmitted}
+                isQCMode={isQCMode}
+                onToggleQCMode={() => {
+                    setIsQCMode(!isQCMode);
+                    if (isQCMode) handleCancelEdit(); // Clear selection when exiting QC mode
+                }}
+            />
 
             <div className="flex h-[calc(100vh-64px)] overflow-hidden">
                 {/* Left Sidebar: Controls */}
@@ -187,11 +345,15 @@ export default function WorkspacePage() {
                     <SidebarControls
                         onLogEvent={handleLogEvent}
                         getCurrentTime={getCurrentTime}
-                        formState={{ boxer, startTime, endTime, punchType, hand, target, visibilityFlags, knockdown, punchQuality }}
-                        setFormState={{ setBoxer: handleBoxerChange, setStartTime, setEndTime, setPunchType, setHand, setTarget, setVisibilityFlags, setKnockdown, setPunchQuality }}
+                        formState={{ boxer, startTime, endTime, punchType, hand, target, visibilityFlags, knockdown, punchQuality, stance }}
+                        setFormState={{ setBoxer: handleBoxerChange, setStartTime, setEndTime, setPunchType, setHand, setTarget, setVisibilityFlags, setKnockdown, setPunchQuality, setStance }}
                         activeTimeMode={activeTimeMode}
                         setActiveTimeMode={setActiveTimeMode}
                         activeCam={activeCam}
+                        readOnly={isSidebarReadOnly}
+                        isEditing={!!selectedEventId}
+                        onUpdateEvent={handleUpdateEvent}
+                        onCancelEdit={handleCancelEdit}
                     />
                 </aside>
 
@@ -214,6 +376,9 @@ export default function WorkspacePage() {
                                 onStartPunch={handleStartPunch}
                                 onEndPunch={handleEndPunch}
                                 onDeleteEvent={handleDeleteEvent}
+                                readOnly={isReadOnly}
+                                onSeek={handleSeek}
+                                onSelectEvent={handleSelectEvent}
                             />
                         </section>
                     </div>

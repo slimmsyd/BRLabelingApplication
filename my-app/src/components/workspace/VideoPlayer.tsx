@@ -45,6 +45,35 @@ const VideoPlayer = ({ videoRef, activeCam, setActiveCam }: VideoPlayerProps) =>
         };
     }, [videoRef]);
 
+    // Keyboard shortcuts
+    useEffect(() => {
+        const handleKeyDown = (e: KeyboardEvent) => {
+            // Ignore if user is typing in an input or textarea
+            if (document.activeElement instanceof HTMLInputElement ||
+                document.activeElement instanceof HTMLTextAreaElement) {
+                return;
+            }
+
+            switch (e.code) {
+                case 'Space':
+                    e.preventDefault(); // Prevent scrolling
+                    togglePlay();
+                    break;
+                case 'ArrowLeft':
+                    e.preventDefault();
+                    skipBackward();
+                    break;
+                case 'ArrowRight':
+                    e.preventDefault();
+                    skipForward();
+                    break;
+            }
+        };
+
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [isPlaying, skipDuration]); // Dependencies for togglePlay and skip functions
+
     const togglePlay = () => {
         if (videoRef.current) {
             if (isPlaying) {
@@ -190,8 +219,9 @@ const VideoPlayer = ({ videoRef, activeCam, setActiveCam }: VideoPlayerProps) =>
                 <video
                     ref={videoRef}
                     src="/TerranceHoward.mp4"
-                    className="w-full h-full object-contain"
+                    className="w-full h-full object-contain cursor-pointer"
                     onEnded={() => setIsPlaying(false)}
+                    onClick={togglePlay}
                 />
 
                 {/* Controls Overlay (Visible on Hover) */}
@@ -311,8 +341,8 @@ const VideoPlayer = ({ videoRef, activeCam, setActiveCam }: VideoPlayerProps) =>
                                                     key={duration}
                                                     onClick={() => handleSkipDurationChange(duration)}
                                                     className={`px-2 py-1.5 text-xs rounded transition-colors ${skipDuration === duration
-                                                            ? 'bg-accent-primary text-white'
-                                                            : 'bg-white/10 text-white/70 hover:bg-white/20'
+                                                        ? 'bg-accent-primary text-white'
+                                                        : 'bg-white/10 text-white/70 hover:bg-white/20'
                                                         }`}
                                                 >
                                                     {duration}s

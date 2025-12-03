@@ -1,7 +1,8 @@
 import React from 'react';
-import { Trash2, Plus } from 'lucide-react';
+import { Trash2, Clock } from 'lucide-react';
 
 export interface EventData {
+    id: string;
     details: string;
     startTime: string;
     endTime: string;
@@ -13,6 +14,7 @@ export interface EventData {
     knockdown: boolean;
     punchQuality: string;
     cam?: string;
+    stance?: string;
 }
 
 interface EventLogProps {
@@ -20,125 +22,131 @@ interface EventLogProps {
     onStartPunch: () => void;
     onEndPunch: () => void;
     onDeleteEvent: (index: number) => void;
+    readOnly?: boolean;
+    onSeek?: (event: EventData) => void;
+    onSelectEvent?: (event: EventData) => void;
 }
 
-const EventLog = ({ events, onStartPunch, onEndPunch, onDeleteEvent }: EventLogProps) => {
+const EventLog = ({ events, onStartPunch, onEndPunch, onDeleteEvent, readOnly = false, onSeek, onSelectEvent }: EventLogProps) => {
     const boxerAEvents = events.filter(e => e.boxer === 'Boxer A');
     const boxerBEvents = events.filter(e => e.boxer === 'Boxer B');
 
-    const EventTable = ({ title, data, startIndex }: { title: string, data: EventData[], startIndex: number }) => (
-        <div className="border border-border rounded-lg overflow-hidden flex flex-col h-full bg-surface">
-            <div className="bg-background px-4 py-3 border-b border-border font-medium text-foreground flex justify-between items-center">
-                <span>{title}</span>
-                <span className="text-xs text-foreground-secondary font-normal">{data.length} events</span>
-            </div>
+    const EventRow = ({ event, index }: { event: EventData, index: number }) => (
+        <div
+            onClick={() => !readOnly && onSelectEvent?.(event)}
+            className={`group hover:bg-white/5 transition-colors p-3 flex items-start gap-4 ${!readOnly ? 'cursor-pointer' : ''}`}
+        >
+            {/* Left: Context & Details */}
+            <div className="flex-1 min-w-0">
+                <div className="flex items-baseline gap-2 mb-1.5">
+                    <span className="font-bold text-foreground text-sm">{event.punchType}</span>
+                    <span className="text-foreground-secondary text-xs">•</span>
+                    <span className="text-foreground-secondary text-sm">{event.target}</span>
+                </div>
 
-            <div className="overflow-y-auto max-h-[400px]">
-                {data.length === 0 ? (
-                    <div className="px-4 py-12 text-center text-foreground-secondary text-sm">
-                        No events logged yet.
-                    </div>
-                ) : (
-                    <div className="divide-y divide-border">
-                        {data.map((event, i) => (
-                            <div key={i} className="group hover:bg-white/5 transition-colors p-3 flex items-start gap-4">
-                                {/* Left: Context & Details */}
-                                <div className="flex-1 min-w-0">
-                                    <div className="flex items-baseline gap-2 mb-1.5">
-                                        <span className="font-bold text-foreground text-sm">{event.punchType}</span>
-                                        <span className="text-foreground-secondary text-xs">•</span>
-                                        <span className="text-foreground-secondary text-sm">{event.target}</span>
-                                    </div>
-
-                                    <div className="flex flex-wrap items-center gap-2">
-                                        {/* Hand Badge */}
-                                        <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded uppercase ${event.hand === 'Left'
-                                            ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30'
-                                            : 'bg-red-500/20 text-red-400 border border-red-500/30'
-                                            }`}>
-                                            {event.hand === 'Left' ? 'L' : 'R'}
-                                        </span>
-
-                                        {/* Cam Badge */}
-                                        {event.cam && (
-                                            <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-white/10 text-foreground-secondary border border-white/10">
-                                                {event.cam}
-                                            </span>
-                                        )}
-
-                                        {/* Visibility Flags */}
-                                        {event.visibilityFlags.map(flag => (
-                                            <span key={flag} className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-accent-primary/10 text-accent-primary border border-accent-primary/20">
-                                                {flag}
-                                            </span>
-                                        ))}
-                                    </div>
-                                </div>
-
-                                {/* Right: Timing & Actions */}
-                                <div className="flex items-start gap-4">
-                                    <div className="text-right flex flex-col">
-                                        <span className="font-mono text-xs text-foreground">{event.startTime}</span>
-                                        <span className="font-mono text-[10px] text-foreground-secondary">{event.endTime}</span>
-                                    </div>
-
-                                    <div className="flex flex-col gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                        <button
-                                            onClick={() => onDeleteEvent(startIndex + i)}
-                                            className="p-1 text-foreground-secondary hover:text-red-400 transition-colors"
-                                            title="Delete event"
-                                        >
-                                            <Trash2 size={14} />
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
+                {/* Visibility Flags */}
+                {event.visibilityFlags.length > 0 && (
+                    <div className="flex flex-wrap gap-1 mb-2">
+                        {event.visibilityFlags.map((flag, i) => (
+                            <span key={i} className="px-1.5 py-0.5 rounded bg-white/5 text-[10px] text-foreground-secondary border border-white/10">
+                                {flag}
+                            </span>
                         ))}
                     </div>
+                )}
+
+                {/* Quality Badge */}
+                <div className="flex items-center gap-2">
+                    <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded ${event.punchQuality === '5' ? 'bg-accent-primary/20 text-accent-primary border border-accent-primary/30' :
+                        event.punchQuality === '4' ? 'bg-green-500/20 text-green-400 border border-green-500/30' :
+                            'bg-white/5 text-foreground-secondary border border-white/10'
+                        }`}>
+                        Q{event.punchQuality}
+                    </span>
+                    {event.knockdown && (
+                        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-red-500/20 text-red-500 border border-red-500/30 uppercase tracking-wider">
+                            Knockdown
+                        </span>
+                    )}
+                </div>
+            </div>
+
+            {/* Right: Timestamps & Actions */}
+            <div className="flex flex-col items-end gap-2">
+                <div className="flex items-center gap-1">
+                    <button
+                        onClick={() => onSeek?.(event)}
+                        className="font-mono text-xs text-accent-primary hover:underline cursor-pointer bg-accent-primary/10 px-1.5 py-0.5 rounded"
+                    >
+                        {event.startTime}
+                    </button>
+                    <span className="text-foreground-secondary text-[10px]">-</span>
+                    <span className="font-mono text-xs text-foreground-secondary">
+                        {event.endTime || '...'}
+                    </span>
+                </div>
+
+                {!readOnly && (
+                    <button
+                        onClick={() => onDeleteEvent(index)}
+                        className="p-1.5 text-foreground-secondary hover:text-red-500 hover:bg-red-500/10 rounded transition-colors opacity-0 group-hover:opacity-100"
+                        title="Delete Event"
+                    >
+                        <Trash2 size={14} />
+                    </button>
+                )}
+            </div>
+        </div>
+    );
+
+    const EventTable = ({ title, data }: { title: string, data: EventData[] }) => (
+        <div className="flex-1 min-w-0 bg-surface rounded-xl border border-border overflow-hidden flex flex-col h-[400px]">
+            <div className="p-3 border-b border-border bg-white/5">
+                <h3 className="font-medium text-foreground text-sm">{title}</h3>
+            </div>
+            <div className="overflow-y-auto flex-1 p-2 space-y-1">
+                {data.length === 0 ? (
+                    <div className="h-full flex flex-col items-center justify-center text-foreground-secondary space-y-2 opacity-50">
+                        <div className="w-8 h-8 rounded-full bg-white/5 flex items-center justify-center">
+                            <span className="text-lg">?</span>
+                        </div>
+                        <p className="text-xs">No events logged</p>
+                    </div>
+                ) : (
+                    data.map((event, index) => (
+                        <EventRow key={event.id || index} event={event} index={index} />
+                    ))
                 )}
             </div>
         </div>
     );
 
     return (
-        <div className="bg-surface rounded-xl border border-border p-6">
-
-            {/* Header & Quick Actions */}
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
-                <div className="flex items-center gap-4">
-                    <div className="bg-background border border-border px-3 py-1.5 rounded text-mono text-sm font-medium text-foreground">
-                        Time: 00:00:05.54
-                    </div>
-                    {/* Quick Action Buttons */}
-                    <div className="flex items-center gap-2">
-                        <button className="px-3 py-1.5 bg-white/5 hover:bg-white/10 border border-border rounded text-xs font-medium text-foreground transition-colors">
-                            Zoom
-                        </button>
-                        <button className="px-3 py-1.5 bg-white/5 hover:bg-white/10 border border-border rounded text-xs font-medium text-foreground transition-colors">
-                            Faint
-                        </button>
-                        <button
-                            onClick={onStartPunch}
-                            className="px-3 py-1.5 bg-white/5 hover:bg-white/10 border border-border rounded text-xs font-medium text-foreground transition-colors"
-                        >
-                            Start Punch
-                        </button>
-                        <button
-                            onClick={onEndPunch}
-                            className="px-3 py-1.5 bg-white/5 hover:bg-white/10 border border-border rounded text-xs font-medium text-foreground transition-colors"
-                        >
-                            End Punch
-                        </button>
-                    </div>
+        <div className="space-y-4">
+            {/* Quick Actions */}
+            {!readOnly && (
+                <div className="flex gap-2">
+                    <button
+                        onClick={onStartPunch}
+                        className="flex-1 py-2 bg-accent-primary/10 hover:bg-accent-primary/20 border border-accent-primary/30 text-accent-primary rounded-lg text-xs font-medium transition-colors flex items-center justify-center gap-2 cursor-pointer"
+                    >
+                        <Clock size={14} />
+                        Mark Start
+                    </button>
+                    <button
+                        onClick={onEndPunch}
+                        className="flex-1 py-2 bg-accent-primary/10 hover:bg-accent-primary/20 border border-accent-primary/30 text-accent-primary rounded-lg text-xs font-medium transition-colors flex items-center justify-center gap-2 cursor-pointer"
+                    >
+                        <Clock size={14} />
+                        Mark End
+                    </button>
                 </div>
+            )}
 
-
-            </div>
-
-            {/* Data Table */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <EventTable title="Boxer A" data={boxerAEvents} startIndex={0} />
-                <EventTable title="Boxer B" data={boxerBEvents} startIndex={events.findIndex(e => e.boxer === 'Boxer B')} />
+            {/* Split View Tables */}
+            <div className="flex gap-4">
+                <EventTable title="Boxer A (Fury)" data={boxerAEvents} />
+                <EventTable title="Boxer B (Usyk)" data={boxerBEvents} />
             </div>
         </div>
     );

@@ -6,9 +6,12 @@ import { useState } from 'react';
 interface WorkspaceHeaderProps {
     onSave?: () => void;
     onSubmit?: () => void;
+    readOnly?: boolean;
+    isQCMode?: boolean;
+    onToggleQCMode?: () => void;
 }
 
-const WorkspaceHeader = ({ onSave, onSubmit }: WorkspaceHeaderProps) => {
+const WorkspaceHeader = ({ onSave, onSubmit, readOnly = false, isQCMode = false, onToggleQCMode }: WorkspaceHeaderProps) => {
     const [showSubmitModal, setShowSubmitModal] = useState(false);
 
     const handleConfirmSubmit = () => {
@@ -29,27 +32,32 @@ const WorkspaceHeader = ({ onSave, onSubmit }: WorkspaceHeaderProps) => {
                     <div>
                         <h1 className="text-lg font-semibold text-foreground">Fury vs. Usyk - Round 7</h1>
                         <div className="flex items-center gap-2 text-xs text-foreground-secondary">
-                            <span className="w-2 h-2 rounded-full bg-green-500"></span>
-                            <span>In Progress</span>
+                            <span className={`w-2 h-2 rounded-full ${readOnly ? 'bg-red-500' : 'bg-green-500'}`}></span>
+                            <span>{readOnly ? 'Locked' : 'In Progress'}</span>
                         </div>
                     </div>
                 </div>
 
                 <div className="flex items-center gap-3">
-                    <button className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-foreground-secondary/50 hover:text-foreground-secondary hover:bg-white/5 rounded-lg transition-colors cursor-pointer">
+                    <button
+                        onClick={onToggleQCMode}
+                        className={`flex items-center gap-2 px-3 py-1.5 text-sm font-medium rounded-lg transition-colors cursor-pointer ${isQCMode ? 'bg-accent-primary text-white' : 'text-foreground-secondary/50 hover:text-foreground-secondary hover:bg-white/5'}`}
+                    >
                         <ShieldCheck size={16} />
-                        QC Mode: OFF
+                        QC Mode: {isQCMode ? 'ON' : 'OFF'}
                     </button>
                     <button
                         onClick={onSave}
-                        className="flex items-center gap-2 px-4 py-2 bg-white/10 text-foreground text-sm font-medium rounded-lg hover:bg-white/20 transition-colors cursor-pointer"
+                        disabled={readOnly}
+                        className={`flex items-center gap-2 px-4 py-2 bg-white/10 text-foreground text-sm font-medium rounded-lg transition-colors cursor-pointer ${readOnly ? 'opacity-50 cursor-not-allowed' : 'hover:bg-white/20'}`}
                     >
                         <Save size={16} />
                         Save Progress
                     </button>
                     <button
                         onClick={() => setShowSubmitModal(true)}
-                        className="flex items-center gap-2 px-4 py-2 bg-green-600/10 border border-green-600/50 text-green-600 text-sm font-medium rounded-lg hover:bg-green-600/20 hover:border-green-600 transition-colors cursor-pointer"
+                        disabled={readOnly}
+                        className={`flex items-center gap-2 px-4 py-2 bg-green-600/10 border border-green-600/50 text-green-600 text-sm font-medium rounded-lg transition-colors cursor-pointer ${readOnly ? 'opacity-50 cursor-not-allowed' : 'hover:bg-green-600/20 hover:border-green-600'}`}
                     >
                         <Send size={16} />
                         Submit
