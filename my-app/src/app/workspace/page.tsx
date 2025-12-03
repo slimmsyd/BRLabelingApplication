@@ -313,8 +313,31 @@ export default function WorkspacePage() {
         };
 
         console.log('Submitting Final Data:', JSON.stringify(payload, null, 2));
-        setIsSubmitted(true);
-        localStorage.setItem('workspace_isSubmitted', 'true');
+
+        // Send to Webhook
+        fetch('https://www.huemanapi.com/boxing_fight', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(payload),
+        })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Network response was not ok');
+                }
+                return response.json();
+            })
+            .then(data => {
+                console.log('Success:', data);
+                setIsSubmitted(true);
+                localStorage.setItem('workspace_isSubmitted', 'true');
+                alert('Submission successful!');
+            })
+            .catch((error) => {
+                console.error('Error:', error);
+                alert('Error submitting data. Please try again.');
+            });
     };
 
     const isReadOnly = isSubmitted || isQCMode;

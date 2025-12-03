@@ -270,7 +270,7 @@ const SidebarControls = ({
                             disabled={readOnly}
                             className="w-full bg-background border border-border rounded-lg px-2 py-2 text-xs text-foreground focus:outline-none focus:border-accent-primary"
                         >
-                            {['1', '2', '3', '4', '5'].map(q => (
+                            {['1', '2'].map(q => (
                                 <option key={q} value={q}>{q}</option>
                             ))}
                         </select>
