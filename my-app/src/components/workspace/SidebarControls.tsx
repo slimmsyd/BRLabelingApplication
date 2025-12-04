@@ -266,7 +266,7 @@ const SidebarControls = ({
                         </select>
                     </div>
                     <div>
-                        <label className="block text-xs font-medium text-foreground-secondary mb-1.5">Quality (1-5)</label>
+                        <label className="block text-xs font-medium text-foreground-secondary mb-1.5">Quality (1-2)</label>
                         <select
                             value={punchQuality}
                             onChange={(e) => setPunchQuality(e.target.value)}
