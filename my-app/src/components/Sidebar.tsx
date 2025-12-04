@@ -45,43 +45,6 @@ const Sidebar = ({ isOpen, toggle }: SidebarProps) => {
                             <Video size={16} className="text-accent-primary shrink-0" />
                             <span className={`transition-opacity duration-200 whitespace-nowrap ${!isOpen ? 'opacity-0 w-0 hidden' : 'opacity-100'}`}>Crawford vs. Canelo</span>
                         </button>
-                        <button className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-foreground-secondary hover:text-foreground hover:bg-white/5 transition-colors ${!isOpen && 'justify-center px-0'}`}>
-                            <Video size={16} className="shrink-0" />
-                            <span className={`transition-opacity duration-200 whitespace-nowrap ${!isOpen ? 'opacity-0 w-0 hidden' : 'opacity-100'}`}>Joshua vs. Ngannou</span>
-                        </button>
-                    </div>
-                </div>
-
-                {/* Pending */}
-                <div className="space-y-2">
-                    <div className={`flex items-center justify-between px-2 group cursor-pointer ${!isOpen && 'justify-center'}`}>
-                        <div className="flex items-center gap-2 text-foreground-secondary group-hover:text-foreground transition-colors">
-                            <ChevronDown size={16} className={`shrink-0 ${!isOpen && 'hidden'}`} />
-                            <span className={`text-sm font-medium transition-opacity duration-200 ${!isOpen ? 'opacity-0 hidden' : 'opacity-100'}`}>Pending</span>
-                            {/* Show icon only when closed if desired, or just hide section header content */}
-                            {!isOpen && <Box size={16} className="text-foreground-tertiary" />}
-                        </div>
-                    </div>
-                    <div className={`space-y-0.5 ${isOpen ? 'pl-2' : ''}`}>
-                        <button className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-foreground-secondary hover:text-foreground hover:bg-white/5 transition-colors ${!isOpen && 'justify-center px-0'}`}>
-                            <Box size={16} className="shrink-0" />
-                            <span className={`transition-opacity duration-200 whitespace-nowrap ${!isOpen ? 'opacity-0 w-0 hidden' : 'opacity-100'}`}>Canelo vs. Munguia</span>
-                        </button>
-                        <button className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-foreground-secondary hover:text-foreground hover:bg-white/5 transition-colors ${!isOpen && 'justify-center px-0'}`}>
-                            <Box size={16} className="shrink-0" />
-                            <span className={`transition-opacity duration-200 whitespace-nowrap ${!isOpen ? 'opacity-0 w-0 hidden' : 'opacity-100'}`}>Tank vs. Martin</span>
-                        </button>
-                    </div>
-                </div>
-
-                {/* Completed */}
-                <div className="space-y-2">
-                    <div className={`flex items-center justify-between px-2 group cursor-pointer ${!isOpen && 'justify-center'}`}>
-                        <div className="flex items-center gap-2 text-foreground-secondary group-hover:text-foreground transition-colors">
-                            <ChevronDown size={16} className={`-rotate-90 shrink-0 ${!isOpen && 'hidden'}`} />
-                            <span className={`text-sm font-medium transition-opacity duration-200 ${!isOpen ? 'opacity-0 hidden' : 'opacity-100'}`}>Completed</span>
-                            {!isOpen && <Box size={16} className="text-foreground-tertiary" />}
-                        </div>
                     </div>
                 </div>
 

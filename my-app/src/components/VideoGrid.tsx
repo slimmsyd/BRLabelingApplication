@@ -13,22 +13,6 @@ const VideoGrid = () => {
             status: 'completed' as const,
             lastWorked: "1 day ago"
         },
-        {
-            id: 2,
-            title: "Joshua vs. Ngannou",
-            progress: 12,
-            totalEvents: 60,
-            status: 'in_progress' as const,
-            lastWorked: "3 days ago"
-        },
-        {
-            id: 3,
-            title: "Canelo vs. Munguia",
-            progress: 0,
-            totalEvents: 0,
-            status: 'new' as const,
-            lastWorked: "Added yesterday"
-        },
     ];
 
     return (
