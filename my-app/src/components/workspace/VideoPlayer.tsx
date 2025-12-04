@@ -18,9 +18,9 @@ const VideoPlayer = ({ videoRef, activeCam, setActiveCam }: VideoPlayerProps) =>
     const [isDragging, setIsDragging] = useState(false);
     const [playbackRate, setPlaybackRate] = useState(1);
     const [showSpeedMenu, setShowSpeedMenu] = useState(false);
-    const [skipDuration, setSkipDuration] = useState(10);
+    const [skipDuration, setSkipDuration] = useState(2);
     const [showSettingsModal, setShowSettingsModal] = useState(false);
-    const [customSkipInput, setCustomSkipInput] = useState('10');
+    const [customSkipInput, setCustomSkipInput] = useState('2');
 
     // Update progress as video plays
     useEffect(() => {

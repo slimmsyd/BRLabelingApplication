@@ -214,14 +214,14 @@ const SidebarControls = ({
                             disabled={readOnly}
                             className={`flex-1 py-2 text-xs font-medium rounded transition-colors cursor-pointer ${boxer === 'Boxer A' ? 'bg-white/10 text-foreground' : 'text-foreground-secondary hover:text-foreground'}`}
                         >
-                            Boxer A (Fury)
+                            Boxer A (Crawford)
                         </button>
                         <button
                             onClick={() => setBoxer('Boxer B')}
                             disabled={readOnly}
                             className={`flex-1 py-2 text-xs font-medium rounded transition-colors cursor-pointer ${boxer === 'Boxer B' ? 'bg-white/10 text-foreground' : 'text-foreground-secondary hover:text-foreground'}`}
                         >
-                            Boxer B (Usyk)
+                            Boxer B (Canelo)
                         </button>
                     </div>
                 </div>

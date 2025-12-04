@@ -7,7 +7,7 @@ const VideoGrid = () => {
     const videos = [
         {
             id: 1,
-            title: "Fury vs. Usyk",
+            title: "Crawford vs. Canelo",
             progress: 45,
             totalEvents: 45,
             status: 'completed' as const,

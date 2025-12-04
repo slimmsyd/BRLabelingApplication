@@ -49,8 +49,8 @@ const EventLog = ({ events, onStartPunch, onEndPunch, onDeleteEvent, readOnly = 
                 <div className="flex flex-wrap gap-1.5 mb-2">
                     {/* Hand Badge */}
                     <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${event.hand === 'Left'
-                            ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30'
-                            : 'bg-red-500/20 text-red-400 border border-red-500/30'
+                        ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30'
+                        : 'bg-red-500/20 text-red-400 border border-red-500/30'
                         }`}>
                         {event.hand === 'Left' ? 'L' : 'R'}
                     </span>
@@ -71,8 +71,8 @@ const EventLog = ({ events, onStartPunch, onEndPunch, onDeleteEvent, readOnly = 
 
                     {/* Quality Badge */}
                     <span className={`text-[10px] font-medium px-2 py-0.5 rounded ${event.punchQuality === '5' ? 'bg-accent-primary/20 text-accent-primary border border-accent-primary/30' :
-                            event.punchQuality === '4' ? 'bg-green-500/20 text-green-400 border border-green-500/30' :
-                                'bg-white/5 text-foreground-secondary border border-white/10'
+                        event.punchQuality === '4' ? 'bg-green-500/20 text-green-400 border border-green-500/30' :
+                            'bg-white/5 text-foreground-secondary border border-white/10'
                         }`}>
                         Q{event.punchQuality}
                     </span>
@@ -177,8 +177,8 @@ const EventLog = ({ events, onStartPunch, onEndPunch, onDeleteEvent, readOnly = 
 
             {/* Split View Tables */}
             <div className="flex gap-4">
-                <EventTable title="Boxer A (Fury)" data={boxerAEvents} />
-                <EventTable title="Boxer B (Usyk)" data={boxerBEvents} />
+                <EventTable title="Boxer A (Crawford)" data={boxerAEvents} />
+                <EventTable title="Boxer B (Canelo)" data={boxerBEvents} />
             </div>
         </div>
     );

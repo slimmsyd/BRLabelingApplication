@@ -30,7 +30,7 @@ const WorkspaceHeader = ({ onSave, onSubmit, readOnly = false, isQCMode = false,
                     </Link>
 
                     <div>
-                        <h1 className="text-lg font-semibold text-foreground">Fury vs. Usyk - Round 7</h1>
+                        <h1 className="text-lg font-semibold text-foreground">Crawford vs. Canelo</h1>
                         <div className="flex items-center gap-2 text-xs text-foreground-secondary">
                             <span className={`w-2 h-2 rounded-full ${readOnly ? 'bg-red-500' : 'bg-green-500'}`}></span>
                             <span>{readOnly ? 'Locked' : 'In Progress'}</span>
