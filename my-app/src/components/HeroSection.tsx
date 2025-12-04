@@ -46,7 +46,7 @@ const HeroSection = () => {
                             </div>
 
                             <h2 className="text-xl font-semibold text-foreground mb-2 group-hover:text-accent-primary transition-colors">
-                                Fury vs. Usyk - Round 7
+                                <span>Crawford vs. Canelo</span>
                             </h2>
 
                             <div className="space-y-3 mb-6">

@@ -24,28 +24,6 @@ export default function WorkspacePage() {
     const [activeTimeMode, setActiveTimeMode] = useState<'start' | 'end'>('start');
     const [activeCam, setActiveCam] = useState('CAM 1');
 
-    // Saved states for each boxer
-    const [boxerStates, setBoxerStates] = useState({
-        'Boxer A': {
-            punchType: 'Jab',
-            hand: 'Left',
-            target: 'Head',
-            visibilityFlags: [] as string[],
-            knockdown: false,
-            punchQuality: '1',
-            stance: 'Orthodox',
-        },
-        'Boxer B': {
-            punchType: 'Jab',
-            hand: 'Left',
-            target: 'Head',
-            visibilityFlags: [] as string[],
-            knockdown: false,
-            punchQuality: '1',
-            stance: 'Southpaw',
-        },
-    });
-
     const [isSubmitted, setIsSubmitted] = useState(false);
     const [isQCMode, setIsQCMode] = useState(false);
     const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
@@ -53,7 +31,6 @@ export default function WorkspacePage() {
     // Load from localStorage on mount and backfill IDs
     useEffect(() => {
         const savedEvents = localStorage.getItem('workspace_events');
-        const savedBoxerStates = localStorage.getItem('workspace_boxerStates');
         const savedIsSubmitted = localStorage.getItem('workspace_isSubmitted');
 
         if (savedEvents) {
@@ -65,45 +42,18 @@ export default function WorkspacePage() {
             }));
             setEvents(eventsWithIds);
         }
-        if (savedBoxerStates) setBoxerStates(JSON.parse(savedBoxerStates));
         if (savedIsSubmitted) setIsSubmitted(JSON.parse(savedIsSubmitted));
     }, []);
 
     // Save to localStorage whenever critical state changes
     useEffect(() => {
         localStorage.setItem('workspace_events', JSON.stringify(events));
-        localStorage.setItem('workspace_boxerStates', JSON.stringify(boxerStates));
         localStorage.setItem('workspace_isSubmitted', JSON.stringify(isSubmitted));
-    }, [events, boxerStates, isSubmitted]);
+    }, [events, isSubmitted]);
 
-    // Handle boxer change with state preservation
+    // Handle boxer change
     const handleBoxerChange = (newBoxer: string) => {
-        // Save current boxer's state
-        setBoxerStates({
-            ...boxerStates,
-            [boxer]: {
-                punchType,
-                hand,
-                target,
-                visibilityFlags,
-                knockdown,
-                punchQuality,
-                stance,
-            },
-        });
-
-        // Switch to new boxer
         setBoxer(newBoxer);
-
-        // Load saved state for new boxer
-        const savedState = boxerStates[newBoxer as keyof typeof boxerStates];
-        setPunchType(savedState.punchType);
-        setHand(savedState.hand);
-        setTarget(savedState.target);
-        setVisibilityFlags(savedState.visibilityFlags);
-        setKnockdown(savedState.knockdown);
-        setPunchQuality(savedState.punchQuality);
-        setStance(savedState.stance);
     };
 
     const handleLogEvent = (newEventData: Omit<EventData, 'id'>) => {
@@ -284,7 +234,7 @@ export default function WorkspacePage() {
         console.log('Saving Progress:', JSON.stringify(payload, null, 2));
         // Explicit save to localStorage (redundant with useEffect but good for immediate feedback if needed)
         localStorage.setItem('workspace_events', JSON.stringify(events));
-        localStorage.setItem('workspace_boxerStates', JSON.stringify(boxerStates));
+
     };
 
     const handleSubmit = () => {

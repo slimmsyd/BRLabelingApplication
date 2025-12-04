@@ -33,7 +33,7 @@ const Sidebar = () => {
                     <div className="space-y-0.5">
                         <button className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-foreground hover:bg-white/5 transition-colors bg-white/5">
                             <Video size={16} className="text-accent-primary" />
-                            <span>Fury vs. Usyk</span>
+                            <span>Crawford vs. Canelo</span>
                         </button>
                         <button className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-foreground-secondary hover:text-foreground hover:bg-white/5 transition-colors">
                             <Video size={16} />

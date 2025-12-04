@@ -38,44 +38,73 @@ const EventLog = ({ events, onStartPunch, onEndPunch, onDeleteEvent, readOnly = 
         >
             {/* Left: Context & Details */}
             <div className="flex-1 min-w-0">
-                <div className="flex items-baseline gap-2 mb-1.5">
+                {/* Punch Type & Target */}
+                <div className="flex items-baseline gap-2 mb-2">
                     <span className="font-bold text-foreground text-sm">{event.punchType}</span>
                     <span className="text-foreground-secondary text-xs">•</span>
                     <span className="text-foreground-secondary text-sm">{event.target}</span>
                 </div>
 
-                {/* Visibility Flags */}
+                {/* Badges Row 1: Hand, CAM, Stance */}
+                <div className="flex flex-wrap gap-1.5 mb-2">
+                    {/* Hand Badge */}
+                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${event.hand === 'Left'
+                            ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30'
+                            : 'bg-red-500/20 text-red-400 border border-red-500/30'
+                        }`}>
+                        {event.hand === 'Left' ? 'L' : 'R'}
+                    </span>
+
+                    {/* CAM Badge */}
+                    {event.cam && (
+                        <span className="text-[10px] font-medium px-2 py-0.5 rounded bg-purple-500/20 text-purple-400 border border-purple-500/30">
+                            {event.cam}
+                        </span>
+                    )}
+
+                    {/* Stance Badge */}
+                    {event.stance && (
+                        <span className="text-[10px] font-medium px-2 py-0.5 rounded bg-cyan-500/20 text-cyan-400 border border-cyan-500/30">
+                            {event.stance}
+                        </span>
+                    )}
+
+                    {/* Quality Badge */}
+                    <span className={`text-[10px] font-medium px-2 py-0.5 rounded ${event.punchQuality === '5' ? 'bg-accent-primary/20 text-accent-primary border border-accent-primary/30' :
+                            event.punchQuality === '4' ? 'bg-green-500/20 text-green-400 border border-green-500/30' :
+                                'bg-white/5 text-foreground-secondary border border-white/10'
+                        }`}>
+                        Q{event.punchQuality}
+                    </span>
+
+                    {/* Knockdown Badge */}
+                    {event.knockdown && (
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-red-500/20 text-red-500 border border-red-500/30 uppercase tracking-wider">
+                            Knockdown
+                        </span>
+                    )}
+                </div>
+
+                {/* Visibility Flags Row 2 */}
                 {event.visibilityFlags.length > 0 && (
-                    <div className="flex flex-wrap gap-1 mb-2">
+                    <div className="flex flex-wrap gap-1.5">
                         {event.visibilityFlags.map((flag, i) => (
-                            <span key={i} className="px-1.5 py-0.5 rounded bg-white/5 text-[10px] text-foreground-secondary border border-white/10">
+                            <span key={i} className="px-2 py-0.5 rounded bg-indigo-500/20 text-indigo-400 text-[10px] border border-indigo-500/30">
                                 {flag}
                             </span>
                         ))}
                     </div>
                 )}
-
-                {/* Quality Badge */}
-                <div className="flex items-center gap-2">
-                    <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded ${event.punchQuality === '5' ? 'bg-accent-primary/20 text-accent-primary border border-accent-primary/30' :
-                        event.punchQuality === '4' ? 'bg-green-500/20 text-green-400 border border-green-500/30' :
-                            'bg-white/5 text-foreground-secondary border border-white/10'
-                        }`}>
-                        Q{event.punchQuality}
-                    </span>
-                    {event.knockdown && (
-                        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-red-500/20 text-red-500 border border-red-500/30 uppercase tracking-wider">
-                            Knockdown
-                        </span>
-                    )}
-                </div>
             </div>
 
             {/* Right: Timestamps & Actions */}
             <div className="flex flex-col items-end gap-2">
                 <div className="flex items-center gap-1">
                     <button
-                        onClick={() => onSeek?.(event)}
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            onSeek?.(event);
+                        }}
                         className="font-mono text-xs text-accent-primary hover:underline cursor-pointer bg-accent-primary/10 px-1.5 py-0.5 rounded"
                     >
                         {event.startTime}
@@ -88,7 +117,10 @@ const EventLog = ({ events, onStartPunch, onEndPunch, onDeleteEvent, readOnly = 
 
                 {!readOnly && (
                     <button
-                        onClick={() => onDeleteEvent(index)}
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            onDeleteEvent(index);
+                        }}
                         className="p-1.5 text-foreground-secondary hover:text-red-500 hover:bg-red-500/10 rounded transition-colors opacity-0 group-hover:opacity-100"
                         title="Delete Event"
                     >
