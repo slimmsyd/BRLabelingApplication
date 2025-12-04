@@ -15,6 +15,7 @@ export interface EventData {
     punchQuality: string;
     cam?: string;
     stance?: string;
+    landed?: boolean;
 }
 
 interface EventLogProps {
@@ -75,6 +76,14 @@ const EventLog = ({ events, onStartPunch, onEndPunch, onDeleteEvent, readOnly = 
                             'bg-white/5 text-foreground-secondary border border-white/10'
                         }`}>
                         Q{event.punchQuality}
+                    </span>
+
+                    {/* Landed/Missed Badge */}
+                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded uppercase tracking-wider ${event.landed !== false
+                        ? 'bg-green-500/20 text-green-400 border border-green-500/30'
+                        : 'bg-orange-500/20 text-orange-400 border border-orange-500/30'
+                        }`}>
+                        {event.landed !== false ? 'Landed' : 'Missed'}
                     </span>
 
                     {/* Knockdown Badge */}

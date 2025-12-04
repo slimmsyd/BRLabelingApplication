@@ -15,6 +15,7 @@ interface SidebarControlsProps {
         knockdown: boolean;
         punchQuality: string;
         stance: string;
+        landed: boolean;
     };
     setFormState: {
         setBoxer: (val: string) => void;
@@ -27,6 +28,7 @@ interface SidebarControlsProps {
         setKnockdown: (val: boolean) => void;
         setPunchQuality: (val: string) => void;
         setStance: (val: string) => void;
+        setLanded: (val: boolean) => void;
     };
     activeTimeMode: 'start' | 'end';
     setActiveTimeMode: (mode: 'start' | 'end') => void;
@@ -50,8 +52,8 @@ const SidebarControls = ({
     onCancelEdit,
     onUpdateEvent
 }: SidebarControlsProps) => {
-    const { boxer, startTime, endTime, punchType, hand, target, visibilityFlags, knockdown, punchQuality, stance } = formState;
-    const { setBoxer, setStartTime, setEndTime, setPunchType, setHand, setTarget, setVisibilityFlags, setKnockdown, setPunchQuality, setStance } = setFormState;
+    const { boxer, startTime, endTime, punchType, hand, target, visibilityFlags, knockdown, punchQuality, stance, landed } = formState;
+    const { setBoxer, setStartTime, setEndTime, setPunchType, setHand, setTarget, setVisibilityFlags, setKnockdown, setPunchQuality, setStance, setLanded } = setFormState;
 
     const parseTime = (timeStr: string): number => {
         if (!timeStr) return 0;
@@ -114,6 +116,7 @@ const SidebarControls = ({
             knockdown,
             punchQuality,
             stance,
+            landed,
             details: detailsStr,
             cam: activeCam
         };
@@ -137,6 +140,7 @@ const SidebarControls = ({
         setKnockdown(false);
         setPunchQuality('1');
         setStance('Orthodox');
+        setLanded(true);
         setActiveTimeMode('start');
 
         if (isEditing && onCancelEdit) {
@@ -225,7 +229,6 @@ const SidebarControls = ({
                         </button>
                     </div>
                 </div>
-
                 {/* Stance Selection */}
                 <div className="mb-4">
                     <label className="block text-xs font-medium text-foreground-secondary mb-1.5">Stance</label>
@@ -372,6 +375,33 @@ const SidebarControls = ({
                                 }`}
                         >
                             YES
+                        </button>
+                    </div>
+                </div>
+
+                {/* Landed */}
+                <div className="mb-6">
+                    <label className="block text-xs font-medium text-foreground-secondary mb-3">Landed</label>
+                    <div className="flex gap-2">
+                        <button
+                            onClick={() => setLanded(true)}
+                            disabled={readOnly}
+                            className={`flex-1 py-2 px-3 rounded-lg text-xs font-medium transition-colors cursor-pointer ${landed
+                                ? 'bg-green-500 text-white'
+                                : 'bg-background border border-border text-foreground-secondary hover:text-foreground hover:border-foreground-secondary'
+                                }`}
+                        >
+                            YES
+                        </button>
+                        <button
+                            onClick={() => setLanded(false)}
+                            disabled={readOnly}
+                            className={`flex-1 py-2 px-3 rounded-lg text-xs font-medium transition-colors cursor-pointer ${!landed
+                                ? 'bg-accent-primary text-white'
+                                : 'bg-background border border-border text-foreground-secondary hover:text-foreground hover:border-foreground-secondary'
+                                }`}
+                        >
+                            NO
                         </button>
                     </div>
                 </div>

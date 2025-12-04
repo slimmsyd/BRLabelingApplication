@@ -21,6 +21,7 @@ export default function WorkspacePage() {
     const [knockdown, setKnockdown] = useState(false);
     const [punchQuality, setPunchQuality] = useState('1');
     const [stance, setStance] = useState('Orthodox');
+    const [landed, setLanded] = useState(true);
     const [activeTimeMode, setActiveTimeMode] = useState<'start' | 'end'>('start');
     const [activeCam, setActiveCam] = useState('CAM 1');
 
@@ -35,10 +36,11 @@ export default function WorkspacePage() {
 
         if (savedEvents) {
             const parsedEvents: EventData[] = JSON.parse(savedEvents);
-            // Backfill IDs if missing
+            // Backfill IDs and landed field if missing
             const eventsWithIds = parsedEvents.map(e => ({
                 ...e,
-                id: e.id || crypto.randomUUID()
+                id: e.id || crypto.randomUUID(),
+                landed: e.landed !== undefined ? e.landed : true
             }));
             setEvents(eventsWithIds);
         }
@@ -94,6 +96,7 @@ export default function WorkspacePage() {
         setKnockdown(false);
         setPunchQuality('1');
         setStance('Orthodox');
+        setLanded(true);
     };
 
     const handleCancelEdit = () => {
@@ -108,6 +111,7 @@ export default function WorkspacePage() {
         setKnockdown(false);
         setPunchQuality('1');
         setStance('Orthodox');
+        setLanded(true);
     };
 
     const getCurrentTime = () => {
@@ -173,6 +177,7 @@ export default function WorkspacePage() {
             setKnockdown(event.knockdown);
             setPunchQuality(event.punchQuality);
             setStance(event.stance || 'Orthodox');
+            setLanded(event.landed !== undefined ? event.landed : true);
             setStartTime(event.startTime);
             setEndTime(event.endTime);
         }
@@ -189,6 +194,7 @@ export default function WorkspacePage() {
         setKnockdown(event.knockdown);
         setPunchQuality(event.punchQuality);
         setStance(event.stance || 'Orthodox');
+        setLanded(event.landed !== undefined ? event.landed : true);
         setStartTime(event.startTime);
         setEndTime(event.endTime);
 
@@ -318,8 +324,8 @@ export default function WorkspacePage() {
                     <SidebarControls
                         onLogEvent={handleLogEvent}
                         getCurrentTime={getCurrentTime}
-                        formState={{ boxer, startTime, endTime, punchType, hand, target, visibilityFlags, knockdown, punchQuality, stance }}
-                        setFormState={{ setBoxer: handleBoxerChange, setStartTime, setEndTime, setPunchType, setHand, setTarget, setVisibilityFlags, setKnockdown, setPunchQuality, setStance }}
+                        formState={{ boxer, startTime, endTime, punchType, hand, target, visibilityFlags, knockdown, punchQuality, stance, landed }}
+                        setFormState={{ setBoxer: handleBoxerChange, setStartTime, setEndTime, setPunchType, setHand, setTarget, setVisibilityFlags, setKnockdown, setPunchQuality, setStance, setLanded }}
                         activeTimeMode={activeTimeMode}
                         setActiveTimeMode={setActiveTimeMode}
                         activeCam={activeCam}
