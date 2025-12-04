@@ -5,6 +5,7 @@ import WorkspaceHeader from '@/components/workspace/WorkspaceHeader';
 import VideoPlayer from '@/components/workspace/VideoPlayer';
 import EventLog, { EventData } from '@/components/workspace/EventLog';
 import SidebarControls from '@/components/workspace/SidebarControls';
+import SuccessModal from '@/components/SuccessModal';
 
 export default function WorkspacePage() {
     const [events, setEvents] = useState<EventData[]>([]);
@@ -24,6 +25,7 @@ export default function WorkspacePage() {
     const [landed, setLanded] = useState(true);
     const [activeTimeMode, setActiveTimeMode] = useState<'start' | 'end'>('start');
     const [activeCam, setActiveCam] = useState('CAM 1');
+    const [showSuccessModal, setShowSuccessModal] = useState(false);
 
     const [isSubmitted, setIsSubmitted] = useState(false);
     const [isQCMode, setIsQCMode] = useState(false);
@@ -292,7 +294,7 @@ export default function WorkspacePage() {
                 console.log('Success:', data);
                 setIsSubmitted(true);
                 localStorage.setItem('workspace_isSubmitted', 'true');
-                alert('Submission successful!');
+                setShowSuccessModal(true);
             })
             .catch((error) => {
                 console.error('Error:', error);
@@ -367,6 +369,11 @@ export default function WorkspacePage() {
                     </div>
                 </main>
             </div>
+            {/* Success Modal */}
+            <SuccessModal
+                isOpen={showSuccessModal}
+                onClose={() => setShowSuccessModal(false)}
+            />
         </div>
     );
 }
