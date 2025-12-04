@@ -1,10 +1,83 @@
-import React from 'react';
-import { Play, Clock, Activity, ArrowRight } from 'lucide-react';
+'use client';
+
+import React, { useEffect, useState } from 'react';
+import { Play, Clock, LogOut } from 'lucide-react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+
+interface User {
+    email: string;
+    userId: string;
+}
 
 const HeroSection = () => {
+    const router = useRouter();
+    const [user, setUser] = useState<User | null>(null);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        fetchUser();
+    }, []);
+
+    const fetchUser = async () => {
+        try {
+            const res = await fetch('/api/auth/me');
+            if (res.ok) {
+                const data = await res.json();
+                setUser(data);
+            }
+        } catch (error) {
+            console.error('Failed to fetch user:', error);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleLogout = async () => {
+        try {
+            await fetch('/api/auth/logout', { method: 'POST' });
+            setUser(null);
+            router.refresh();
+        } catch (error) {
+            console.error('Logout failed:', error);
+        }
+    };
+
     return (
-        <div className="w-full max-w-4xl mx-auto mb-16 text-center">
+        <div className="w-full max-w-4xl mx-auto mb-16 text-center relative">
+            {/* Auth Buttons */}
+            <div className="absolute -top-12 right-0 flex items-center gap-4">
+                {loading ? (
+                    <div className="h-10 w-32 bg-surface animate-pulse rounded-lg" />
+                ) : user ? (
+                    <div className="flex items-center gap-3">
+                        <div className="px-4 py-2 bg-surface border border-border rounded-lg">
+                            <span className="text-sm font-medium text-foreground">{user.email}</span>
+                        </div>
+                        <button
+                            onClick={handleLogout}
+                            className="px-4 py-2 text-sm font-medium text-foreground-secondary hover:text-foreground transition-colors cursor-pointer flex items-center gap-2"
+                        >
+                            <LogOut size={16} />
+                            Logout
+                        </button>
+                    </div>
+                ) : (
+                    <>
+                        <Link href="/login">
+                            <button className="px-4 py-2 text-sm font-medium text-foreground-secondary hover:text-foreground transition-colors cursor-pointer">
+                                Log In
+                            </button>
+                        </Link>
+                        <Link href="/login?mode=signup">
+                            <button className="px-4 py-2 text-sm font-medium bg-accent-primary text-white rounded-lg hover:bg-accent-primary/90 transition-colors shadow-lg shadow-accent-primary/20 cursor-pointer">
+                                Sign Up
+                            </button>
+                        </Link>
+                    </>
+                )}
+            </div>
+
             {/* Main Title */}
             <h1 className="text-4xl md:text-5xl font-medium text-foreground mb-12 tracking-tight">
                 Labeling Interface
