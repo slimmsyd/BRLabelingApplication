@@ -220,7 +220,8 @@ export default function WorkspacePage() {
                 hand: event.hand.toLowerCase(),
                 knockdown: event.knockdown ? 1 : 0,
                 landed: event.landed !== false ? 1 : 0,
-                punchQuality: event.punchQuality,
+                // Only include punchQuality if punch landed
+                ...(event.landed !== false && { punchQuality: event.punchQuality }),
                 punchType: event.punchType,
                 startTime: parseTimeToSeconds(event.startTime),
                 stoppageKo: false,
@@ -252,7 +253,8 @@ export default function WorkspacePage() {
                 hand: event.hand.toLowerCase(),
                 knockdown: event.knockdown ? 1 : 0,
                 landed: event.landed !== false ? 1 : 0,
-                punchQuality: event.punchQuality,
+                // Only include punchQuality if punch landed
+                ...(event.landed !== false && { punchQuality: event.punchQuality }),
                 punchType: event.punchType,
                 startTime: parseTimeToSeconds(event.startTime),
                 stoppageKo: false,

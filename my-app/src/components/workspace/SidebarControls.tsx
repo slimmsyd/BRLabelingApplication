@@ -270,13 +270,16 @@ const SidebarControls = ({
                         <select
                             value={punchQuality}
                             onChange={(e) => setPunchQuality(e.target.value)}
-                            disabled={readOnly}
-                            className="w-full bg-background border border-border rounded-lg px-2 py-2 text-xs text-foreground focus:outline-none focus:border-accent-primary"
+                            disabled={!landed || readOnly}
+                            className={`w-full bg-background border border-border rounded-lg px-2 py-2 text-xs text-foreground focus:outline-none focus:border-accent-primary ${!landed ? 'opacity-50 cursor-not-allowed' : ''}`}
                         >
                             {['1', '2'].map(q => (
                                 <option key={q} value={q}>{q}</option>
                             ))}
                         </select>
+                        {!landed && (
+                            <p className="text-[10px] text-orange-400 mt-1">Quality only applies to landed punches</p>
+                        )}
                     </div>
                 </div>
 
