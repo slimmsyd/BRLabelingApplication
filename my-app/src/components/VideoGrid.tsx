@@ -1,6 +1,7 @@
 import React from 'react';
 import VideoCard from './VideoCard';
 import { Plus } from 'lucide-react';
+import Link from 'next/link';
 
 const VideoGrid = () => {
     // Mock data
@@ -36,12 +37,12 @@ const VideoGrid = () => {
                 ))}
 
                 {/* New Project Card (Dashed Border) */}
-                <div className="group border border-dashed border-border hover:border-foreground-secondary rounded-xl p-6 flex flex-col items-center justify-center gap-4 cursor-pointer transition-colors min-h-[300px]">
+                <Link href="/upload" className="group border border-dashed border-border hover:border-foreground-secondary rounded-xl p-6 flex flex-col items-center justify-center gap-4 cursor-pointer transition-colors min-h-[300px]">
                     <div className="w-12 h-12 rounded-full border border-foreground-secondary flex items-center justify-center group-hover:bg-white/5 transition-colors">
                         <Plus size={24} className="text-foreground" />
                     </div>
-                    <span className="font-medium text-foreground">New Project</span>
-                </div>
+                    <span className="font-medium text-foreground">Upload Video</span>
+                </Link>
             </div>
         </div>
     );
