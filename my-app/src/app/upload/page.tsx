@@ -2,81 +2,68 @@
 
 import React, { useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { Upload, X, FileVideo, Loader2, ArrowLeft } from 'lucide-react';
+import { Upload, X, FileVideo, Loader2, ArrowLeft, Camera } from 'lucide-react';
 import Link from 'next/link';
 
 const UploadPage = () => {
     const router = useRouter();
-    const fileInputRef = useRef<HTMLInputElement>(null);
-    const [file, setFile] = useState<File | null>(null);
+    const [files, setFiles] = useState<{ [key: string]: File | null }>({
+        cam1: null,
+        cam2: null,
+        cam3: null
+    });
     const [title, setTitle] = useState('');
     const [description, setDescription] = useState('');
     const [round, setRound] = useState(1);
-    const [isDragging, setIsDragging] = useState(false);
     const [uploading, setUploading] = useState(false);
     const [error, setError] = useState('');
 
-    const handleDragOver = (e: React.DragEvent) => {
-        e.preventDefault();
-        setIsDragging(true);
+    const fileInputRefs = {
+        cam1: useRef<HTMLInputElement>(null),
+        cam2: useRef<HTMLInputElement>(null),
+        cam3: useRef<HTMLInputElement>(null)
     };
 
-    const handleDragLeave = (e: React.DragEvent) => {
-        e.preventDefault();
-        setIsDragging(false);
-    };
-
-    const handleDrop = (e: React.DragEvent) => {
-        e.preventDefault();
-        setIsDragging(false);
-
-        if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-            const droppedFile = e.dataTransfer.files[0];
-            if (droppedFile.type.startsWith('video/')) {
-                setFile(droppedFile);
-                if (!title) {
-                    setTitle(droppedFile.name.replace(/\.[^/.]+$/, ""));
-                }
-                setError('');
-            } else {
-                setError('Please upload a valid video file.');
-            }
-        }
-    };
-
-    const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const handleFileSelect = (cam: string, e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files && e.target.files[0]) {
             const selectedFile = e.target.files[0];
-            setFile(selectedFile);
-            if (!title) {
+            setFiles(prev => ({ ...prev, [cam]: selectedFile }));
+
+            // Auto-set title from first uploaded file if empty
+            if (!title && cam === 'cam1') {
                 setTitle(selectedFile.name.replace(/\.[^/.]+$/, ""));
             }
             setError('');
         }
     };
 
-    const removeFile = () => {
-        setFile(null);
-        if (fileInputRef.current) {
-            fileInputRef.current.value = '';
+    const removeFile = (cam: string) => {
+        setFiles(prev => ({ ...prev, [cam]: null }));
+        if (fileInputRefs[cam as keyof typeof fileInputRefs].current) {
+            fileInputRefs[cam as keyof typeof fileInputRefs].current!.value = '';
         }
     };
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!file) {
-            setError('Please select a video file.');
+
+        // Require at least Cam 1
+        if (!files.cam1) {
+            setError('Please upload at least Camera 1 video.');
             return;
         }
 
         setUploading(true);
         setError('');
 
-        // TODO: Implement actual upload logic here
-        // For now, we'll simulate an upload delay
         try {
             await new Promise(resolve => setTimeout(resolve, 2000));
-            console.log('Uploading:', { file, title, description, round });
+            console.log('Uploading:', {
+                files,
+                title,
+                description,
+                round
+            });
             router.push('/');
         } catch (err) {
             setError('Upload failed. Please try again.');
@@ -87,89 +74,129 @@ const UploadPage = () => {
 
     return (
         <div className="min-h-screen bg-background text-foreground p-6">
-            <div className="max-w-3xl mx-auto">
+            <div className="max-w-5xl mx-auto">
                 <Link href="/" className="inline-flex items-center gap-2 text-foreground-secondary hover:text-foreground transition-colors mb-8">
                     <ArrowLeft size={20} />
                     <span>Back to Dashboard</span>
                 </Link>
 
                 <div className="bg-surface border border-border rounded-2xl p-8 shadow-xl">
-                    <h1 className="text-2xl font-semibold mb-2">Upload New Video</h1>
-                    <p className="text-foreground-secondary mb-8">Upload a fight video to start labeling events.</p>
+                    <div className="flex items-center justify-between mb-2">
+                        <h1 className="text-2xl font-semibold">Upload Fight Footage</h1>
+                        <div className="px-3 py-1 bg-accent-primary/10 text-accent-primary text-xs font-medium rounded-full border border-accent-primary/20">
+                            Multi-Angle Support
+                        </div>
+                    </div>
+                    <p className="text-foreground-secondary mb-8">Upload up to 3 camera angles for this fight.</p>
 
                     <form onSubmit={handleSubmit} className="space-y-8">
-                        {/* File Upload Area */}
-                        <div
-                            className={`relative border-2 border-dashed rounded-xl p-12 text-center transition-colors cursor-pointer ${isDragging
-                                ? 'border-accent-primary bg-accent-primary/5'
-                                : 'border-border hover:border-foreground-secondary hover:bg-surface-hover'
-                                }`}
-                            onDragOver={handleDragOver}
-                            onDragLeave={handleDragLeave}
-                            onDrop={handleDrop}
-                            onClick={() => fileInputRef.current?.click()}
-                        >
-                            <input
-                                type="file"
-                                ref={fileInputRef}
-                                className="hidden"
-                                accept="video/*"
-                                onChange={handleFileSelect}
-                            />
+                        {/* Camera Upload Grid */}
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                            {['cam1', 'cam2', 'cam3'].map((cam, index) => (
+                                <div key={cam} className="space-y-2">
+                                    <label className="flex items-center gap-2 text-sm font-medium text-foreground-secondary uppercase tracking-wider">
+                                        <Camera size={14} />
+                                        Camera {index + 1} {index === 0 && <span className="text-accent-primary">*</span>}
+                                    </label>
 
-                            {file ? (
-                                <div className="flex flex-col items-center gap-4">
-                                    <div className="w-16 h-16 rounded-full bg-accent-primary/10 flex items-center justify-center text-accent-primary">
-                                        <FileVideo size={32} />
-                                    </div>
-                                    <div>
-                                        <p className="font-medium text-foreground">{file.name}</p>
-                                        <p className="text-sm text-foreground-secondary">
-                                            {(file.size / (1024 * 1024)).toFixed(2)} MB
-                                        </p>
-                                    </div>
-                                    <button
-                                        type="button"
-                                        onClick={(e) => {
-                                            e.stopPropagation();
-                                            removeFile();
-                                        }}
-                                        className="absolute top-4 right-4 p-2 text-foreground-secondary hover:text-red-500 transition-colors"
+                                    <div
+                                        className={`relative border-2 border-dashed rounded-xl p-6 text-center transition-colors cursor-pointer min-h-[200px] flex flex-col items-center justify-center ${files[cam]
+                                                ? 'border-accent-primary bg-accent-primary/5'
+                                                : 'border-border hover:border-foreground-secondary hover:bg-surface-hover'
+                                            }`}
+                                        onClick={() => fileInputRefs[cam as keyof typeof fileInputRefs].current?.click()}
                                     >
-                                        <X size={20} />
-                                    </button>
-                                </div>
-                            ) : (
-                                <div className="flex flex-col items-center gap-4">
-                                    <div className="w-16 h-16 rounded-full bg-surface border border-border flex items-center justify-center text-foreground-secondary">
-                                        <Upload size={32} />
+                                        <input
+                                            type="file"
+                                            ref={fileInputRefs[cam as keyof typeof fileInputRefs]}
+                                            className="hidden"
+                                            accept="video/*"
+                                            onChange={(e) => handleFileSelect(cam, e)}
+                                        />
+
+                                        {files[cam] ? (
+                                            <div className="flex flex-col items-center gap-3 w-full">
+                                                <div className="w-12 h-12 rounded-full bg-accent-primary/10 flex items-center justify-center text-accent-primary">
+                                                    <FileVideo size={24} />
+                                                </div>
+                                                <div className="w-full overflow-hidden">
+                                                    <p className="font-medium text-foreground text-sm truncate px-2" title={files[cam]!.name}>
+                                                        {files[cam]!.name}
+                                                    </p>
+                                                    <p className="text-xs text-foreground-secondary">
+                                                        {(files[cam]!.size / (1024 * 1024)).toFixed(2)} MB
+                                                    </p>
+                                                </div>
+                                                <button
+                                                    type="button"
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        removeFile(cam);
+                                                    }}
+                                                    className="absolute top-2 right-2 p-1.5 text-foreground-secondary hover:text-red-500 transition-colors bg-surface rounded-full border border-border shadow-sm"
+                                                >
+                                                    <X size={14} />
+                                                </button>
+                                            </div>
+                                        ) : (
+                                            <div className="flex flex-col items-center gap-3">
+                                                <div className="w-12 h-12 rounded-full bg-surface border border-border flex items-center justify-center text-foreground-secondary">
+                                                    <Upload size={20} />
+                                                </div>
+                                                <div>
+                                                    <p className="font-medium text-foreground text-sm mb-0.5">
+                                                        Upload Video
+                                                    </p>
+                                                    <p className="text-[10px] text-foreground-secondary">
+                                                        MP4, MOV, WebM
+                                                    </p>
+                                                </div>
+                                            </div>
+                                        )}
                                     </div>
-                                    <div>
-                                        <p className="font-medium text-foreground mb-1">
-                                            Click to upload or drag and drop
-                                        </p>
-                                        <p className="text-sm text-foreground-secondary">
-                                            MP4, MOV, or WebM (max. 2GB)
-                                        </p>
-                                    </div>
                                 </div>
-                            )}
+                            ))}
                         </div>
 
+                        <div className="h-px bg-border/50 my-8" />
+
                         {/* Metadata Fields */}
-                        <div className="space-y-4">
-                            <div>
-                                <label className="block text-sm font-medium text-foreground-secondary mb-1.5">
-                                    Title
-                                </label>
-                                <input
-                                    type="text"
-                                    required
-                                    value={title}
-                                    onChange={(e) => setTitle(e.target.value)}
-                                    className="w-full bg-background border border-border rounded-lg py-2.5 px-4 text-foreground placeholder:text-foreground-secondary/50 focus:outline-none focus:ring-2 focus:ring-accent-primary/50 focus:border-accent-primary transition-all"
-                                    placeholder="e.g. Crawford vs. Spence"
-                                />
+                        <div className="space-y-6">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div>
+                                    <label className="block text-sm font-medium text-foreground-secondary mb-1.5">
+                                        Title
+                                    </label>
+                                    <input
+                                        type="text"
+                                        required
+                                        value={title}
+                                        onChange={(e) => setTitle(e.target.value)}
+                                        className="w-full bg-background border border-border rounded-lg py-2.5 px-4 text-foreground placeholder:text-foreground-secondary/50 focus:outline-none focus:ring-2 focus:ring-accent-primary/50 focus:border-accent-primary transition-all"
+                                        placeholder="e.g. Crawford vs. Spence"
+                                    />
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm font-medium text-foreground-secondary mb-3">
+                                        Round
+                                    </label>
+                                    <div className="flex flex-wrap gap-2">
+                                        {[1, 2, 3, 4, 5, 6, 7].map((r) => (
+                                            <button
+                                                key={r}
+                                                type="button"
+                                                onClick={() => setRound(r)}
+                                                className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors border ${round === r
+                                                        ? 'bg-accent-primary text-white border-accent-primary'
+                                                        : 'bg-background text-foreground-secondary border-border hover:border-foreground-secondary hover:text-foreground'
+                                                    }`}
+                                            >
+                                                R{r}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
                             </div>
 
                             <div>
@@ -179,31 +206,10 @@ const UploadPage = () => {
                                 <textarea
                                     value={description}
                                     onChange={(e) => setDescription(e.target.value)}
-                                    rows={4}
+                                    rows={3}
                                     className="w-full bg-background border border-border rounded-lg py-2.5 px-4 text-foreground placeholder:text-foreground-secondary/50 focus:outline-none focus:ring-2 focus:ring-accent-primary/50 focus:border-accent-primary transition-all resize-none"
                                     placeholder="Add notes about this fight..."
                                 />
-                            </div>
-
-                            <div>
-                                <label className="block text-sm font-medium text-foreground-secondary mb-3">
-                                    Round
-                                </label>
-                                <div className="flex flex-wrap gap-3">
-                                    {[1, 2, 3, 4, 5, 6, 7].map((r) => (
-                                        <button
-                                            key={r}
-                                            type="button"
-                                            onClick={() => setRound(r)}
-                                            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors border ${round === r
-                                                ? 'bg-accent-primary text-white border-accent-primary'
-                                                : 'bg-background text-foreground-secondary border-border hover:border-foreground-secondary hover:text-foreground'
-                                                }`}
-                                        >
-                                            Round {r}
-                                        </button>
-                                    ))}
-                                </div>
                             </div>
                         </div>
 
@@ -213,7 +219,7 @@ const UploadPage = () => {
                             </div>
                         )}
 
-                        <div className="flex justify-end gap-4">
+                        <div className="flex justify-end gap-4 pt-4">
                             <button
                                 type="button"
                                 onClick={() => router.back()}
@@ -223,7 +229,7 @@ const UploadPage = () => {
                             </button>
                             <button
                                 type="submit"
-                                disabled={uploading || !file}
+                                disabled={uploading || !files.cam1}
                                 className="px-6 py-2.5 bg-accent-primary text-white text-sm font-medium rounded-lg hover:bg-accent-primary/90 transition-colors shadow-lg shadow-accent-primary/20 flex items-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
                             >
                                 {uploading ? (
@@ -232,7 +238,7 @@ const UploadPage = () => {
                                         Uploading...
                                     </>
                                 ) : (
-                                    'Upload Video'
+                                    'Upload Footage'
                                 )}
                             </button>
                         </div>
