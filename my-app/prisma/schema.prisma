@@ -17,6 +17,7 @@ datasource db {
 enum AccountType {
   LABELER
   QUALITY_CONTROL
+  ADMIN
 }
 
 model User {

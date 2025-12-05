@@ -81,7 +81,15 @@ const EventLog = ({ events, onStartPunch, onEndPunch, onDeleteEvent, readOnly = 
                         ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30'
                         : 'bg-red-500/20 text-red-400 border border-red-500/30'
                         }`}>
-                        {event.hand === 'Left' ? 'L' : 'R'}
+                        {(() => {
+                            const stance = event.stance || 'Orthodox';
+                            const hand = event.hand;
+                            if (stance === 'Orthodox') {
+                                return hand === 'Left' ? 'Lead (L)' : 'Rear (R)';
+                            } else {
+                                return hand === 'Right' ? 'Lead (R)' : 'Rear (L)';
+                            }
+                        })()}
                     </span>
 
                     {/* CAM Badge */}
