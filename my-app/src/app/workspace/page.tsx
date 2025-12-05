@@ -240,8 +240,9 @@ export default function WorkspacePage() {
                 stoppageKo: false,
                 target: event.target,
                 visibility: visibilityFlagsToMatrix(event.visibilityFlags),
-                // Add new fields to payload if backend supports them, or map them
-                // For now, we rely on 'landed' being correctly set by punchResult
+                stance: event.stance || 'Orthodox',
+                punchResult: event.punchResult || (event.landed !== false ? 'Landed' : 'Missed'),
+                defenseType: event.punchResult === 'Defended' ? event.defenseType : null
             }));
         };
 
@@ -273,7 +274,10 @@ export default function WorkspacePage() {
                 startTime: parseTimeToSeconds(event.startTime),
                 stoppageKo: false,
                 target: event.target,
-                visibility: visibilityFlagsToMatrix(event.visibilityFlags)
+                visibility: visibilityFlagsToMatrix(event.visibilityFlags),
+                stance: event.stance || 'Orthodox',
+                punchResult: event.punchResult || (event.landed !== false ? 'Landed' : 'Missed'),
+                defenseType: event.punchResult === 'Defended' ? event.defenseType : null
             }));
         };
 
