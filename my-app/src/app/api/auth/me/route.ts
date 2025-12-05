@@ -13,7 +13,7 @@ export async function GET() {
         }
 
         return NextResponse.json(
-            { userId: session.userId, email: session.email },
+            { userId: session.userId, email: session.email, username: session.username },
             { status: 200 }
         );
     } catch (error) {

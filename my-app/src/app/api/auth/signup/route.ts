@@ -7,11 +7,11 @@ const prisma = new PrismaClient();
 
 export async function POST(req: Request) {
     try {
-        const { email, password, accountType } = await req.json();
+        const { email, password, username, accountType } = await req.json();
 
-        if (!email || !password) {
+        if (!email || !password || !username) {
             return NextResponse.json(
-                { message: 'Email and password are required' },
+                { message: 'Email, username, and password are required' },
                 { status: 400 }
             );
         }
@@ -26,13 +26,18 @@ export async function POST(req: Request) {
         }
 
         // Check if user already exists
-        const existingUser = await prisma.user.findUnique({
-            where: { email },
+        const existingUser = await prisma.user.findFirst({
+            where: {
+                OR: [
+                    { email },
+                    { username }
+                ]
+            },
         });
 
         if (existingUser) {
             return NextResponse.json(
-                { message: 'User already exists' },
+                { message: 'User with this email or username already exists' },
                 { status: 400 }
             );
         }
@@ -44,6 +49,7 @@ export async function POST(req: Request) {
         const user = await prisma.user.create({
             data: {
                 email,
+                username,
                 password: hashedPassword,
                 accountType: accountType || 'LABELER',
             },
@@ -53,10 +59,11 @@ export async function POST(req: Request) {
         await createSession({
             userId: user.id,
             email: user.email,
+            username: user.username,
         });
 
         return NextResponse.json(
-            { message: 'User created successfully', userId: user.id, email: user.email },
+            { message: 'User created successfully', userId: user.id, email: user.email, username: user.username },
             { status: 201 }
         );
     } catch (error) {

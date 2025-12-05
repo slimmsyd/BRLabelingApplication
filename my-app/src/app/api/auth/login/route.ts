@@ -42,10 +42,11 @@ export async function POST(req: Request) {
         await createSession({
             userId: user.id,
             email: user.email,
+            username: user.username,
         });
 
         return NextResponse.json(
-            { message: 'Login successful', userId: user.id, email: user.email },
+            { message: 'Login successful', userId: user.id, email: user.email, username: user.username },
             { status: 200 }
         );
     } catch (error) {

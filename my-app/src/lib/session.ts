@@ -8,10 +8,11 @@ const JWT_SECRET = new TextEncoder().encode(
 export interface SessionPayload extends JWTPayload {
     userId: string;
     email: string;
+    username: string;
 }
 
-export async function createSession(payload: { userId: string; email: string }) {
-    const token = await new SignJWT({ userId: payload.userId, email: payload.email })
+export async function createSession(payload: { userId: string; email: string; username: string }) {
+    const token = await new SignJWT({ userId: payload.userId, email: payload.email, username: payload.username })
         .setProtectedHeader({ alg: 'HS256' })
         .setIssuedAt()
         .setExpirationTime('7d')
@@ -42,6 +43,7 @@ export async function getSession(): Promise<SessionPayload | null> {
         return {
             userId: payload.userId as string,
             email: payload.email as string,
+            username: payload.username as string,
         };
     } catch (error) {
         return null;

@@ -226,6 +226,28 @@ export default function WorkspacePage() {
         return flagOrder.map(flag => flags.includes(flag) ? 1 : 0);
     };
 
+    const [user, setUser] = useState<{ userId: string; email: string; accountType: string } | null>(null);
+
+    // Fetch user on mount
+    useEffect(() => {
+        const fetchUser = async () => {
+            try {
+                const res = await fetch('/api/auth/me');
+                if (res.ok) {
+                    const data = await res.json();
+                    setUser(data);
+                    // Auto-enable QC mode for QC/Admin if submitted
+                    if ((data.accountType === 'QUALITY_CONTROL' || data.accountType === 'ADMIN') && isSubmitted) {
+                        setIsQCMode(true);
+                    }
+                }
+            } catch (error) {
+                console.error('Failed to fetch user:', error);
+            }
+        };
+        fetchUser();
+    }, [isSubmitted]);
+
     const handleSaveProgress = () => {
         const transformEvents = (boxerEvents: EventData[]) => {
             return boxerEvents.map(event => ({
@@ -247,6 +269,8 @@ export default function WorkspacePage() {
         };
 
         const payload = {
+            submittedBy: user?.userId,
+            submitterEmail: user?.email,
             boxer1: {
                 punches: transformEvents(events.filter(e => e.boxer === 'Boxer A'))
             },
@@ -282,6 +306,8 @@ export default function WorkspacePage() {
         };
 
         const payload = {
+            submittedBy: user?.userId,
+            submitterEmail: user?.email,
             boxer1: {
                 punches: transformEvents(events.filter(e => e.boxer === 'Boxer A'))
             },
@@ -317,28 +343,6 @@ export default function WorkspacePage() {
                 alert('Error submitting data. Please try again.');
             });
     };
-
-    const [user, setUser] = useState<{ accountType: string } | null>(null);
-
-    // Fetch user on mount
-    useEffect(() => {
-        const fetchUser = async () => {
-            try {
-                const res = await fetch('/api/auth/me');
-                if (res.ok) {
-                    const data = await res.json();
-                    setUser(data);
-                    // Auto-enable QC mode for QC/Admin if submitted
-                    if ((data.accountType === 'QUALITY_CONTROL' || data.accountType === 'ADMIN') && isSubmitted) {
-                        setIsQCMode(true);
-                    }
-                }
-            } catch (error) {
-                console.error('Failed to fetch user:', error);
-            }
-        };
-        fetchUser();
-    }, [isSubmitted]);
 
     // RBAC Logic
     const canEdit = React.useMemo(() => {

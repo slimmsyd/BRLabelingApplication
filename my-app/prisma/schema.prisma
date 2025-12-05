@@ -31,6 +31,7 @@ enum VideoStatus {
 model User {
   id               String             @id @default(cuid())
   email            String             @unique
+  username         String             @unique
   password         String
   accountType      AccountType        @default(LABELER)
   createdAt        DateTime           @default(now())

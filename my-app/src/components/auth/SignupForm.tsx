@@ -11,6 +11,7 @@ interface SignupFormProps {
 export const SignupForm: React.FC<SignupFormProps> = ({ onToggleMode }) => {
     const router = useRouter();
     const [email, setEmail] = useState('');
+    const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
     const [accountType, setAccountType] = useState<'LABELER' | 'QUALITY_CONTROL'>('LABELER');
@@ -34,7 +35,7 @@ export const SignupForm: React.FC<SignupFormProps> = ({ onToggleMode }) => {
             const res = await fetch('/api/auth/signup', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ email, password, accountType }),
+                body: JSON.stringify({ email, username, password, accountType }),
             });
 
             const data = await res.json();
@@ -64,6 +65,22 @@ export const SignupForm: React.FC<SignupFormProps> = ({ onToggleMode }) => {
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-4">
+                <div>
+                    <label className="block text-xs font-medium text-foreground-secondary mb-1.5 uppercase tracking-wider">
+                        Username
+                    </label>
+                    <div className="relative">
+                        <input
+                            type="text"
+                            required
+                            value={username}
+                            onChange={(e) => setUsername(e.target.value)}
+                            className="w-full bg-background border border-border rounded-lg py-2.5 px-4 text-foreground placeholder:text-foreground-secondary/50 focus:outline-none focus:ring-2 focus:ring-accent-primary/50 focus:border-accent-primary transition-all"
+                            placeholder="johndoe"
+                        />
+                    </div>
+                </div>
+
                 <div>
                     <label className="block text-xs font-medium text-foreground-secondary mb-1.5 uppercase tracking-wider">
                         Email Address

@@ -43,7 +43,7 @@ const Sidebar = ({ isOpen, toggle }: SidebarProps) => {
                     <div className="space-y-0.5">
                         <button className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-foreground hover:bg-white/5 transition-colors bg-white/5 ${!isOpen && 'justify-center px-0'}`}>
                             <Video size={16} className="text-accent-primary shrink-0" />
-                            <span className={`transition-opacity duration-200 whitespace-nowrap ${!isOpen ? 'opacity-0 w-0 hidden' : 'opacity-100'}`}>Crawford vs. Canelo</span>
+                            <span className={`transition-opacity duration-200 whitespace-nowrap ${!isOpen ? 'opacity-0 w-0 hidden' : 'opacity-100'}`}>Current Project</span>
                         </button>
                     </div>
                 </div>
