@@ -5,16 +5,15 @@ import Link from 'next/link';
 
 const VideoGrid = () => {
     // Mock data
-    const videos = [
-        {
-            id: 1,
-            title: "Crawford vs. Canelo",
-            progress: 45,
-            totalEvents: 45,
-            status: 'completed' as const,
-            lastWorked: "1 day ago"
-        },
-    ];
+    // Mock data removed - waiting for real data integration
+    const videos: Array<{
+        id: number;
+        title: string;
+        progress: number;
+        totalEvents: number;
+        status: 'completed' | 'in_progress' | 'new';
+        lastWorked: string;
+    }> = [];
 
     return (
         <div className="w-full max-w-4xl mx-auto">

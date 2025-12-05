@@ -7,11 +7,20 @@ const prisma = new PrismaClient();
 
 export async function POST(req: Request) {
     try {
-        const { email, password } = await req.json();
+        const { email, password, accountType } = await req.json();
 
         if (!email || !password) {
             return NextResponse.json(
                 { message: 'Email and password are required' },
+                { status: 400 }
+            );
+        }
+
+        // Validate accountType - only allow LABELER or QUALITY_CONTROL
+        // ADMIN accounts must be set manually in the backend
+        if (accountType && accountType !== 'LABELER' && accountType !== 'QUALITY_CONTROL') {
+            return NextResponse.json(
+                { message: 'Invalid account type' },
                 { status: 400 }
             );
         }
@@ -31,11 +40,12 @@ export async function POST(req: Request) {
         // Hash password
         const hashedPassword = await bcrypt.hash(password, 10);
 
-        // Create user
+        // Create user with specified accountType (defaults to LABELER if not provided)
         const user = await prisma.user.create({
             data: {
                 email,
                 password: hashedPassword,
+                accountType: accountType || 'LABELER',
             },
         });
 

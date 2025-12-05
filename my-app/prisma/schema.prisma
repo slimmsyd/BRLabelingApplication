@@ -20,11 +20,93 @@ enum AccountType {
   ADMIN
 }
 
+enum VideoStatus {
+  ASSIGNED      // Video has been assigned to a user
+  IN_PROGRESS   // User has picked up the video
+  SUBMITTED     // User has submitted their work
+  REVIEWED      // Quality control has reviewed
+  COMPLETED     // Fully completed
+}
+
 model User {
-  id          String      @id @default(cuid())
-  email       String      @unique
-  password    String
-  accountType AccountType @default(LABELER)
-  createdAt   DateTime    @default(now())
-  updatedAt   DateTime    @updatedAt
+  id               String             @id @default(cuid())
+  email            String             @unique
+  password         String
+  accountType      AccountType        @default(LABELER)
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
+  
+  // Relations
+  videoAssignments VideoAssignment[]  // Videos assigned to this user
+}
+
+model Video {
+  id          String             @id @default(cuid())
+  title       String
+  description String?
+  fileUrl     String             // URL/path to the video file
+  duration    Int?               // Duration in seconds
+  metadata    Json?              // Additional metadata (resolution, fps, etc.)
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+  
+  // Relations
+  assignments VideoAssignment[]  // All assignments for this video
+}
+
+model VideoAssignment {
+  id            String       @id @default(cuid())
+  videoId       String
+  userId        String
+  status        VideoStatus  @default(ASSIGNED)
+  
+  // Tracking timestamps
+  assignedAt    DateTime     @default(now())
+  pickedUpAt    DateTime?    // When user started working on it
+  submittedAt   DateTime?    // When user submitted their work
+  reviewedAt    DateTime?    // When QC reviewed it
+  
+  // Additional tracking
+  notes         String?      // Any notes from the user or reviewer
+  
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+  
+  // Relations
+  video         Video        @relation(fields: [videoId], references: [id], onDelete: Cascade)
+  user          User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  events        Event[]      // Relation to events
+  
+  // Ensure a video can only be assigned to a user once at a time
+  @@unique([videoId, userId])
+  @@index([userId])
+  @@index([videoId])
+  @@index([status])
+}
+
+model Event {
+  id              String          @id @default(cuid())
+  assignmentId    String
+  assignment      VideoAssignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  
+  // Event Data Fields
+  startTime       String
+  endTime         String
+  boxer           String
+  punchType       String
+  hand            String
+  target          String
+  visibilityFlags String[]
+  knockdown       Boolean
+  punchQuality    String
+  cam             String?
+  stance          String?
+  landed          Boolean?
+  punchResult     String?
+  defenseType     String?
+  
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  @@index([assignmentId])
 }

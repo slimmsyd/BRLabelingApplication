@@ -12,7 +12,7 @@ export default function WorkspacePage() {
     const videoRef = useRef<HTMLVideoElement>(null);
 
     // Lifted State for Form
-    const [boxer, setBoxer] = useState('Boxer A');
+    const [boxer, setBoxer] = useState('');
     const [startTime, setStartTime] = useState('');
     const [endTime, setEndTime] = useState('');
     const [punchType, setPunchType] = useState('Jab');
@@ -318,26 +318,66 @@ export default function WorkspacePage() {
             });
     };
 
-    const isReadOnly = isSubmitted || isQCMode;
-    // In direct edit mode, sidebar is NOT read-only if we are in QC mode.
-    // It is only read-only if submitted and NOT in QC mode.
-    // Actually, if submitted, we might want to allow QC edits?
-    // The requirement says "QC side... editing the current fight's database".
-    // So if isQCMode is true, we should allow editing even if isSubmitted is true?
-    // Let's assume QC mode overrides submission lock for the purpose of correction.
-    const isSidebarReadOnly = isSubmitted && !isQCMode;
+    const [user, setUser] = useState<{ accountType: string } | null>(null);
+
+    // Fetch user on mount
+    useEffect(() => {
+        const fetchUser = async () => {
+            try {
+                const res = await fetch('/api/auth/me');
+                if (res.ok) {
+                    const data = await res.json();
+                    setUser(data);
+                    // Auto-enable QC mode for QC/Admin if submitted
+                    if ((data.accountType === 'QUALITY_CONTROL' || data.accountType === 'ADMIN') && isSubmitted) {
+                        setIsQCMode(true);
+                    }
+                }
+            } catch (error) {
+                console.error('Failed to fetch user:', error);
+            }
+        };
+        fetchUser();
+    }, [isSubmitted]);
+
+    // RBAC Logic
+    const canEdit = React.useMemo(() => {
+        if (!user) return false;
+
+        if (user.accountType === 'ADMIN') return true;
+
+        if (user.accountType === 'LABELER') {
+            return !isSubmitted; // Labelers can only edit if NOT submitted
+        }
+
+        if (user.accountType === 'QUALITY_CONTROL') {
+            return isSubmitted; // QC can only edit if SUBMITTED
+        }
+
+        return false;
+    }, [user, isSubmitted]);
+
+    // Read-only state derived from canEdit
+    // If canEdit is true, readOnly is false.
+    const isReadOnly = !canEdit;
+
+    // Sidebar specific logic
+    // If we are in QC mode (and allowed to be), sidebar should be editable for corrections
+    // But if we are a Labeler and it's submitted, it's read-only.
+    const isSidebarReadOnly = isReadOnly;
 
     return (
         <div className="min-h-screen bg-background text-foreground flex flex-col font-sans">
             <WorkspaceHeader
                 onSave={handleSaveProgress}
                 onSubmit={handleSubmit}
-                readOnly={isSubmitted}
+                readOnly={isReadOnly}
                 isQCMode={isQCMode}
                 onToggleQCMode={() => {
                     setIsQCMode(!isQCMode);
                     if (isQCMode) handleCancelEdit(); // Clear selection when exiting QC mode
                 }}
+                showQCToggle={user?.accountType === 'ADMIN' || user?.accountType === 'QUALITY_CONTROL'}
             />
 
             <div className="flex h-[calc(100vh-64px)] overflow-hidden">
@@ -367,6 +407,7 @@ export default function WorkspacePage() {
                                 videoRef={videoRef}
                                 activeCam={activeCam}
                                 setActiveCam={setActiveCam}
+                                videoSrc={undefined} // Will be populated from DB
                             />
                         </section>
 

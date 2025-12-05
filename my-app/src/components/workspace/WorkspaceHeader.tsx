@@ -9,9 +9,10 @@ interface WorkspaceHeaderProps {
     readOnly?: boolean;
     isQCMode?: boolean;
     onToggleQCMode?: () => void;
+    showQCToggle?: boolean;
 }
 
-const WorkspaceHeader = ({ onSave, onSubmit, readOnly = false, isQCMode = false, onToggleQCMode }: WorkspaceHeaderProps) => {
+const WorkspaceHeader = ({ onSave, onSubmit, readOnly = false, isQCMode = false, onToggleQCMode, showQCToggle = false }: WorkspaceHeaderProps) => {
     const [showSubmitModal, setShowSubmitModal] = useState(false);
 
     const handleConfirmSubmit = () => {
@@ -33,19 +34,21 @@ const WorkspaceHeader = ({ onSave, onSubmit, readOnly = false, isQCMode = false,
                         <h1 className="text-lg font-semibold text-foreground">Crawford vs. Canelo</h1>
                         <div className="flex items-center gap-2 text-xs text-foreground-secondary">
                             <span className={`w-2 h-2 rounded-full ${readOnly ? 'bg-red-500' : 'bg-green-500'}`}></span>
-                            <span>{readOnly ? 'Locked' : 'In Progress'}</span>
+                            <span>{readOnly ? 'Read Only' : 'In Progress'}</span>
                         </div>
                     </div>
                 </div>
 
                 <div className="flex items-center gap-3">
-                    <button
-                        onClick={onToggleQCMode}
-                        className={`flex items-center gap-2 px-3 py-1.5 text-sm font-medium rounded-lg transition-colors cursor-pointer ${isQCMode ? 'bg-accent-primary text-white' : 'text-foreground-secondary/50 hover:text-foreground-secondary hover:bg-white/5'}`}
-                    >
-                        <ShieldCheck size={16} />
-                        QC Mode: {isQCMode ? 'ON' : 'OFF'}
-                    </button>
+                    {showQCToggle && (
+                        <button
+                            onClick={onToggleQCMode}
+                            className={`flex items-center gap-2 px-3 py-1.5 text-sm font-medium rounded-lg transition-colors cursor-pointer ${isQCMode ? 'bg-accent-primary text-white' : 'text-foreground-secondary/50 hover:text-foreground-secondary hover:bg-white/5'}`}
+                        >
+                            <ShieldCheck size={16} />
+                            QC Mode: {isQCMode ? 'ON' : 'OFF'}
+                        </button>
+                    )}
                     <button
                         onClick={onSave}
                         disabled={readOnly}

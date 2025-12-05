@@ -5,9 +5,10 @@ interface VideoPlayerProps {
     videoRef: RefObject<HTMLVideoElement | null>;
     activeCam: string;
     setActiveCam: (cam: string) => void;
+    videoSrc?: string;
 }
 
-const VideoPlayer = ({ videoRef, activeCam, setActiveCam }: VideoPlayerProps) => {
+const VideoPlayer = ({ videoRef, activeCam, setActiveCam, videoSrc }: VideoPlayerProps) => {
     const [isPlaying, setIsPlaying] = useState(false);
     const [currentTime, setCurrentTime] = useState(0);
     const [duration, setDuration] = useState(0);
@@ -299,7 +300,7 @@ const VideoPlayer = ({ videoRef, activeCam, setActiveCam }: VideoPlayerProps) =>
                 >
                     <video
                         ref={videoRef}
-                        src="/TerranceHoward.mp4"
+                        src={videoSrc || ''}
                         className="w-full h-full object-contain"
                         style={{
                             transform: `scale(${zoom}) translate(${pan.x / zoom}px, ${pan.y / zoom}px)`,
@@ -425,8 +426,8 @@ const VideoPlayer = ({ videoRef, activeCam, setActiveCam }: VideoPlayerProps) =>
                                     }
                                 }}
                                 className={`px-3 py-1 text-xs rounded transition-colors ${zoomModeEnabled
-                                        ? 'bg-accent-primary text-white'
-                                        : 'bg-white/10 text-white/70 hover:bg-white/20'
+                                    ? 'bg-accent-primary text-white'
+                                    : 'bg-white/10 text-white/70 hover:bg-white/20'
                                     }`}
                                 title={zoomModeEnabled ? "Disable Zoom Mode" : "Enable Zoom Mode"}
                             >
