@@ -14,10 +14,16 @@ datasource db {
   directUrl = env("DIRECT_URL")
 }
 
+enum AccountType {
+  LABELER
+  QUALITY_CONTROL
+}
+
 model User {
-  id        String   @id @default(cuid())
-  email     String   @unique
-  password  String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id          String      @id @default(cuid())
+  email       String      @unique
+  password    String
+  accountType AccountType @default(LABELER)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
 }

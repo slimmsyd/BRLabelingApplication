@@ -1,9 +1,13 @@
 'use client';
 
+
+
 import React, { useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { Upload, X, FileVideo, Loader2, ArrowLeft, Camera } from 'lucide-react';
 import Link from 'next/link';
+
+
 
 const UploadPage = () => {
     const router = useRouter();
@@ -12,8 +16,9 @@ const UploadPage = () => {
         cam2: null,
         cam3: null
     });
-    const [title, setTitle] = useState('');
-    const [description, setDescription] = useState('');
+    const [boxer1, setBoxer1] = useState('');
+    const [boxer2, setBoxer2] = useState('');
+    const [weightClass, setWeightClass] = useState('');
     const [round, setRound] = useState(1);
     const [uploading, setUploading] = useState(false);
     const [error, setError] = useState('');
@@ -28,11 +33,6 @@ const UploadPage = () => {
         if (e.target.files && e.target.files[0]) {
             const selectedFile = e.target.files[0];
             setFiles(prev => ({ ...prev, [cam]: selectedFile }));
-
-            // Auto-set title from first uploaded file if empty
-            if (!title && cam === 'cam1') {
-                setTitle(selectedFile.name.replace(/\.[^/.]+$/, ""));
-            }
             setError('');
         }
     };
@@ -60,8 +60,9 @@ const UploadPage = () => {
             await new Promise(resolve => setTimeout(resolve, 2000));
             console.log('Uploading:', {
                 files,
-                title,
-                description,
+                boxer1,
+                boxer2,
+                weightClass,
                 round
             });
             router.push('/');
@@ -101,8 +102,8 @@ const UploadPage = () => {
 
                                     <div
                                         className={`relative border-2 border-dashed rounded-xl p-6 text-center transition-colors cursor-pointer min-h-[200px] flex flex-col items-center justify-center ${files[cam]
-                                                ? 'border-accent-primary bg-accent-primary/5'
-                                                : 'border-border hover:border-foreground-secondary hover:bg-surface-hover'
+                                            ? 'border-accent-primary bg-accent-primary/5'
+                                            : 'border-border hover:border-foreground-secondary hover:bg-surface-hover'
                                             }`}
                                         onClick={() => fileInputRefs[cam as keyof typeof fileInputRefs].current?.click()}
                                     >
@@ -165,15 +166,44 @@ const UploadPage = () => {
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                 <div>
                                     <label className="block text-sm font-medium text-foreground-secondary mb-1.5">
-                                        Title
+                                        Boxer 1 Name
                                     </label>
                                     <input
                                         type="text"
                                         required
-                                        value={title}
-                                        onChange={(e) => setTitle(e.target.value)}
+                                        value={boxer1}
+                                        onChange={(e) => setBoxer1(e.target.value)}
                                         className="w-full bg-background border border-border rounded-lg py-2.5 px-4 text-foreground placeholder:text-foreground-secondary/50 focus:outline-none focus:ring-2 focus:ring-accent-primary/50 focus:border-accent-primary transition-all"
-                                        placeholder="e.g. Crawford vs. Spence"
+                                        placeholder="e.g. Terence Crawford"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-foreground-secondary mb-1.5">
+                                        Boxer 2 Name
+                                    </label>
+                                    <input
+                                        type="text"
+                                        required
+                                        value={boxer2}
+                                        onChange={(e) => setBoxer2(e.target.value)}
+                                        className="w-full bg-background border border-border rounded-lg py-2.5 px-4 text-foreground placeholder:text-foreground-secondary/50 focus:outline-none focus:ring-2 focus:ring-accent-primary/50 focus:border-accent-primary transition-all"
+                                        placeholder="e.g. Errol Spence Jr."
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div>
+                                    <label className="block text-sm font-medium text-foreground-secondary mb-1.5">
+                                        Weightclass
+                                    </label>
+                                    <input
+                                        type="text"
+                                        required
+                                        value={weightClass}
+                                        onChange={(e) => setWeightClass(e.target.value)}
+                                        className="w-full bg-background border border-border rounded-lg py-2.5 px-4 text-foreground placeholder:text-foreground-secondary/50 focus:outline-none focus:ring-2 focus:ring-accent-primary/50 focus:border-accent-primary transition-all"
+                                        placeholder="e.g. Welterweight"
                                     />
                                 </div>
 
@@ -188,8 +218,8 @@ const UploadPage = () => {
                                                 type="button"
                                                 onClick={() => setRound(r)}
                                                 className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors border ${round === r
-                                                        ? 'bg-accent-primary text-white border-accent-primary'
-                                                        : 'bg-background text-foreground-secondary border-border hover:border-foreground-secondary hover:text-foreground'
+                                                    ? 'bg-accent-primary text-white border-accent-primary'
+                                                    : 'bg-background text-foreground-secondary border-border hover:border-foreground-secondary hover:text-foreground'
                                                     }`}
                                             >
                                                 R{r}
@@ -197,19 +227,6 @@ const UploadPage = () => {
                                         ))}
                                     </div>
                                 </div>
-                            </div>
-
-                            <div>
-                                <label className="block text-sm font-medium text-foreground-secondary mb-1.5">
-                                    Description (Optional)
-                                </label>
-                                <textarea
-                                    value={description}
-                                    onChange={(e) => setDescription(e.target.value)}
-                                    rows={3}
-                                    className="w-full bg-background border border-border rounded-lg py-2.5 px-4 text-foreground placeholder:text-foreground-secondary/50 focus:outline-none focus:ring-2 focus:ring-accent-primary/50 focus:border-accent-primary transition-all resize-none"
-                                    placeholder="Add notes about this fight..."
-                                />
                             </div>
                         </div>
 

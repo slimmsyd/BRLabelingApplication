@@ -23,6 +23,8 @@ export default function WorkspacePage() {
     const [punchQuality, setPunchQuality] = useState('1');
     const [stance, setStance] = useState('Orthodox');
     const [landed, setLanded] = useState(true);
+    const [punchResult, setPunchResult] = useState('Landed');
+    const [defenseType, setDefenseType] = useState('Guard');
     const [activeTimeMode, setActiveTimeMode] = useState<'start' | 'end'>('start');
     const [activeCam, setActiveCam] = useState('CAM 1');
     const [showSuccessModal, setShowSuccessModal] = useState(false);
@@ -42,7 +44,9 @@ export default function WorkspacePage() {
             const eventsWithIds = parsedEvents.map(e => ({
                 ...e,
                 id: e.id || crypto.randomUUID(),
-                landed: e.landed !== undefined ? e.landed : true
+                landed: e.landed !== undefined ? e.landed : true,
+                // Backfill punchResult based on landed if missing
+                punchResult: e.punchResult || (e.landed !== false ? 'Landed' : 'Missed')
             }));
             setEvents(eventsWithIds);
         }
@@ -99,6 +103,8 @@ export default function WorkspacePage() {
         setPunchQuality('1');
         setStance('Orthodox');
         setLanded(true);
+        setPunchResult('Landed');
+        setDefenseType('Guard');
     };
 
     const handleCancelEdit = () => {
@@ -114,6 +120,8 @@ export default function WorkspacePage() {
         setPunchQuality('1');
         setStance('Orthodox');
         setLanded(true);
+        setPunchResult('Landed');
+        setDefenseType('Guard');
     };
 
     const getCurrentTime = () => {
@@ -180,6 +188,8 @@ export default function WorkspacePage() {
             setPunchQuality(event.punchQuality);
             setStance(event.stance || 'Orthodox');
             setLanded(event.landed !== undefined ? event.landed : true);
+            setPunchResult(event.punchResult || (event.landed !== false ? 'Landed' : 'Missed'));
+            setDefenseType(event.defenseType || 'Guard');
             setStartTime(event.startTime);
             setEndTime(event.endTime);
         }
@@ -197,6 +207,8 @@ export default function WorkspacePage() {
         setPunchQuality(event.punchQuality);
         setStance(event.stance || 'Orthodox');
         setLanded(event.landed !== undefined ? event.landed : true);
+        setPunchResult(event.punchResult || (event.landed !== false ? 'Landed' : 'Missed'));
+        setDefenseType(event.defenseType || 'Guard');
         setStartTime(event.startTime);
         setEndTime(event.endTime);
 
@@ -227,7 +239,9 @@ export default function WorkspacePage() {
                 startTime: parseTimeToSeconds(event.startTime),
                 stoppageKo: false,
                 target: event.target,
-                visibility: visibilityFlagsToMatrix(event.visibilityFlags)
+                visibility: visibilityFlagsToMatrix(event.visibilityFlags),
+                // Add new fields to payload if backend supports them, or map them
+                // For now, we rely on 'landed' being correctly set by punchResult
             }));
         };
 
@@ -328,8 +342,8 @@ export default function WorkspacePage() {
                     <SidebarControls
                         onLogEvent={handleLogEvent}
                         getCurrentTime={getCurrentTime}
-                        formState={{ boxer, startTime, endTime, punchType, hand, target, visibilityFlags, knockdown, punchQuality, stance, landed }}
-                        setFormState={{ setBoxer: handleBoxerChange, setStartTime, setEndTime, setPunchType, setHand, setTarget, setVisibilityFlags, setKnockdown, setPunchQuality, setStance, setLanded }}
+                        formState={{ boxer, startTime, endTime, punchType, hand, target, visibilityFlags, knockdown, punchQuality, stance, landed, punchResult, defenseType }}
+                        setFormState={{ setBoxer: handleBoxerChange, setStartTime, setEndTime, setPunchType, setHand, setTarget, setVisibilityFlags, setKnockdown, setPunchQuality, setStance, setLanded, setPunchResult, setDefenseType }}
                         activeTimeMode={activeTimeMode}
                         setActiveTimeMode={setActiveTimeMode}
                         activeCam={activeCam}

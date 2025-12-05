@@ -15,7 +15,9 @@ export interface EventData {
     punchQuality: string;
     cam?: string;
     stance?: string;
-    landed?: boolean;
+    landed?: boolean; // Deprecated in favor of punchResult, kept for compat
+    punchResult?: string;
+    defenseType?: string;
 }
 
 interface EventLogProps {
@@ -29,8 +31,34 @@ interface EventLogProps {
 }
 
 const EventLog = ({ events, onStartPunch, onEndPunch, onDeleteEvent, readOnly = false, onSeek, onSelectEvent }: EventLogProps) => {
-    const boxerAEvents = events.filter(e => e.boxer === 'Boxer A');
-    const boxerBEvents = events.filter(e => e.boxer === 'Boxer B');
+    // Helper function to parse time string to seconds for sorting
+    const parseTimeToSeconds = (timeStr: string): number => {
+        if (!timeStr) return 0;
+        const parts = timeStr.split(':');
+        if (parts.length < 2) return 0;
+
+        const mins = parseInt(parts[0]) || 0;
+        const rest = parts[1];
+        if (!rest) return mins * 60;
+
+        const secParts = rest.split('.');
+        const secs = parseInt(secParts[0]) || 0;
+        const ms = parseInt(secParts[1] || '0') || 0;
+
+        return mins * 60 + secs + ms / 100;
+    };
+
+    // Sort events by start time (chronological order)
+    const sortEventsByTime = (eventList: EventData[]) => {
+        return [...eventList].sort((a, b) => {
+            const timeA = parseTimeToSeconds(a.startTime);
+            const timeB = parseTimeToSeconds(b.startTime);
+            return timeA - timeB;
+        });
+    };
+
+    const boxerAEvents = sortEventsByTime(events.filter(e => e.boxer === 'Boxer A'));
+    const boxerBEvents = sortEventsByTime(events.filter(e => e.boxer === 'Boxer B'));
 
     const EventRow = ({ event, index }: { event: EventData, index: number }) => (
         <div
@@ -70,21 +98,32 @@ const EventLog = ({ events, onStartPunch, onEndPunch, onDeleteEvent, readOnly = 
                         </span>
                     )}
 
-                    {/* Quality Badge */}
-                    <span className={`text-[10px] font-medium px-2 py-0.5 rounded ${event.punchQuality === '5' ? 'bg-accent-primary/20 text-accent-primary border border-accent-primary/30' :
-                        event.punchQuality === '4' ? 'bg-green-500/20 text-green-400 border border-green-500/30' :
-                            'bg-white/5 text-foreground-secondary border border-white/10'
+                    {/* Quality Badge - Only show if Landed */}
+                    {(event.punchResult === 'Landed' || (!event.punchResult && event.landed !== false)) && (
+                        <span className={`text-[10px] font-medium px-2 py-0.5 rounded ${event.punchQuality === '5' ? 'bg-accent-primary/20 text-accent-primary border border-accent-primary/30' :
+                            event.punchQuality === '4' ? 'bg-green-500/20 text-green-400 border border-green-500/30' :
+                                'bg-white/5 text-foreground-secondary border border-white/10'
+                            }`}>
+                            Q{event.punchQuality}
+                        </span>
+                    )}
+
+                    {/* Punch Result Badge */}
+                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded uppercase tracking-wider ${event.punchResult === 'Landed' || (!event.punchResult && event.landed !== false) ? 'bg-green-500/20 text-green-400 border border-green-500/30' :
+                        event.punchResult === 'Missed' || (!event.punchResult && event.landed === false) ? 'bg-orange-500/20 text-orange-400 border border-orange-500/30' :
+                            event.punchResult === 'Defended' ? 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/30' :
+                                event.punchResult === 'Unseen' ? 'bg-gray-500/20 text-gray-400 border border-gray-500/30' :
+                                    'bg-white/10 text-foreground-secondary'
                         }`}>
-                        Q{event.punchQuality}
+                        {event.punchResult || (event.landed !== false ? 'Landed' : 'Missed')}
                     </span>
 
-                    {/* Landed/Missed Badge */}
-                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded uppercase tracking-wider ${event.landed !== false
-                        ? 'bg-green-500/20 text-green-400 border border-green-500/30'
-                        : 'bg-orange-500/20 text-orange-400 border border-orange-500/30'
-                        }`}>
-                        {event.landed !== false ? 'Landed' : 'Missed'}
-                    </span>
+                    {/* Defense Type Badge */}
+                    {event.defenseType && event.punchResult === 'Defended' && (
+                        <span className="text-[10px] font-medium px-2 py-0.5 rounded bg-yellow-500/10 text-yellow-300 border border-yellow-500/20">
+                            {event.defenseType}
+                        </span>
+                    )}
 
                     {/* Knockdown Badge */}
                     {event.knockdown && (

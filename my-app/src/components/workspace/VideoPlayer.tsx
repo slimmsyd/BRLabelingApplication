@@ -22,6 +22,13 @@ const VideoPlayer = ({ videoRef, activeCam, setActiveCam }: VideoPlayerProps) =>
     const [showSettingsModal, setShowSettingsModal] = useState(false);
     const [customSkipInput, setCustomSkipInput] = useState('2');
 
+    // Zoom and Pan state
+    const [zoom, setZoom] = useState(1);
+    const [pan, setPan] = useState({ x: 0, y: 0 });
+    const [isPanning, setIsPanning] = useState(false);
+    const [startPan, setStartPan] = useState({ x: 0, y: 0 });
+    const [zoomModeEnabled, setZoomModeEnabled] = useState(false);
+
     // Update progress as video plays
     useEffect(() => {
         const video = videoRef.current;
@@ -74,6 +81,12 @@ const VideoPlayer = ({ videoRef, activeCam, setActiveCam }: VideoPlayerProps) =>
         return () => window.removeEventListener('keydown', handleKeyDown);
     }, [isPlaying, skipDuration]); // Dependencies for togglePlay and skip functions
 
+    // Reset zoom when camera changes
+    useEffect(() => {
+        setZoom(1);
+        setPan({ x: 0, y: 0 });
+    }, [activeCam]);
+
     const togglePlay = () => {
         if (videoRef.current) {
             if (isPlaying) {
@@ -96,8 +109,9 @@ const VideoPlayer = ({ videoRef, activeCam, setActiveCam }: VideoPlayerProps) =>
         return percentage * video.duration;
     };
 
-    // Handle mouse down to start dragging
-    const handleMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
+    // Handle mouse down to start dragging (seeking)
+    const handleSeekMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
+        e.stopPropagation(); // Prevent bubbling to pan handlers
         const video = videoRef.current;
         if (!video) return;
 
@@ -106,7 +120,7 @@ const VideoPlayer = ({ videoRef, activeCam, setActiveCam }: VideoPlayerProps) =>
         video.currentTime = newTime;
     };
 
-    // Handle dragging
+    // Handle dragging (seeking)
     useEffect(() => {
         const handleMouseMove = (e: MouseEvent) => {
             if (!isDragging || !videoRef.current) return;
@@ -132,6 +146,65 @@ const VideoPlayer = ({ videoRef, activeCam, setActiveCam }: VideoPlayerProps) =>
             document.removeEventListener('mouseup', handleMouseUp);
         };
     }, [isDragging, videoRef]);
+
+    // Zoom Handlers
+    const handleWheel = (e: React.WheelEvent) => {
+        // Only zoom if zoom mode is enabled
+        if (!zoomModeEnabled) return;
+
+        // Prevent default scroll behavior when zooming
+        e.preventDefault();
+
+        // Simple logic: scroll up to zoom in, scroll down to zoom out
+        const zoomSpeed = 0.1;
+        const newZoom = Math.max(1, Math.min(3, zoom - Math.sign(e.deltaY) * zoomSpeed));
+
+        if (newZoom !== zoom) {
+            setZoom(newZoom);
+            // If zooming out to 1x, reset pan
+            if (newZoom === 1) {
+                setPan({ x: 0, y: 0 });
+            }
+        }
+    };
+
+    // Pan Handlers
+    const handleVideoMouseDown = (e: React.MouseEvent) => {
+        if (zoom > 1) {
+            e.preventDefault();
+            setIsPanning(true);
+            setStartPan({ x: e.clientX - pan.x, y: e.clientY - pan.y });
+        } else {
+            // If not zoomed, maybe toggle play? Or just let standard click handler work?
+            // The standard click handler is on the video element `onClick={togglePlay}`.
+            // We might need to be careful here.
+            // If we are zoomed in, we want to PAN, not toggle play.
+        }
+    };
+
+    const handleVideoMouseMove = (e: React.MouseEvent) => {
+        if (isPanning && zoom > 1) {
+            e.preventDefault();
+            const newX = e.clientX - startPan.x;
+            const newY = e.clientY - startPan.y;
+
+            // Optional: Constrain pan to keep video in view?
+            // For now, let's just allow free pan but maybe limit it slightly?
+            // A simple unconstrained pan is easiest for v1.
+            setPan({ x: newX, y: newY });
+        }
+    };
+
+    const handleVideoMouseUp = () => {
+        setIsPanning(false);
+    };
+
+    const handleVideoClick = (e: React.MouseEvent) => {
+        // Only toggle play if we weren't panning
+        if (zoom === 1 && !isPanning) {
+            togglePlay();
+        }
+    };
 
     // Update playback rate
     useEffect(() => {
@@ -215,21 +288,37 @@ const VideoPlayer = ({ videoRef, activeCam, setActiveCam }: VideoPlayerProps) =>
             </div>
 
             {/* Video Container */}
-            <div className="relative aspect-video bg-black rounded-lg overflow-hidden border border-border group">
-                <video
-                    ref={videoRef}
-                    src="/TerranceHoward.mp4"
-                    className="w-full h-full object-contain cursor-pointer"
-                    onEnded={() => setIsPlaying(false)}
-                    onClick={togglePlay}
-                />
+            <div
+                className="relative aspect-video bg-black rounded-lg overflow-hidden border border-border group"
+                onWheel={handleWheel}
+                onMouseLeave={handleVideoMouseUp}
+            >
+                <div
+                    className="w-full h-full overflow-hidden"
+                    style={{ cursor: zoom > 1 ? (isPanning ? 'grabbing' : 'grab') : 'default' }}
+                >
+                    <video
+                        ref={videoRef}
+                        src="/TerranceHoward.mp4"
+                        className="w-full h-full object-contain"
+                        style={{
+                            transform: `scale(${zoom}) translate(${pan.x / zoom}px, ${pan.y / zoom}px)`,
+                            transition: isPanning ? 'none' : 'transform 0.1s ease-out'
+                        }}
+                        onEnded={() => setIsPlaying(false)}
+                        onClick={handleVideoClick}
+                        onMouseDown={handleVideoMouseDown}
+                        onMouseMove={handleVideoMouseMove}
+                        onMouseUp={handleVideoMouseUp}
+                    />
+                </div>
 
                 {/* Controls Overlay (Visible on Hover) */}
-                <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/90 to-transparent p-4 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/90 to-transparent p-4 opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-10">
                     {/* Progress Bar */}
                     <div
                         className="progress-bar-container w-full h-1 bg-white/20 rounded-full mb-4 cursor-pointer hover:h-1.5 transition-all"
-                        onMouseDown={handleMouseDown}
+                        onMouseDown={handleSeekMouseDown}
                     >
                         <div
                             className="h-full bg-accent-primary rounded-full relative transition-all"
@@ -271,6 +360,16 @@ const VideoPlayer = ({ videoRef, activeCam, setActiveCam }: VideoPlayerProps) =>
                         </div>
 
                         <div className="flex items-center gap-4">
+                            {/* Zoom Indicator/Reset */}
+                            {zoom > 1 && (
+                                <button
+                                    onClick={() => { setZoom(1); setPan({ x: 0, y: 0 }); }}
+                                    className="text-xs bg-accent-primary text-white px-2 py-1 rounded hover:bg-accent-primary/90 transition-colors"
+                                >
+                                    Reset Zoom ({Math.round(zoom * 100)}%)
+                                </button>
+                            )}
+
                             {/* Volume Control */}
                             <div
                                 className="relative flex items-center gap-2"
@@ -314,6 +413,25 @@ const VideoPlayer = ({ videoRef, activeCam, setActiveCam }: VideoPlayerProps) =>
                                     </button>
                                 </div>
                             </div>
+
+                            {/* Zoom Mode Toggle */}
+                            <button
+                                onClick={() => {
+                                    setZoomModeEnabled(!zoomModeEnabled);
+                                    // If disabling zoom mode, reset zoom
+                                    if (zoomModeEnabled) {
+                                        setZoom(1);
+                                        setPan({ x: 0, y: 0 });
+                                    }
+                                }}
+                                className={`px-3 py-1 text-xs rounded transition-colors ${zoomModeEnabled
+                                        ? 'bg-accent-primary text-white'
+                                        : 'bg-white/10 text-white/70 hover:bg-white/20'
+                                    }`}
+                                title={zoomModeEnabled ? "Disable Zoom Mode" : "Enable Zoom Mode"}
+                            >
+                                {zoomModeEnabled ? '🔍 Zoom: ON' : '🔍 Zoom: OFF'}
+                            </button>
 
                             {/* Settings Button & Modal */}
                             <div className="relative">

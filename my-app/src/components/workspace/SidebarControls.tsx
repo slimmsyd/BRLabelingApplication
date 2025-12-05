@@ -16,6 +16,8 @@ interface SidebarControlsProps {
         punchQuality: string;
         stance: string;
         landed: boolean;
+        punchResult: string;
+        defenseType: string;
     };
     setFormState: {
         setBoxer: (val: string) => void;
@@ -29,6 +31,8 @@ interface SidebarControlsProps {
         setPunchQuality: (val: string) => void;
         setStance: (val: string) => void;
         setLanded: (val: boolean) => void;
+        setPunchResult: (val: string) => void;
+        setDefenseType: (val: string) => void;
     };
     activeTimeMode: 'start' | 'end';
     setActiveTimeMode: (mode: 'start' | 'end') => void;
@@ -52,8 +56,8 @@ const SidebarControls = ({
     onCancelEdit,
     onUpdateEvent
 }: SidebarControlsProps) => {
-    const { boxer, startTime, endTime, punchType, hand, target, visibilityFlags, knockdown, punchQuality, stance, landed } = formState;
-    const { setBoxer, setStartTime, setEndTime, setPunchType, setHand, setTarget, setVisibilityFlags, setKnockdown, setPunchQuality, setStance, setLanded } = setFormState;
+    const { boxer, startTime, endTime, punchType, hand, target, visibilityFlags, knockdown, punchQuality, stance, landed, punchResult, defenseType } = formState;
+    const { setBoxer, setStartTime, setEndTime, setPunchType, setHand, setTarget, setVisibilityFlags, setKnockdown, setPunchQuality, setStance, setLanded, setPunchResult, setDefenseType } = setFormState;
 
     const parseTime = (timeStr: string): number => {
         if (!timeStr) return 0;
@@ -116,7 +120,9 @@ const SidebarControls = ({
             knockdown,
             punchQuality,
             stance,
-            landed,
+            landed, // Deprecated but kept for compat
+            punchResult,
+            defenseType: punchResult === 'Defended' ? defenseType : undefined,
             details: detailsStr,
             cam: activeCam
         };
@@ -141,6 +147,8 @@ const SidebarControls = ({
         setPunchQuality('1');
         setStance('Orthodox');
         setLanded(true);
+        setPunchResult('Landed');
+        setDefenseType('Guard');
         setActiveTimeMode('start');
 
         if (isEditing && onCancelEdit) {
@@ -148,8 +156,17 @@ const SidebarControls = ({
         }
     };
 
+    // Helper to determine if a hand is Lead or Rear based on Stance
+    const getHandLabel = (side: 'Left' | 'Right') => {
+        if (stance === 'Orthodox') {
+            return side === 'Left' ? 'Lead (L)' : 'Rear (R)';
+        } else {
+            return side === 'Right' ? 'Lead (R)' : 'Rear (L)';
+        }
+    };
+
     return (
-        <div className={`space-y-6 ${readOnly ? 'pointer-events-none' : ''}`}>
+        <div className={`space-y-6 overflow-y-auto scrollbar-hide ${readOnly ? 'pointer-events-none' : ''}`} style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
             {/* Timer Display */}
             <div className="bg-surface border border-border rounded-xl p-4">
                 <div className="grid grid-cols-2 gap-4 mb-4">
@@ -250,6 +267,42 @@ const SidebarControls = ({
                     </div>
                 </div>
 
+                {/* Punch Result - Moved up for better UX */}
+                <div className="mb-4">
+                    <label className="block text-xs font-medium text-foreground-secondary mb-1.5">Punch Result</label>
+                    <select
+                        value={punchResult}
+                        onChange={(e) => {
+                            setPunchResult(e.target.value);
+                            // Auto-update landed state for compat
+                            setLanded(e.target.value === 'Landed');
+                        }}
+                        disabled={readOnly}
+                        className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground focus:outline-none focus:border-accent-primary mb-3"
+                    >
+                        {['Landed', 'Missed', 'Unseen', 'Defended'].map(res => (
+                            <option key={res} value={res}>{res}</option>
+                        ))}
+                    </select>
+
+                    {/* Defense Type - Conditional */}
+                    {punchResult === 'Defended' && (
+                        <div className="mt-3 animate-in fade-in slide-in-from-top-2 duration-200">
+                            <label className="block text-xs font-medium text-foreground-secondary mb-1.5">Defense Type</label>
+                            <select
+                                value={defenseType}
+                                onChange={(e) => setDefenseType(e.target.value)}
+                                disabled={readOnly}
+                                className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground focus:outline-none focus:border-accent-primary"
+                            >
+                                {['Guard', 'Slip', 'Parry', 'Duck'].map(type => (
+                                    <option key={type} value={type}>{type}</option>
+                                ))}
+                            </select>
+                        </div>
+                    )}
+                </div>
+
                 {/* Punch Type & Quality */}
                 <div className="grid grid-cols-2 gap-3 mb-4">
                     <div>
@@ -270,14 +323,14 @@ const SidebarControls = ({
                         <select
                             value={punchQuality}
                             onChange={(e) => setPunchQuality(e.target.value)}
-                            disabled={!landed || readOnly}
-                            className={`w-full bg-background border border-border rounded-lg px-2 py-2 text-xs text-foreground focus:outline-none focus:border-accent-primary ${!landed ? 'opacity-50 cursor-not-allowed' : ''}`}
+                            disabled={punchResult !== 'Landed' || readOnly}
+                            className={`w-full bg-background border border-border rounded-lg px-2 py-2 text-xs text-foreground focus:outline-none focus:border-accent-primary ${punchResult !== 'Landed' ? 'opacity-50 cursor-not-allowed' : ''}`}
                         >
                             {['1', '2'].map(q => (
                                 <option key={q} value={q}>{q}</option>
                             ))}
                         </select>
-                        {!landed && (
+                        {punchResult !== 'Landed' && (
                             <p className="text-[10px] text-orange-400 mt-1">Quality only applies to landed punches</p>
                         )}
                     </div>
@@ -294,14 +347,14 @@ const SidebarControls = ({
                                     disabled={readOnly}
                                     className={`flex-1 py-1.5 text-[10px] font-medium rounded transition-colors cursor-pointer ${hand === 'Left' ? 'bg-white/10 text-foreground' : 'text-foreground-secondary hover:text-foreground'}`}
                                 >
-                                    Left
+                                    {getHandLabel('Left')}
                                 </button>
                                 <button
                                     onClick={() => setHand('Right')}
                                     disabled={readOnly}
                                     className={`flex-1 py-1.5 text-[10px] font-medium rounded transition-colors cursor-pointer ${hand === 'Right' ? 'bg-white/10 text-foreground' : 'text-foreground-secondary hover:text-foreground'}`}
                                 >
-                                    Right
+                                    {getHandLabel('Right')}
                                 </button>
                             </div>
                         </div>
@@ -382,32 +435,7 @@ const SidebarControls = ({
                     </div>
                 </div>
 
-                {/* Landed */}
-                <div className="mb-6">
-                    <label className="block text-xs font-medium text-foreground-secondary mb-3">Landed</label>
-                    <div className="flex gap-2">
-                        <button
-                            onClick={() => setLanded(true)}
-                            disabled={readOnly}
-                            className={`flex-1 py-2 px-3 rounded-lg text-xs font-medium transition-colors cursor-pointer ${landed
-                                ? 'bg-green-500 text-white'
-                                : 'bg-background border border-border text-foreground-secondary hover:text-foreground hover:border-foreground-secondary'
-                                }`}
-                        >
-                            YES
-                        </button>
-                        <button
-                            onClick={() => setLanded(false)}
-                            disabled={readOnly}
-                            className={`flex-1 py-2 px-3 rounded-lg text-xs font-medium transition-colors cursor-pointer ${!landed
-                                ? 'bg-accent-primary text-white'
-                                : 'bg-background border border-border text-foreground-secondary hover:text-foreground hover:border-foreground-secondary'
-                                }`}
-                        >
-                            NO
-                        </button>
-                    </div>
-                </div>
+
 
                 {/* Actions */}
                 <div className="flex items-center gap-2 pt-3 border-t border-border">
