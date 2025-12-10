@@ -1,0 +1,77 @@
+### Uploading segmented videos with several cameras
+This script is to be used on videos that have already been pre-segmented. Specifically generated for videos with more than one camera angle
+The program will work similarly to the above, but will not require a CSV file.
+If the ```--num_cameras``` flag is not added, the default will be 1.
+
+To start, ensure that the file structure of all videos follows this format from the directory where the program will be ran:
+```{bash}
+boxer1_boxer2_videos_folder
+├── R1\
+│ ├── "Cam 1 - R1.mp4"
+│ ├── "Cam 2 - R1.mp4"
+│ ├── "Cam 3 - R1.mp4"
+│ └── "Cam 4 - R1.mp4"
+├── R2\
+│ ├── "Cam 1 - R2.mp4"
+│ ├── "Cam 2 - R2.mp4"
+│ ├── "Cam 3 - R2.mp4"
+│ └── "Cam 4 - R2.mp4"
+└── R3\
+├── "Cam 1 - R3.mp4"
+├── "Cam 2 - R3.mp4"
+├── "Cam 3 - R3.mp4"
+└── "Cam 4 - R3.mp4"
+```
+
+These are the commands to run with the program:
+```{bash}
+positional arguments:
+  root_directory        Path to the root directory containing round folders (R1, R2, ...)
+  boxer1                Name of the first boxer
+  boxer2                Name of the second boxer
+  fight_date            The date of the fight. String format: YYYY-MM-DDZ e.g. 2020-10-31Z
+  fps                   Frames-per-second for the video (int)
+
+options:
+  -h, --help            show this help message and exit
+  --offense_labellers, -o OFFENSE_LABELLERS [OFFENSE_LABELLERS ...]
+                        Space-separated list of Offense labellers (default: murad, tom)
+  --defense_labellers, -d DEFENSE_LABELLERS [DEFENSE_LABELLERS ...]
+                        Space-separated list of Defense labellers (default: murad, tom)
+  --footwork_labellers, -f FOOTWORK_LABELLERS [FOOTWORK_LABELLERS ...]
+                        Space-separated list of Footwork labellers (default: murad, tom)
+  --env, -e ENV         Environment to upgrade (main|test). Default is main
+  --num_cameras NUM_CAMERAS
+                        Number of camera views (optional. Default = 1).
+```
+
+To run the program, follow this example:
+```{bash}
+python tools/import_cropped_video_data_source.py "boxer1_boxer2_videos_folder" "boxer 1" "boxer 2" 2025-04-28Z 25 --num_cameras 4
+```
+
+
+### Allocating a labeller to a video segment
+
+Script to add labeller to a label session based on labeller_name, video_description, segment, label_type
+e.g.
+
+```{bash}
+python tools/allocate_labeller.py tom "Bivol v Richards - 01 May 2021" --round all Defense
+```
+
+```{bash}
+python tools/allocate_labeller.py murad "Bivol v Richards - 01 May 2021" --round r2 Footwork
+```
+
+e.g. to replace a labeller
+
+```{bash}
+python tools/allocate_labeller.py adil "Bivol v Richards - 01 May 2021" --round all Footwork --replace tom
+```
+
+e.g. to delete a labeller
+
+```{bash}
+python tools/allocate_labeller.py tom "Bivol v Richards - 01 May 2021" --round all Defense --delete tom
+```

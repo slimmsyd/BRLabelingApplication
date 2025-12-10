@@ -1,0 +1,236 @@
+"""
+Test run:
+python import_cropped_video_data_source.py "bivol_sparring" "Bivol" "Sparring_test" 2024-09-06Z 25 --defense_labellers "erika" --env test --num_cameras 3
+"""
+
+import argparse
+import re
+import sys
+import uuid
+from datetime import datetime, timezone
+import boto3
+import os
+parent_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+sys.path.insert(0, parent_dir)
+import utils
+from utils.s3 import upload_file
+from tools.lib.config import get_config
+
+def main(root_directory, config, table_name):
+    session = boto3.Session()
+    dynamodb = session.resource('dynamodb')
+    table = dynamodb.Table(table_name)
+    num_camera_views = config.get('num_cameras', 1) # Get from config, default to 1
+
+    for round_dir_name in sorted(os.listdir(root_directory)):
+        round_path = os.path.join(root_directory, round_dir_name)
+        if os.path.isdir(round_path) and round_dir_name.startswith('R'):
+            round_num = int(round_dir_name[1:])
+            source_urls = []
+
+            for filename in os.listdir(round_path):
+                if filename.endswith('.mp4') and filename.startswith("Cam"):
+                    match = re.search(r"Cam (\d+) - R\d+\.mp4", filename)
+                    if match:
+                        cam_num = int(match.group(1))
+                        video_file_path = os.path.join(round_path, filename)
+
+                        # Construct S3 prefix
+                        boxer1_slug = config["boxer1"].lower().replace(" ", "")
+                        boxer2_slug = config["boxer2"].lower().replace(" ", "")
+                        filename_slug = f'{boxer1_slug}_{boxer2_slug}_c{cam_num}_r{round_num}.mp4'
+                        folder_prefix = f'{config["boxer1"]} v {config["boxer2"]}- {config["date"][:-1]}'
+                        prefix = f'{folder_prefix}/{filename_slug}'
+
+                        if s3_object_exists(config["s3_bucket"], prefix):
+                            choice = input(
+                                f'Warning: S3 file already exists: {prefix}\nDo you want to skip (s) or overwrite (o)? ').strip().lower()
+                            if choice == 's':
+                                print(f'Skipping upload for {prefix}')
+                                continue
+                            elif choice != 'o':
+                                print("Invalid choice. Skipping by default.")
+                                continue
+
+                        upload_video(
+                            segment_video = video_file_path,
+                            bucket = config["s3_bucket"],
+                            prefix = prefix
+                        )
+
+                        # Add S3 URL to list
+                        source_url = f'{config["source_url_prefix"]}/{prefix}'
+                        source_urls.append(source_url)
+
+            create_video_data_source_record(
+                table = table,
+                roundNum = round_num,
+                source_urls=source_urls,
+                config = config,
+                num_camera_views = num_camera_views
+            )
+
+def upload_video(segment_video, bucket, prefix):
+    print(f'[upload_video] segment_video={segment_video}, bucket={bucket}, prefix={prefix}')
+    upload_file(segment_video, bucket, prefix)
+
+# Check if S3 file already exists
+def s3_object_exists(bucket, key):
+    s3 = boto3.client("s3")
+    try:
+        s3.head_object(Bucket=bucket, Key=key)
+        return True
+    except s3.exceptions.ClientError as e:
+        if e.response['Error']['Code'] == "404":
+            return False
+        else:
+            raise  # Raise other errors (e.g. permission denied)
+
+def create_video_data_source_record(table, roundNum, source_urls, config, num_camera_views):
+    record_id = str(uuid.uuid4())
+    current_time = datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%S.%f')[:-3] + 'Z'
+    #source_urls = [f'{config["source_url_prefix"]}/{objectPrefix}']
+
+    new_record = {
+        'id': record_id,
+        'assignments': config['assignments'],
+        'boxer1': config['boxer1'],
+        'boxer2': config['boxer2'],
+        'createdAt': current_time,
+        'date': config['date'],
+        'description': f'{config["boxer1"]} v {config["boxer2"]} - {config["formatted_date_str"]}',
+        'fps': config['fps'],
+        'num_camera_views': num_camera_views,
+        'round': int(roundNum),
+        'segment': f'Seg 1',
+        'source_urls': source_urls,
+        'updatedAt': current_time,
+        '__typename': 'VideoDataSource'
+    }
+    table.put_item(Item=new_record)
+    print(f'[create_video_data_source_record] uuid={record_id}')
+
+def validate(args):
+    fight_date = args.fight_date
+    if not validate_date(fight_date):
+        raise ValueError("Fight date must have the format YYYY-MM-DDZ")
+
+def validate_date(date_str):
+    pattern = r'^\d{4}-\d{2}-\d{2}Z$'
+    if re.match(pattern, date_str):
+        try:
+            datetime.strptime(date_str[:-1], "%Y-%m-%d")
+            return True
+        except ValueError:
+            return False
+    return False
+
+def make_assignments_dict(offense_labellers, defense_labellers, footwork_labellers):
+    current_date = datetime.now(timezone.utc).strftime('%Y-%m-%d') + 'Z'
+    offense = [{"labellerName": labeller, "assignmentDate": current_date} for labeller in offense_labellers]
+    defense = [{"labellerName": labeller, "assignmentDate": current_date} for labeller in defense_labellers]
+    footwork = [{"labellerName": labeller, "assignmentDate": current_date} for labeller in footwork_labellers]
+    return {
+        "Offense": offense,
+        "Defense": defense,
+        "Footwork": footwork
+    }
+
+def ask_to_continue():
+    while True:
+        response = input("Do you want to continue? (Y/n): ").strip().lower()
+        if response == 'y':
+            print("Continuing...")
+            break
+        elif response == 'n':
+            print("Exiting the program.")
+            sys.exit()
+        else:
+            print("Invalid input. Please type 'Y' to continue or 'n' to exit.")
+
+def parse_args():
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        'root_directory',
+        help='Path to the root directory containing round folders (R1, R2, ...)')
+    parser.add_argument(
+        'boxer1',
+        help='Name of the first boxer')
+    parser.add_argument(
+        'boxer2',
+        help='Name of the second boxer')
+    parser.add_argument(
+        'fight_date',
+        help='The date of the fight. String format: YYYY-MM-DDZ e.g. 2020-10-31Z')
+    parser.add_argument(
+        'fps',
+        type=int,
+        help='Frames-per-second for the video (int)')
+    parser.add_argument(
+        '--offense_labellers',
+        '-o',
+        nargs='+',
+        default=['murad', 'tom', 'aqeelnew'],
+        help='Space-separated list of Offense labellers (default: murad, tom, aqeelnew)')
+    parser.add_argument(
+        '--defense_labellers',
+        '-d',
+        nargs='+',
+        default=['murad', 'tom', 'aqeelnew'],
+        help='Space-separated list of Defense labellers (default: murad, tom, aqeelnew)')
+    parser.add_argument(
+        '--footwork_labellers',
+        '-f',
+        nargs='+',
+        default=['murad', 'tom', 'aqeelnew'],
+        help='Space-separated list of Footwork labellers (default: murad, tom, aqeelnew)')
+    parser.add_argument(
+        '--env',
+        '-e',
+        default='main',
+        help="Environment to upgrade (main|test). Default is main")
+    parser.add_argument(
+        '--num_cameras',
+        type=int,
+        help='Number of camera views (optional)')
+
+    return parser.parse_args()
+
+if __name__ == '__main__':
+    args = parse_args()
+    validate(args)
+
+    tools_config = get_config(args.env)
+    table_name = tools_config.vds_table
+
+    boxer1 = args.boxer1
+    boxer2 = args.boxer2
+    fight_date = args.fight_date
+    fps = args.fps
+    assignments = make_assignments_dict(args.offense_labellers, args.defense_labellers, args.footwork_labellers)
+
+    date_obj = datetime.strptime(fight_date.replace('Z', ''), '%Y-%m-%d')
+    formatted_date_str = date_obj.strftime('%d %b %Y')
+
+    config = {
+        'boxer1': boxer1,
+        'boxer2': boxer2,
+        'date': fight_date,
+        'formatted_date_str': formatted_date_str,
+        'fps': fps,
+        'num_cameras': args.num_cameras,
+        's3_bucket': 'com.boxrawlabs.labelling-app-test-data.unsecured',
+        'source_url_prefix': 'https://do5dznmsu0r6j.cloudfront.net',
+        'assignments': assignments
+    }
+    config['description'] = f'{config["boxer1"]} v {config["boxer2"]} - {formatted_date_str}'
+
+    print(f'Running import with this config:')
+    print(config)
+    ask_to_continue()
+
+    main(
+        root_directory = args.root_directory,
+        config = config,
+        table_name = table_name
+    )

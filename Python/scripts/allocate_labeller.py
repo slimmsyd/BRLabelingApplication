@@ -1,0 +1,257 @@
+"""
+Script to add labeller to a label session based on labeller_name, video_description, round, label_type
+e.g.
+python tools/allocate_labeller.py tom "Bivol v Richards - 01 May 2021" --round all Defense
+
+python tools/allocate_labeller.py murad "Bivol v Richards - 01 May 2021" --round r2 Footwork
+
+e.g. to replace a labeller
+python tools/allocate_labeller.py adil "Bivol v Richards - 01 May 2021" --round all Footwork --replace tom
+
+e.g. to delete a labeller
+python tools/allocate_labeller.py tom "Bivol v Richards - 01 May 2021" --round all Defense --delete tom
+
+e.g. for test environment
+python tools/allocate_labeller.py tom "Bivol v Richards - 01 May 2021" --round all Defense --delete tom --env test
+
+e.g. to add one labeller to a fight with multiple rounds
+python tools/allocate_labeller.py erika "Benavidez v Medina - 20 May 2017" --multiple_rounds "r7,r4" Defense
+"""
+
+import argparse
+import boto3
+from datetime import datetime, timezone
+from lib.config import get_config
+
+def main(labeller_name, fight_description, round_selector, labeller_to_replace, labeller_to_delete, label_type, table):
+    if isinstance(round_selector, list):  # This means --multiple_rounds was used
+        rounds = get_rounds_from_description(fight_description, round_selector, table, use_multiple_rounds=True)
+    else:  # This means the positional 'rounds' arg was used ('all' or 'rX')
+        if round_selector != "all" and not round_selector.startswith('r'):
+            raise ValueError(
+                "Incorrect round statement. Use 'all', 'r<integer>', or --multiple_rounds with 'r1,r2,...'.")
+        rounds = get_rounds_from_description(fight_description, round_selector, table, use_multiple_rounds=False)
+
+    for sourceId in rounds:
+        assignments = rounds[sourceId]
+
+        if labeller_to_replace is None and labeller_to_delete is None:
+            assignments = add_labeller_to_named_assignments(labeller_name, assignments, label_type)
+        elif labeller_to_delete:
+            assignments = delete_labeller_from_named_assignments(labeller_to_delete, assignments, label_type)
+        else:
+            assignments = replace_labeller_in_named_assignments(labeller_name, labeller_to_replace, assignments, label_type)
+
+        output_assignment_message(sourceId, assignments, label_type)
+        assign_labeller(sourceId, assignments, table)
+        #print(f"Final assignments for {sourceId}: {assignments}")
+
+def add_labeller_to_all_assignments(labeller, assignments):
+    assignments = add_labeller_to_named_assignments(labeller, assignments, "Offense")
+    assignments = add_labeller_to_named_assignments(labeller, assignments, "Defense")
+    assignments = add_labeller_to_named_assignments(labeller, assignments, "Footwork")
+    return assignments
+
+def add_labeller_to_named_assignments(labeller, assignments, name):
+    if name not in ['Offense', 'Defense', 'Footwork']:
+        return assignments
+
+    if name not in assignments:
+        #print(f"Initializing {name} in assignments for round.")
+        assignments[name] = []
+
+    labellers = [entry['labellerName'] for entry in assignments[name]]
+    if labeller not in labellers:
+        current_date = datetime.now(timezone.utc).strftime('%Y-%m-%d') + 'Z'
+        assignments[name].append(
+            {
+                "labellerName": labeller,
+                "assignmentDate": current_date
+            }
+        )
+    return assignments
+
+def replace_labeller_in_all_assignments(labeller, labeller_to_replace, assignments):
+    assignments = replace_labeller_in_named_assignments(labeller, labeller_to_replace, assignments, "Offense")
+    assignments = replace_labeller_in_named_assignments(labeller, labeller_to_replace, assignments, "Defense")
+    assignments = replace_labeller_in_named_assignments(labeller, labeller_to_replace, assignments, "Footwork")
+    return assignments
+
+def replace_labeller_in_named_assignments(labeller, labeller_to_replace, assignments, name):
+    if name not in ['Offense', 'Defense', 'Footwork']:
+        return assignments
+    
+    labellers = [entry['labellerName'] for entry in assignments[name]]
+    
+    if labeller in labellers:
+        # nothing to do
+        return assignments
+    
+    if labeller_to_replace not in labellers:
+        # nothing to replace
+        return assignments
+    
+    entry_to_delete = None
+    for entry in assignments[name]:
+        if entry["labellerName"] == labeller_to_replace:
+            entry_to_delete = entry
+    assert entry_to_delete is not None
+    assignments[name].remove(entry_to_delete)
+
+    assignments = add_labeller_to_named_assignments(labeller, assignments, name)
+    
+    return assignments
+
+def delete_labeller_from_named_assignments(labeller, assignments, name):
+    if name not in ['Offense', 'Defense', 'Footwork']:
+        return assignments
+    # If there are no assignments to modify
+    if name not in assignments or not assignments[name]:
+        return assignments
+
+    assignments[name] = [entry for entry in assignments[name] if entry["labellerName"] != labeller]
+
+    return assignments
+
+def get_rounds_from_description(description, round_selector, table, use_multiple_rounds=False):
+    # Perform the scan operation with a filter expression to match the description
+    rounds = {}
+    last_evaluated_key = None
+
+    while True:
+        # Dynamically build the scan parameters
+        # Pagination needed for large amounts for data
+        scan_params = {
+            "FilterExpression": "description = :desc",
+            "ExpressionAttributeValues": {":desc": description}
+        }
+        if last_evaluated_key:
+            scan_params["ExclusiveStartKey"] = last_evaluated_key
+
+        # Perform the scan
+        response = table.scan(**scan_params)
+        items = response.get('Items', [])
+
+        # Extract the matching items
+        for item in items:
+            sourceId = item['id']
+            # Use .get with a default empty dict for assignments
+            # in case 'assignments' is missing from the item
+            assignments = item.get('assignments', {})
+
+            # Cleaner way to ensure all label types are initialized
+            for label_type in ['Offense', 'Defense', 'Footwork']:
+                assignments.setdefault(label_type, [])
+
+            roundNum = item['round']
+            if use_multiple_rounds:
+                # round_selector is expected to be a list of integers here
+                if roundNum in round_selector:
+                    rounds[sourceId] = assignments
+            elif round_selector == 'all':
+                rounds[sourceId] = assignments
+            elif round_selector.startswith('r'):
+                targetRound = int(round_selector[1:])
+                if roundNum == targetRound:
+                    rounds[sourceId] = assignments
+
+        # Check if there are more items to retrieve
+        last_evaluated_key = response.get('LastEvaluatedKey')
+        if not last_evaluated_key:
+            break
+
+    return rounds
+
+
+def assign_labeller(sourceId, assignments, table):
+
+     # Update the item in the DynamoDB table
+    table.update_item(
+        Key={'id': sourceId},
+        UpdateExpression="set assignments = :val",
+        ExpressionAttributeValues={":val": assignments}
+    )
+
+def output_assignment_message(sourceId, assignments, label_type):
+    if label_type not in assignments:
+        print(f"Warning: '{label_type}' not found in assignments for {sourceId}.")
+        return
+
+    target_assignments = assignments[label_type]
+    names = [assignment['labellerName'] for assignment in target_assignments]
+    print(f'Allocating {names} to {label_type} section of {sourceId}')
+
+def parse_args():
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        'name', 
+        help='Username of labeller to allocate')
+    parser.add_argument(
+        'description', 
+        help='Which fight to allocate to (matches to description field in VideoDataSource)')
+
+    group = parser.add_mutually_exclusive_group(required=True)
+
+    group.add_argument(
+        '--round',
+        help='The rounds of the fight to allocate. Either "all" in which case all rounds or "r<integer>" in which case just rounds for that round')
+    group.add_argument(
+        '--multiple_rounds',
+        default=None,
+        help='Comma-separated list of rounds to allocate (e.g., "r1,r2,r5"). Cannot be used with the "rounds" argument.'
+        )
+    parser.add_argument(
+        'label_type',
+        choices=['Offense', 'Defense', 'Footwork'],
+        help='Either Offense, Defense or Footwork - selects the type of labelling assigned')
+    parser.add_argument(
+        '--replace', 
+        default=None, 
+        help='If set the name of a labeller to be replaced. Default: None')
+    parser.add_argument(
+        '--delete',
+        default=None,
+        help='Labeller to be deleted. Default: None')
+    parser.add_argument(
+        '--env', 
+        '-e', 
+        default='main', 
+        help="Environment to upgrade (main|test)")
+    return parser.parse_args()
+
+if __name__ == '__main__':
+    args = parse_args()
+    config = get_config(args.env)
+    print(args)
+    print(dir(config))
+
+    # Initialize the DynamoDB resource
+    print(f'Initialising with DynamoDB table {config.vds_table}')
+    dynamodb = boto3.resource('dynamodb')
+    table = dynamodb.Table(config.vds_table)
+
+    round_selector_for_main = None
+    if args.multiple_rounds:
+        try:
+            # Parse the comma-separated rounds like "r1,r2,r5" into a list of integers [1, 2, 5]
+            round_selector_for_main = [int(r.strip()[1:]) for r in args.multiple_rounds.split(',') if
+                                         r.strip().startswith('r')]
+            if not round_selector_for_main:
+                raise ValueError("No valid rounds found in --multiple_rounds input.")
+        except ValueError as e:
+            print(f"Error parsing --multiple_rounds: {e}. Expected format: 'r1,r2,r5'")
+            exit(1)
+    elif args.round:  # This will be the value from the --rounds flag
+        round_selector_for_main = args.round
+    # No 'else' needed here because `required=True` on the mutually exclusive group ensures one is set
+
+    main(
+        labeller_name=args.name,
+        fight_description=args.description,
+        round_selector=round_selector_for_main,  # Pass the processed value
+        labeller_to_replace=args.replace,
+        labeller_to_delete=args.delete,
+        label_type=args.label_type,
+        table=table
+    )
+

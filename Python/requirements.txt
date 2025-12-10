@@ -1,0 +1,6 @@
+# Python dependencies for BoxRaw Labs Labeling Application Scripts
+
+# AWS SDK for Python - DynamoDB and S3 operations
+boto3>=1.34.0
+
+# Add other dependencies as needed
