@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import WorkspaceHeader from '@/components/workspace/WorkspaceHeader';
 import VideoPlayer from '@/components/workspace/VideoPlayer';
@@ -28,7 +28,7 @@ interface VideoData {
     updatedAt: string;
 }
 
-export default function WorkspacePage() {
+function WorkspacePage() {
     const searchParams = useSearchParams();
     const videoId = searchParams.get('videoId');
 
@@ -588,5 +588,26 @@ export default function WorkspacePage() {
                 onClose={() => setShowSuccessModal(false)}
             />
         </div>
+    );
+}
+
+// Loading component for Suspense boundary
+function WorkspaceLoading() {
+    return (
+        <div className="min-h-screen bg-background text-foreground flex items-center justify-center">
+            <div className="text-center">
+                <Loader2 size={48} className="animate-spin text-accent-primary mx-auto mb-4" />
+                <p className="text-foreground-secondary">Loading workspace...</p>
+            </div>
+        </div>
+    );
+}
+
+// Export wrapped component with Suspense boundary
+export default function WorkspacePageWithSuspense() {
+    return (
+        <Suspense fallback={<WorkspaceLoading />}>
+            <WorkspacePage />
+        </Suspense>
     );
 }
