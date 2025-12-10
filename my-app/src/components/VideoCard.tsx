@@ -16,9 +16,10 @@ interface VideoCardProps {
         email: string;
         status: string;
     };
+    thumbnailUrl?: string;
 }
 
-const VideoCard = ({ id, title, boxer1, boxer2, round, fightDate, numCameraViews, createdAt, assignee }: VideoCardProps) => {
+const VideoCard = ({ id, title, boxer1, boxer2, round, fightDate, numCameraViews, createdAt, assignee, thumbnailUrl }: VideoCardProps) => {
     // Format the fight date
     const formattedDate = new Date(fightDate).toLocaleDateString('en-US', {
         month: 'short',
@@ -38,7 +39,18 @@ const VideoCard = ({ id, title, boxer1, boxer2, round, fightDate, numCameraViews
 
                 <div className="relative aspect-[4/3] bg-black/40 overflow-hidden p-4">
                     <div className="w-full h-full rounded-lg overflow-hidden relative">
-                        <div className="absolute inset-0 bg-gradient-to-br from-gray-800 to-gray-900 group-hover:scale-105 transition-transform duration-500" />
+                        {thumbnailUrl ? (
+                            <video
+                                src={thumbnailUrl}
+                                className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                                muted
+                                playsInline
+                            // onMouseOver={(e) => e.currentTarget.play()}
+                            // onMouseOut={(e) => { e.currentTarget.pause(); e.currentTarget.currentTime = 0; }}
+                            />
+                        ) : (
+                            <div className="absolute inset-0 bg-gradient-to-br from-gray-800 to-gray-900 group-hover:scale-105 transition-transform duration-500" />
+                        )}
 
                         {/* Camera Count Badge */}
                         <div className="absolute top-2 left-2 z-10">

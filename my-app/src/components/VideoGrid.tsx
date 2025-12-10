@@ -13,6 +13,7 @@ interface Video {
     round: number;
     fightDate: string;
     numCameraViews: number;
+    sourceUrls: string[];
     createdAt: string;
     assignments?: Array<{
         user: {
@@ -87,6 +88,7 @@ const VideoGrid = () => {
                                 ...video.assignments[0].user,
                                 status: video.assignments[0].status
                             } : undefined}
+                            thumbnailUrl={video.sourceUrls?.[0]}
                         />
                     ))}
 
