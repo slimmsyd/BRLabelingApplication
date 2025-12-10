@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "generate-icons": "./scripts/generate-icons.sh"
+    "generate-icons": "./scripts/generate-icons.sh",
+    "postinstall": "prisma generate"
   },
   "dependencies": {
     "@aws-sdk/client-dynamodb": "^3.947.0",
