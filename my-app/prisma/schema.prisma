@@ -28,6 +28,12 @@ enum VideoStatus {
   COMPLETED     // Fully completed
 }
 
+enum LabelType {
+  OFFENSE
+  DEFENSE
+  FOOTWORK
+}
+
 model User {
   id               String             @id @default(cuid())
   email            String             @unique
@@ -41,24 +47,54 @@ model User {
   videoAssignments VideoAssignment[]  // Videos assigned to this user
 }
 
+enum StorageProvider {
+  SUPABASE
+  S3
+  HYBRID  // For videos split across providers
+}
+
 model Video {
   id          String             @id @default(cuid())
-  title       String
-  description String?
-  fileUrl     String             // URL/path to the video file
-  duration    Int?               // Duration in seconds
-  metadata    Json?              // Additional metadata (resolution, fps, etc.)
+  
+  // Storage location (provider-agnostic)
+  storagePath      String        @unique  // e.g., "bivol_canelo/r3/cam1.mp4"
+  storageProvider  StorageProvider @default(SUPABASE)
+  
+  // Fight Metadata (synced from storage)
+  title       String                      // e.g., "Bivol v Canelo - R3"
+  description String?                     // Full description
+  boxer1      String                      // First boxer name
+  boxer2      String                      // Second boxer name
+  weightClass String?                     // e.g., "Welterweight"
+  round       Int                         // Round number
+  segment     String             @default("Seg 1")  // Segment identifier
+  fightDate   DateTime                    // Date of the fight
+  
+  // Video Technical Details
+  fps         Int                         // Frames per second
+  numCameraViews Int                      // Number of camera angles (1-3)
+  sourceUrls  Json                        // Array of public URLs (Supabase or S3/CloudFront)
+  duration    Int?                        // Duration in seconds
+  
+  // Upload Tracking
+  uploadedBy  String?                     // User ID who uploaded (optional)
   createdAt   DateTime           @default(now())
   updatedAt   DateTime           @updatedAt
   
   // Relations
   assignments VideoAssignment[]  // All assignments for this video
+  
+  @@index([storagePath])
+  @@index([storageProvider])
+  @@index([uploadedBy])
+  @@index([fightDate])
 }
 
 model VideoAssignment {
   id            String       @id @default(cuid())
   videoId       String
   userId        String
+  labelType     LabelType    // Type of labeling: Offense, Defense, or Footwork
   status        VideoStatus  @default(ASSIGNED)
   
   // Tracking timestamps
@@ -78,11 +114,12 @@ model VideoAssignment {
   user          User         @relation(fields: [userId], references: [id], onDelete: Cascade)
   events        Event[]      // Relation to events
   
-  // Ensure a video can only be assigned to a user once at a time
-  @@unique([videoId, userId])
+  // User can be assigned same video for different label types
+  @@unique([videoId, userId, labelType])
   @@index([userId])
   @@index([videoId])
   @@index([status])
+  @@index([labelType])
 }
 
 model Event {

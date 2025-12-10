@@ -5,10 +5,14 @@ interface VideoPlayerProps {
     videoRef: RefObject<HTMLVideoElement | null>;
     activeCam: string;
     setActiveCam: (cam: string) => void;
-    videoSrc?: string;
+    videoSources?: {
+        cam1?: string;
+        cam2?: string;
+        cam3?: string;
+    };
 }
 
-const VideoPlayer = ({ videoRef, activeCam, setActiveCam, videoSrc }: VideoPlayerProps) => {
+const VideoPlayer = ({ videoRef, activeCam, setActiveCam, videoSources }: VideoPlayerProps) => {
     const [isPlaying, setIsPlaying] = useState(false);
     const [currentTime, setCurrentTime] = useState(0);
     const [duration, setDuration] = useState(0);
@@ -270,23 +274,55 @@ const VideoPlayer = ({ videoRef, activeCam, setActiveCam, videoSrc }: VideoPlaye
         setCustomSkipInput(duration.toString());
     };
 
+    // Get current video source based on active camera
+    const getCurrentVideoSrc = (): string | undefined => {
+        if (!videoSources) return undefined;
+
+        switch (activeCam) {
+            case 'CAM 1':
+                return videoSources.cam1;
+            case 'CAM 2':
+                return videoSources.cam2;
+            case 'CAM 3':
+                return videoSources.cam3;
+            default:
+                return videoSources.cam1;
+        }
+    };
+
+    // Get available cameras (only those with video sources)
+    const availableCameras = React.useMemo(() => {
+        if (!videoSources) return [];
+
+        const cameras: string[] = [];
+        if (videoSources.cam1) cameras.push('CAM 1');
+        if (videoSources.cam2) cameras.push('CAM 2');
+        if (videoSources.cam3) cameras.push('CAM 3');
+
+        return cameras;
+    }, [videoSources]);
+
+    const currentVideoSrc = getCurrentVideoSrc();
+
     return (
         <div className="flex flex-col gap-4">
-            {/* Camera Tabs */}
-            <div className="flex items-center gap-1">
-                {['CAM 1', 'CAM 2', 'CAM 3'].map((cam) => (
-                    <button
-                        key={cam}
-                        onClick={() => setActiveCam(cam)}
-                        className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-colors ${activeCam === cam
-                            ? 'bg-surface text-accent-primary border-t border-x border-border'
-                            : 'text-foreground-secondary hover:text-foreground hover:bg-white/5'
-                            }`}
-                    >
-                        {cam}
-                    </button>
-                ))}
-            </div>
+            {/* Camera Tabs - Only show available cameras */}
+            {availableCameras.length > 0 && (
+                <div className="flex items-center gap-1">
+                    {availableCameras.map((cam) => (
+                        <button
+                            key={cam}
+                            onClick={() => setActiveCam(cam)}
+                            className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-colors ${activeCam === cam
+                                ? 'bg-surface text-accent-primary border-t border-x border-border'
+                                : 'text-foreground-secondary hover:text-foreground hover:bg-white/5'
+                                }`}
+                        >
+                            {cam}
+                        </button>
+                    ))}
+                </div>
+            )}
 
             {/* Video Container */}
             <div
@@ -300,7 +336,7 @@ const VideoPlayer = ({ videoRef, activeCam, setActiveCam, videoSrc }: VideoPlaye
                 >
                     <video
                         ref={videoRef}
-                        src={videoSrc || ''}
+                        src={currentVideoSrc || ''}
                         className="w-full h-full object-contain"
                         style={{
                             transform: `scale(${zoom}) translate(${pan.x / zoom}px, ${pan.y / zoom}px)`,

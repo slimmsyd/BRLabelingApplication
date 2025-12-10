@@ -20,8 +20,12 @@ const UploadPage = () => {
     const [boxer2, setBoxer2] = useState('');
     const [weightClass, setWeightClass] = useState('');
     const [round, setRound] = useState(1);
+    const [fightDate, setFightDate] = useState('');
+    const [fps, setFps] = useState(25);
     const [uploading, setUploading] = useState(false);
     const [error, setError] = useState('');
+    const [uploadProgress, setUploadProgress] = useState({ cam1: 0, cam2: 0, cam3: 0 });
+    const [dragActive, setDragActive] = useState({ cam1: false, cam2: false, cam3: false });
 
     const fileInputRefs = {
         cam1: useRef<HTMLInputElement>(null),
@@ -34,6 +38,41 @@ const UploadPage = () => {
             const selectedFile = e.target.files[0];
             setFiles(prev => ({ ...prev, [cam]: selectedFile }));
             setError('');
+        }
+    };
+
+    const handleDrag = (e: React.DragEvent<HTMLDivElement>) => {
+        e.preventDefault();
+        e.stopPropagation();
+    };
+
+    const handleDragEnter = (cam: string, e: React.DragEvent<HTMLDivElement>) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setDragActive(prev => ({ ...prev, [cam]: true }));
+    };
+
+    const handleDragLeave = (cam: string, e: React.DragEvent<HTMLDivElement>) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setDragActive(prev => ({ ...prev, [cam]: false }));
+    };
+
+    const handleDrop = (cam: string, e: React.DragEvent<HTMLDivElement>) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setDragActive(prev => ({ ...prev, [cam]: false }));
+
+        if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+            const droppedFile = e.dataTransfer.files[0];
+
+            // Validate file type
+            if (droppedFile.type.startsWith('video/')) {
+                setFiles(prev => ({ ...prev, [cam]: droppedFile }));
+                setError('');
+            } else {
+                setError('Please drop a valid video file (MP4, MOV, WebM)');
+            }
         }
     };
 
@@ -53,21 +92,46 @@ const UploadPage = () => {
             return;
         }
 
+        if (!fightDate) {
+            setError('Please select a fight date.');
+            return;
+        }
+
         setUploading(true);
         setError('');
+        setUploadProgress({ cam1: 0, cam2: 0, cam3: 0 });
 
         try {
-            await new Promise(resolve => setTimeout(resolve, 2000));
-            console.log('Uploading:', {
-                files,
-                boxer1,
-                boxer2,
-                weightClass,
-                round
+            // Create FormData
+            const formData = new FormData();
+            formData.append('boxer1', boxer1);
+            formData.append('boxer2', boxer2);
+            formData.append('weightClass', weightClass);
+            formData.append('round', round.toString());
+            formData.append('fightDate', fightDate);
+            formData.append('fps', fps.toString());
+
+            // Add video files
+            if (files.cam1) formData.append('cam1', files.cam1);
+            if (files.cam2) formData.append('cam2', files.cam2);
+            if (files.cam3) formData.append('cam3', files.cam3);
+
+            // Upload to API
+            const response = await fetch('/api/videos/upload', {
+                method: 'POST',
+                body: formData
             });
-            router.push('/');
+
+            const data = await response.json();
+
+            if (!response.ok) {
+                throw new Error(data.error || 'Upload failed');
+            }
+
+            // Success - redirect to home
+            router.push('/?uploadSuccess=true');
         } catch (err) {
-            setError('Upload failed. Please try again.');
+            setError(err instanceof Error ? err.message : 'Upload failed. Please try again.');
         } finally {
             setUploading(false);
         }
@@ -101,11 +165,17 @@ const UploadPage = () => {
                                     </label>
 
                                     <div
-                                        className={`relative border-2 border-dashed rounded-xl p-6 text-center transition-colors cursor-pointer min-h-[200px] flex flex-col items-center justify-center ${files[cam]
-                                            ? 'border-accent-primary bg-accent-primary/5'
-                                            : 'border-border hover:border-foreground-secondary hover:bg-surface-hover'
+                                        className={`relative border-2 border-dashed rounded-xl p-6 text-center transition-all cursor-pointer min-h-[200px] flex flex-col items-center justify-center ${dragActive[cam as keyof typeof dragActive]
+                                            ? 'border-accent-primary bg-accent-primary/10 shadow-lg shadow-accent-primary/20 scale-[1.02]'
+                                            : files[cam]
+                                                ? 'border-accent-primary bg-accent-primary/5'
+                                                : 'border-border hover:border-foreground-secondary hover:bg-surface-hover'
                                             }`}
                                         onClick={() => fileInputRefs[cam as keyof typeof fileInputRefs].current?.click()}
+                                        onDragEnter={(e) => handleDragEnter(cam, e)}
+                                        onDragOver={handleDrag}
+                                        onDragLeave={(e) => handleDragLeave(cam, e)}
+                                        onDrop={(e) => handleDrop(cam, e)}
                                     >
                                         <input
                                             type="file"
@@ -146,7 +216,7 @@ const UploadPage = () => {
                                                 </div>
                                                 <div>
                                                     <p className="font-medium text-foreground text-sm mb-0.5">
-                                                        Upload Video
+                                                        {dragActive[cam as keyof typeof dragActive] ? 'Drop video here' : 'Click or drag to upload'}
                                                     </p>
                                                     <p className="text-[10px] text-foreground-secondary">
                                                         MP4, MOV, WebM
@@ -208,6 +278,21 @@ const UploadPage = () => {
                                 </div>
 
                                 <div>
+                                    <label className="block text-sm font-medium text-foreground-secondary mb-1.5">
+                                        Fight Date
+                                    </label>
+                                    <input
+                                        type="date"
+                                        required
+                                        value={fightDate}
+                                        onChange={(e) => setFightDate(e.target.value)}
+                                        className="w-full bg-background border border-border rounded-lg py-2.5 px-4 text-foreground placeholder:text-foreground-secondary/50 focus:outline-none focus:ring-2 focus:ring-accent-primary/50 focus:border-accent-primary transition-all"
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div>
                                     <label className="block text-sm font-medium text-foreground-secondary mb-3">
                                         Round
                                     </label>
@@ -226,6 +311,21 @@ const UploadPage = () => {
                                             </button>
                                         ))}
                                     </div>
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm font-medium text-foreground-secondary mb-1.5">
+                                        FPS (Frames Per Second)
+                                    </label>
+                                    <input
+                                        type="number"
+                                        min="1"
+                                        max="120"
+                                        value={fps}
+                                        onChange={(e) => setFps(parseInt(e.target.value))}
+                                        className="w-full bg-background border border-border rounded-lg py-2.5 px-4 text-foreground placeholder:text-foreground-secondary/50 focus:outline-none focus:ring-2 focus:ring-accent-primary/50 focus:border-accent-primary transition-all"
+                                        placeholder="25"
+                                    />
                                 </div>
                             </div>
                         </div>
@@ -247,7 +347,7 @@ const UploadPage = () => {
                             <button
                                 type="submit"
                                 disabled={uploading || !files.cam1}
-                                className="px-6 py-2.5 bg-accent-primary text-white text-sm font-medium rounded-lg hover:bg-accent-primary/90 transition-colors shadow-lg shadow-accent-primary/20 flex items-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
+                                className="px-6 py-2.5 cursor-pointer bg-accent-primary text-white text-sm font-medium rounded-lg hover:bg-accent-primary/90 transition-colors shadow-lg shadow-accent-primary/20 flex items-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
                             >
                                 {uploading ? (
                                     <>

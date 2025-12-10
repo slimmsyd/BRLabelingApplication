@@ -1,13 +1,43 @@
 "use client";
 
 import React, { useState, useRef, useEffect } from 'react';
+import { useSearchParams } from 'next/navigation';
 import WorkspaceHeader from '@/components/workspace/WorkspaceHeader';
 import VideoPlayer from '@/components/workspace/VideoPlayer';
 import EventLog, { EventData } from '@/components/workspace/EventLog';
 import SidebarControls from '@/components/workspace/SidebarControls';
 import SuccessModal from '@/components/SuccessModal';
+import { Loader2 } from 'lucide-react';
+
+interface VideoData {
+    id: string;
+    title: string;
+    description?: string;
+    boxer1: string;
+    boxer2: string;
+    round: number;
+    segment: string;
+    fightDate: string;
+    fps: number;
+    numCameraViews: number;
+    sourceUrls: any; // JSON field
+    storagePath: string;
+    storageProvider: string;
+    duration?: number;
+    createdAt: string;
+    updatedAt: string;
+}
 
 export default function WorkspacePage() {
+    const searchParams = useSearchParams();
+    const videoId = searchParams.get('videoId');
+
+    const [videoData, setVideoData] = useState<VideoData | null>(null);
+    const [videoLoading, setVideoLoading] = useState(true);
+    const [videoError, setVideoError] = useState<string | null>(null);
+    const [assignment, setAssignment] = useState<any>(null);
+    const [user, setUser] = useState<{ userId: string; email: string; accountType: string } | null>(null);
+
     const [events, setEvents] = useState<EventData[]>([]);
     const videoRef = useRef<HTMLVideoElement>(null);
 
@@ -52,6 +82,56 @@ export default function WorkspacePage() {
         }
         if (savedIsSubmitted) setIsSubmitted(JSON.parse(savedIsSubmitted));
     }, []);
+
+    // Fetch video data when videoId is available
+    useEffect(() => {
+        const fetchVideo = async () => {
+            if (!videoId) {
+                setVideoLoading(false);
+                setVideoError('No video ID provided');
+                return;
+            }
+
+            try {
+                setVideoLoading(true);
+                const response = await fetch(`/api/videos/${videoId}`);
+
+                if (!response.ok) {
+                    throw new Error('Failed to fetch video');
+                }
+
+                const data = await response.json();
+                setVideoData(data.video);
+                setVideoError(null);
+            } catch (err) {
+                setVideoError(err instanceof Error ? err.message : 'Failed to load video');
+            } finally {
+                setVideoLoading(false);
+            }
+        };
+
+        fetchVideo();
+    }, [videoId]);
+
+    // Fetch assignment when video is loaded
+    useEffect(() => {
+        const fetchAssignment = async () => {
+            if (!videoId) return;
+
+            try {
+                // Fetch assignment without userId to get *any* existing assignment (default OFFENSE)
+                const response = await fetch(`/api/videos/${videoId}/assignment`);
+                if (response.ok) {
+                    const data = await response.json();
+                    setAssignment(data.assignment);
+                }
+            } catch (err) {
+                console.error('Failed to fetch assignment:', err);
+            }
+        };
+
+        fetchAssignment();
+    }, [videoId]); // Removed user dependency to allow fetching before user loads, and to get global state
 
     // Save to localStorage whenever critical state changes
     useEffect(() => {
@@ -226,8 +306,6 @@ export default function WorkspacePage() {
         return flagOrder.map(flag => flags.includes(flag) ? 1 : 0);
     };
 
-    const [user, setUser] = useState<{ userId: string; email: string; accountType: string } | null>(null);
-
     // Fetch user on mount
     useEffect(() => {
         const fetchUser = async () => {
@@ -345,10 +423,16 @@ export default function WorkspacePage() {
     };
 
     // RBAC Logic
+    // RBAC Logic
     const canEdit = React.useMemo(() => {
         if (!user) return false;
 
         if (user.accountType === 'ADMIN') return true;
+
+        // Check if user is assigned to this video
+        const isAssignedToUser = assignment?.userId === user.userId;
+
+        if (!isAssignedToUser) return false; // Must be assigned to edit (unless Admin)
 
         if (user.accountType === 'LABELER') {
             return !isSubmitted; // Labelers can only edit if NOT submitted
@@ -359,7 +443,7 @@ export default function WorkspacePage() {
         }
 
         return false;
-    }, [user, isSubmitted]);
+    }, [user, isSubmitted, assignment]);
 
     // Read-only state derived from canEdit
     // If canEdit is true, readOnly is false.
@@ -369,6 +453,69 @@ export default function WorkspacePage() {
     // If we are in QC mode (and allowed to be), sidebar should be editable for corrections
     // But if we are a Labeler and it's submitted, it's read-only.
     const isSidebarReadOnly = isReadOnly;
+
+    // Parse video sources from videoData
+    const videoSources = React.useMemo(() => {
+        if (!videoData?.sourceUrls) return undefined;
+
+        const urls = videoData.sourceUrls;
+        return {
+            cam1: urls.cam1 || urls[0],
+            cam2: urls.cam2 || urls[1],
+            cam3: urls.cam3 || urls[2],
+        };
+    }, [videoData]);
+
+    // Show loading state
+    if (videoLoading) {
+        return (
+            <div className="min-h-screen bg-background text-foreground flex items-center justify-center">
+                <div className="text-center">
+                    <Loader2 size={48} className="animate-spin text-accent-primary mx-auto mb-4" />
+                    <p className="text-foreground-secondary">Loading video...</p>
+                </div>
+            </div>
+        );
+    }
+
+    // Show error state
+    if (videoError || !videoData) {
+        return (
+            <div className="min-h-screen bg-background text-foreground flex items-center justify-center">
+                <div className="text-center max-w-md">
+                    <p className="text-red-500 mb-4">{videoError || 'Video not found'}</p>
+                    <a href="/" className="text-accent-primary hover:underline">
+                        Return to Dashboard
+                    </a>
+                </div>
+            </div>
+        );
+    }
+
+    const handleAssign = async () => {
+        if (!user?.userId || !user?.email || !videoId) return;
+
+        try {
+            const response = await fetch(`/api/videos/${videoId}/assign`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    userId: user.userId,
+                    email: user.email,
+                }),
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                setAssignment(data.assignment);
+            } else {
+                alert('Failed to assign video');
+            }
+        } catch (err) {
+            console.error('Assignment error:', err);
+            alert('Error assigning video');
+        }
+    };
 
     return (
         <div className="min-h-screen bg-background text-foreground flex flex-col font-sans">
@@ -382,6 +529,11 @@ export default function WorkspacePage() {
                     if (isQCMode) handleCancelEdit(); // Clear selection when exiting QC mode
                 }}
                 showQCToggle={user?.accountType === 'ADMIN' || user?.accountType === 'QUALITY_CONTROL'}
+                videoTitle={videoData.title}
+                videoMetadata={`${videoData.boxer1} vs ${videoData.boxer2} - Round ${videoData.round}`}
+                assignment={assignment}
+                onAssign={handleAssign}
+                currentUser={user}
             />
 
             <div className="flex h-[calc(100vh-64px)] overflow-hidden">
@@ -411,7 +563,7 @@ export default function WorkspacePage() {
                                 videoRef={videoRef}
                                 activeCam={activeCam}
                                 setActiveCam={setActiveCam}
-                                videoSrc={undefined} // Will be populated from DB
+                                videoSources={videoSources}
                             />
                         </section>
 
