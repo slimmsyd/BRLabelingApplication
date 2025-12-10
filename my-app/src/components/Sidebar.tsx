@@ -1,5 +1,19 @@
 import React from 'react';
-import { Settings, Search, ChevronDown, Video, Box } from 'lucide-react';
+import { Settings, Search, ChevronDown, Video, Box, Loader2 } from 'lucide-react';
+import Link from 'next/link';
+import { useState, useEffect } from 'react';
+
+interface Assignment {
+    id: string;
+    video: {
+        id: string;
+        title: string;
+        boxer1: string;
+        boxer2: string;
+        round: number;
+    };
+    status: string;
+}
 
 interface SidebarProps {
     isOpen: boolean;
@@ -7,6 +21,38 @@ interface SidebarProps {
 }
 
 const Sidebar = ({ isOpen, toggle }: SidebarProps) => {
+
+    const [user, setUser] = useState<{ userId: string } | null>(null);
+    const [assignments, setAssignments] = useState<Assignment[]>([]);
+    const [loading, setLoading] = useState(false);
+
+    useEffect(() => {
+        const fetchUserAndAssignments = async () => {
+            try {
+                // 1. Fetch User
+                const userRes = await fetch('/api/auth/me');
+                if (!userRes.ok) return;
+                const userData = await userRes.json();
+                setUser(userData);
+
+                // 2. Fetch Assignments
+                if (userData.userId) {
+                    setLoading(true);
+                    const assignRes = await fetch(`/api/videos/assigned?userId=${userData.userId}`);
+                    if (assignRes.ok) {
+                        const assignData = await assignRes.json();
+                        setAssignments(assignData.assignments);
+                    }
+                }
+            } catch (error) {
+                console.error('Sidebar data fetch error:', error);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        fetchUserAndAssignments();
+    }, []);
     return (
         <aside
             className={`${isOpen ? 'w-64' : 'w-20'} h-screen bg-sidebar-bg border-r border-border flex flex-col fixed left-0 top-0 z-50 transition-all duration-300 ease-in-out`}
@@ -41,10 +87,29 @@ const Sidebar = ({ isOpen, toggle }: SidebarProps) => {
                         Assigned to You
                     </div>
                     <div className="space-y-0.5">
-                        <button className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-foreground hover:bg-white/5 transition-colors bg-white/5 ${!isOpen && 'justify-center px-0'}`}>
-                            <Video size={16} className="text-accent-primary shrink-0" />
-                            <span className={`transition-opacity duration-200 whitespace-nowrap ${!isOpen ? 'opacity-0 w-0 hidden' : 'opacity-100'}`}>Current Project</span>
-                        </button>
+                        {loading ? (
+                            <div className="px-3 py-2 text-foreground-secondary text-sm flex items-center gap-2">
+                                <Loader2 size={14} className="animate-spin" />
+                                <span className={`${!isOpen && 'hidden'}`}>Loading...</span>
+                            </div>
+                        ) : assignments.length > 0 ? (
+                            assignments.map((assignment) => (
+                                <Link
+                                    key={assignment.id}
+                                    href={`/workspace?videoId=${assignment.video.id}`}
+                                    className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-foreground hover:bg-white/5 transition-colors ${!isOpen && 'justify-center px-0'}`}
+                                >
+                                    <Video size={16} className="text-accent-primary shrink-0" />
+                                    <span className={`transition-opacity duration-200 whitespace-nowrap truncate ${!isOpen ? 'opacity-0 w-0 hidden' : 'opacity-100'}`}>
+                                        {assignment.video.boxer1} vs {assignment.video.boxer2}
+                                    </span>
+                                </Link>
+                            ))
+                        ) : (
+                            <div className={`text-xs text-foreground-secondary px-3 py-2 italic ${!isOpen && 'hidden'}`}>
+                                No active assignments
+                            </div>
+                        )}
                     </div>
                 </div>
 
@@ -52,10 +117,13 @@ const Sidebar = ({ isOpen, toggle }: SidebarProps) => {
 
             {/* Footer Settings */}
             <div className="p-4 space-y-1 border-t border-transparent">
-                <button className={`w-full flex items-center ${isOpen ? 'justify-between' : 'justify-center'} px-2 py-2 text-xs text-foreground-secondary hover:text-foreground transition-colors rounded-lg hover:bg-white/5`}>
+                <Link
+                    href="/settings"
+                    className={`w-full flex items-center ${isOpen ? 'justify-between' : 'justify-center'} px-2 py-2 text-xs text-foreground-secondary hover:text-foreground transition-colors rounded-lg hover:bg-white/5`}
+                >
                     <span className={`transition-opacity duration-200 ${!isOpen ? 'opacity-0 w-0 hidden' : 'opacity-100'}`}>Settings</span>
                     <Settings size={14} className="shrink-0" />
-                </button>
+                </Link>
 
                 <div className={`pt-4 mt-2 border-t border-border/40 ${!isOpen && 'hidden'}`}>
                     <div className="w-full flex items-center justify-center px-2 py-1 text-xs text-foreground-tertiary font-medium tracking-wider uppercase whitespace-nowrap">

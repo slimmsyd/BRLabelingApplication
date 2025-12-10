@@ -11,9 +11,14 @@ interface VideoCardProps {
     fightDate: string;
     numCameraViews: number;
     createdAt: string;
+    assignee?: {
+        username: string | null;
+        email: string;
+        status: string;
+    };
 }
 
-const VideoCard = ({ id, title, boxer1, boxer2, round, fightDate, numCameraViews, createdAt }: VideoCardProps) => {
+const VideoCard = ({ id, title, boxer1, boxer2, round, fightDate, numCameraViews, createdAt, assignee }: VideoCardProps) => {
     // Format the fight date
     const formattedDate = new Date(fightDate).toLocaleDateString('en-US', {
         month: 'short',
@@ -29,8 +34,8 @@ const VideoCard = ({ id, title, boxer1, boxer2, round, fightDate, numCameraViews
 
     return (
         <Link href={`/workspace?videoId=${id}`}>
-            <div className="group bg-surface hover:bg-surface-hover rounded-xl overflow-hidden border border-transparent hover:border-border transition-all duration-300 cursor-pointer flex flex-col h-full">
-                {/* Thumbnail Area */}
+            <div className="group bg-surface hover:bg-surface-hover rounded-xl overflow-hidden border border-transparent hover:border-border transition-all duration-300 cursor-pointer flex flex-col h-full relative">
+
                 <div className="relative aspect-[4/3] bg-black/40 overflow-hidden p-4">
                     <div className="w-full h-full rounded-lg overflow-hidden relative">
                         <div className="absolute inset-0 bg-gradient-to-br from-gray-800 to-gray-900 group-hover:scale-105 transition-transform duration-500" />
@@ -62,13 +67,41 @@ const VideoCard = ({ id, title, boxer1, boxer2, round, fightDate, numCameraViews
                         {boxer1} vs {boxer2}
                     </p>
 
-                    <div className="mt-auto space-y-1">
-                        <p className="text-xs text-foreground-tertiary">
-                            {formattedDate}
-                        </p>
-                        <p className="text-xs text-foreground-tertiary">
-                            Uploaded {uploadDate}
-                        </p>
+                    <div className="mt-auto space-y-3">
+                        <div className="space-y-1">
+                            <p className="text-xs text-foreground-tertiary">
+                                {formattedDate}
+                            </p>
+                            <p className="text-xs text-foreground-tertiary">
+                                Uploaded {uploadDate}
+                            </p>
+                        </div>
+
+                        {/* Assignment Status */}
+                        <div>
+                            {assignee ? (
+                                <div className="space-y-1.5">
+                                    <div className="inline-flex items-center gap-1.5 bg-white text-black text-[10px] font-bold px-2 py-1 rounded shadow-sm uppercase tracking-wider">
+                                        <div className="w-1.5 h-1.5 rounded-full bg-green-500" />
+                                        ASSIGNED: {assignee.username || assignee.email.split('@')[0]}
+                                    </div>
+
+                                    {/* Status Badge */}
+                                    <div className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold border uppercase tracking-wide ${assignee.status === 'SUBMITTED'
+                                        ? 'bg-yellow-500/10 text-yellow-500 border-yellow-500/20'
+                                        : assignee.status === 'COMPLETED'
+                                            ? 'bg-green-500/10 text-green-500 border-green-500/20'
+                                            : 'bg-blue-500/10 text-blue-500 border-blue-500/20'
+                                        }`}>
+                                        {assignee.status === 'ASSIGNED' ? 'IN PROGRESS' : assignee.status}
+                                    </div>
+                                </div>
+                            ) : (
+                                <div className="inline-flex items-center bg-white/5 border border-white/10 text-foreground-secondary text-[10px] font-bold px-2 py-1 rounded uppercase tracking-wider">
+                                    UNASSIGNED
+                                </div>
+                            )}
+                        </div>
                     </div>
                 </div>
             </div>

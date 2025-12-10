@@ -25,6 +25,19 @@ export async function GET() {
         storageProvider: true,
         createdAt: true,
         updatedAt: true,
+        assignments: {
+          take: 1,
+          where: { labelType: 'OFFENSE' },
+          select: {
+            user: {
+              select: {
+                username: true,
+                email: true,
+              },
+            },
+            status: true,
+          },
+        },
       },
     });
 

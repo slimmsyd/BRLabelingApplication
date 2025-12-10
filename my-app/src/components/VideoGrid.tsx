@@ -14,6 +14,13 @@ interface Video {
     fightDate: string;
     numCameraViews: number;
     createdAt: string;
+    assignments?: Array<{
+        user: {
+            username: string | null;
+            email: string;
+        };
+        status: string;
+    }>;
 }
 
 const VideoGrid = () => {
@@ -76,6 +83,10 @@ const VideoGrid = () => {
                             fightDate={video.fightDate}
                             numCameraViews={video.numCameraViews}
                             createdAt={video.createdAt}
+                            assignee={video.assignments?.[0] ? {
+                                ...video.assignments[0].user,
+                                status: video.assignments[0].status
+                            } : undefined}
                         />
                     ))}
 

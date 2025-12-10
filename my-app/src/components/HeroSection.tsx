@@ -79,9 +79,9 @@ const HeroSection = () => {
             </div>
 
             {/* Main Title */}
-            <h1 className="text-4xl md:text-5xl font-medium text-foreground mb-12 tracking-tight">
+            {/* <h1 className="text-4xl md:text-5xl font-medium text-foreground mb-12 tracking-tight">
                 Labeling Interface
-            </h1>
+            </h1> */}
 
             {/* Active Session Card (The "Last Video") */}
             {/* Placeholder removed - waiting for real data */}
