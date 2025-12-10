@@ -26,8 +26,8 @@ export async function GET(
         fps: true,
         numCameraViews: true,
         sourceUrls: true,
-        storagePath: true,
-        storageProvider: true,
+        // storagePath: true, // Temporarily disabled due to build type error
+        // storageProvider: true,
         duration: true,
         uploadedBy: true,
         createdAt: true,

@@ -21,8 +21,8 @@ export async function GET() {
         fps: true,
         numCameraViews: true,
         sourceUrls: true,
-        storagePath: true,
-        storageProvider: true,
+        // storagePath: true,
+        // storageProvider: true,
         createdAt: true,
         updatedAt: true,
         assignments: {

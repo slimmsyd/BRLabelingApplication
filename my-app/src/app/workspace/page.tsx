@@ -21,7 +21,7 @@ interface VideoData {
     fps: number;
     numCameraViews: number;
     sourceUrls: any; // JSON field
-    storagePath: string;
+    storagePath?: string;
     storageProvider: string;
     duration?: number;
     createdAt: string;
