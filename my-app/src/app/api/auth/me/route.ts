@@ -21,6 +21,8 @@ export async function GET() {
                 email: true,
                 username: true,
                 accountType: true,
+                permissions: true,
+                permissionsUpdatedAt: true,
             }
         });
 
@@ -36,7 +38,9 @@ export async function GET() {
                 userId: user.id, 
                 email: user.email, 
                 username: user.username,
-                accountType: user.accountType 
+                accountType: user.accountType,
+                permissions: user.permissions,
+                permissionsUpdatedAt: user.permissionsUpdatedAt,
             },
             { status: 200 }
         );

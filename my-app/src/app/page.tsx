@@ -1,12 +1,36 @@
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Sidebar from '@/components/Sidebar';
 import HeroSection from '@/components/HeroSection';
 import VideoGrid from '@/components/VideoGrid';
 
 export default function Home() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+
+  // DEBUG: Fetch and log accounts from DEV API on dashboard load
+  useEffect(() => {
+    const fetchAccounts = async () => {
+      try {
+        console.log('🔍 DEBUG: Fetching accounts via proxy...');
+        // Use local proxy to avoid CORS - this calls our backend which then calls DEV API
+        const response = await fetch('/api/external/accounts');
+        console.log('🔍 DEBUG: Response status:', response.status);
+
+        if (response.ok) {
+          const data = await response.json();
+          console.log('✅ DEBUG: Accounts from DEV API:', data);
+        } else {
+          const errorData = await response.json();
+          console.error('❌ DEBUG: Failed to fetch accounts:', response.status, errorData);
+        }
+      } catch (error) {
+        console.error('❌ DEBUG: Error fetching accounts:', error);
+      }
+    };
+
+    fetchAccounts();
+  }, []);
 
   const toggleSidebar = () => {
     setIsSidebarOpen(!isSidebarOpen);

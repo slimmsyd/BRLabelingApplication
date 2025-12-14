@@ -14,7 +14,6 @@ export const SignupForm: React.FC<SignupFormProps> = ({ onToggleMode }) => {
     const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
-    const [accountType, setAccountType] = useState<'LABELER' | 'QUALITY_CONTROL'>('LABELER');
     const [showPassword, setShowPassword] = useState(false);
     const [showConfirmPassword, setShowConfirmPassword] = useState(false);
     const [loading, setLoading] = useState(false);
@@ -35,7 +34,7 @@ export const SignupForm: React.FC<SignupFormProps> = ({ onToggleMode }) => {
             const res = await fetch('/api/auth/signup', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ email, username, password, accountType }),
+                body: JSON.stringify({ email, username, password }),
             });
 
             const data = await res.json();
@@ -100,22 +99,7 @@ export const SignupForm: React.FC<SignupFormProps> = ({ onToggleMode }) => {
                     </div>
                 </div>
 
-                <div>
-                    <label className="block text-xs font-medium text-foreground-secondary mb-1.5 uppercase tracking-wider">
-                        Account Role
-                    </label>
-                    <select
-                        value={accountType}
-                        onChange={(e) => setAccountType(e.target.value as 'LABELER' | 'QUALITY_CONTROL')}
-                        className="w-full bg-background border border-border rounded-lg py-2.5 px-4 text-foreground focus:outline-none focus:ring-2 focus:ring-accent-primary/50 focus:border-accent-primary transition-all cursor-pointer"
-                    >
-                        <option value="LABELER">Labeler</option>
-                        <option value="QUALITY_CONTROL">Quality Control</option>
-                    </select>
-                    <p className="text-xs text-foreground-secondary/70 mt-1.5">
-                        Select your role in the labeling workflow
-                    </p>
-                </div>
+
 
                 <div>
                     <label className="block text-xs font-medium text-foreground-secondary mb-1.5 uppercase tracking-wider">

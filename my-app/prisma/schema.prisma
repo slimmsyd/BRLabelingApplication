@@ -40,6 +40,11 @@ model User {
   username         String             @unique
   password         String
   accountType      AccountType        @default(LABELER)
+  
+  // Permissions from external API
+  permissions          Json?              // Cache of permissions from dev's API
+  permissionsUpdatedAt DateTime?          // When permissions were last synced
+  
   createdAt        DateTime           @default(now())
   updatedAt        DateTime           @updatedAt
   
