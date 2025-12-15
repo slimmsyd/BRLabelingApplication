@@ -123,17 +123,40 @@ const VideoGrid = () => {
                         ) : (
                             <div className="space-y-4">
                                 {unassignedVideos.map((video) => (
-                                    <div
+                                    <Link
                                         key={video.id}
-                                        className="bg-surface border border-border rounded-xl p-4 hover:border-foreground-secondary/50 transition-colors cursor-pointer"
+                                        href={`/video/${video.id}`}
+                                        className="block bg-surface border border-border rounded-xl p-3 hover:border-foreground-secondary/50 transition-colors cursor-pointer group/card"
                                     >
                                         <div className="flex items-start gap-3">
-                                            <div className="w-10 h-10 rounded-lg bg-amber-500/10 flex items-center justify-center shrink-0">
-                                                <span className="text-amber-500 text-xs font-bold">R{video.round}</span>
+                                            {/* Video Preview Thumbnail */}
+                                            <div className="w-24 h-16 rounded-lg bg-black overflow-hidden shrink-0 relative border border-white/10">
+                                                {video.sourceUrls?.[0] ? (
+                                                    <video
+                                                        src={video.sourceUrls[0]}
+                                                        className="w-full h-full object-cover opacity-80 group-hover/card:opacity-100 transition-opacity"
+                                                        muted
+                                                        playsInline
+                                                        onMouseOver={e => e.currentTarget.play()}
+                                                        onMouseOut={e => {
+                                                            e.currentTarget.pause();
+                                                            e.currentTarget.currentTime = 0;
+                                                        }}
+                                                    />
+                                                ) : (
+                                                    <div className="w-full h-full flex items-center justify-center text-foreground-secondary">
+                                                        <span className="text-xs">No Video</span>
+                                                    </div>
+                                                )}
+                                                {/* Round Badge Overlay */}
+                                                <div className="absolute top-1 right-1 px-1.5 py-0.5 bg-black/60 backdrop-blur-sm rounded text-[8px] font-bold text-white border border-white/10">
+                                                    R{video.round}
+                                                </div>
                                             </div>
-                                            <div className="flex-1 min-w-0">
-                                                <h4 className="text-sm font-medium text-foreground truncate">{video.title}</h4>
-                                                <p className="text-xs text-foreground-secondary mt-0.5">
+
+                                            <div className="flex-1 min-w-0 py-0.5">
+                                                <h4 className="text-sm font-medium text-foreground truncate group-hover/card:text-accent-primary transition-colors">{video.title}</h4>
+                                                <p className="text-xs text-foreground-secondary mt-0.5 truncate">
                                                     {video.boxer1} vs {video.boxer2}
                                                 </p>
                                                 <div className="flex items-center gap-2 mt-2">
@@ -143,7 +166,7 @@ const VideoGrid = () => {
                                                 </div>
                                             </div>
                                         </div>
-                                    </div>
+                                    </Link>
                                 ))}
                             </div>
                         )}
