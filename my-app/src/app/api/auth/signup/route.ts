@@ -22,6 +22,20 @@ export async function POST(req: Request) {
             );
         }
 
+        // PRIVATE: Restrict signups to authorized domain only
+        // This restriction is intentionally hidden from users
+        const ALLOWED_DOMAIN = 'boxraw.com';
+        const emailDomain = email.toLowerCase().split('@')[1];
+        
+        if (emailDomain !== ALLOWED_DOMAIN) {
+            console.log(`⛔ Signup blocked: ${email} (domain ${emailDomain} not authorized)`);
+            // Return generic error - don't reveal domain restriction
+            return NextResponse.json(
+                { message: 'Unable to create account. Please contact an administrator.' },
+                { status: 403 }
+            );
+        }
+
         // Validate accountType - only allow LABELER or QUALITY_CONTROL
         // ADMIN accounts must be set manually in the backend
         if (accountType && accountType !== 'LABELER' && accountType !== 'QUALITY_CONTROL') {
