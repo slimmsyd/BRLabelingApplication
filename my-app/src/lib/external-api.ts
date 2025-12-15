@@ -118,6 +118,59 @@ export async function getExternalAccount(username: string): Promise<PermissionRe
 }
 
 /**
+ * Get account data from DEV's API by EMAIL (more reliable than username)
+ * Fetches all accounts and finds the one matching the email
+ */
+export async function getExternalAccountByEmail(email: string): Promise<PermissionResponse | null> {
+  try {
+    console.log('🔍 Looking up external account by email:', email);
+    
+    const response = await fetch(`${EXTERNAL_API_URL}/accounts`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(EXTERNAL_API_KEY && { 'Authorization': `Bearer ${EXTERNAL_API_KEY}` }),
+      },
+    });
+
+    if (!response.ok) {
+      console.error('⚠️ Failed to fetch accounts from DEV API:', response.status);
+      return null;
+    }
+
+    const data = await response.json();
+    
+    // The response might be { accounts: [...] } or just an array
+    const accounts: PermissionResponse[] = Array.isArray(data) ? data : data.accounts;
+    
+    if (!accounts || !Array.isArray(accounts)) {
+      console.error('❌ Unexpected response format from /accounts:', data);
+      return null;
+    }
+
+    // Find account by email (case-insensitive)
+    const matchedAccount = accounts.find(
+      (acc) => acc.email?.toLowerCase() === email.toLowerCase()
+    );
+
+    if (matchedAccount) {
+      console.log('✅ Found external account by email:', email);
+      console.log('   👤 Username:', matchedAccount.username);
+      console.log('   🏷️  Account Type:', matchedAccount.accountType);
+      console.log('   🔐 Permissions:', JSON.stringify(matchedAccount.permissions));
+      return matchedAccount;
+    } else {
+      console.log('❌ No external account found for email:', email);
+      console.log('   📋 Available emails:', accounts.map(a => a.email).join(', '));
+      return null;
+    }
+  } catch (error) {
+    console.error('❌ Error fetching account by email from DEV API:', error);
+    return null;
+  }
+}
+
+/**
  * Fetch user permissions from external API (legacy - now uses getExternalAccount)
  */
 export async function fetchUserPermissions(

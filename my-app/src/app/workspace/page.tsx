@@ -36,7 +36,7 @@ function WorkspacePage() {
     const [videoLoading, setVideoLoading] = useState(true);
     const [videoError, setVideoError] = useState<string | null>(null);
     const [assignment, setAssignment] = useState<any>(null);
-    const [user, setUser] = useState<{ userId: string; email: string; accountType: string } | null>(null);
+    const [user, setUser] = useState<{ userId: string; email: string; accountType: string; permissions?: { QC?: boolean; Upload?: boolean; ViewAssignments?: boolean } } | null>(null);
 
     const [events, setEvents] = useState<EventData[]>([]);
     const videoRef = useRef<HTMLVideoElement>(null);
@@ -422,24 +422,29 @@ function WorkspacePage() {
             });
     };
 
-    // RBAC Logic
-    // RBAC Logic
+    // RBAC Logic - Uses external permissions from /accounts API
     const canEdit = React.useMemo(() => {
         if (!user) return false;
 
+        // Admins can always edit
         if (user.accountType === 'ADMIN') return true;
 
         // Check if user is assigned to this video
         const isAssignedToUser = assignment?.userId === user.userId;
-
         if (!isAssignedToUser) return false; // Must be assigned to edit (unless Admin)
 
-        if (user.accountType === 'LABELER') {
-            return !isSubmitted; // Labelers can only edit if NOT submitted
+        // If not submitted, anyone assigned can edit (labeling phase)
+        if (!isSubmitted) return true;
+
+        // If submitted, only users with QC permission can edit (QC phase)
+        // This uses the permission from external /accounts API
+        if (isSubmitted && user.permissions?.QC === true) {
+            return true;
         }
 
-        if (user.accountType === 'QUALITY_CONTROL') {
-            return isSubmitted; // QC can only edit if SUBMITTED
+        // Also allow QUALITY_CONTROL accountType for backwards compatibility
+        if (isSubmitted && user.accountType === 'QUALITY_CONTROL') {
+            return true;
         }
 
         return false;

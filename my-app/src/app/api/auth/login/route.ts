@@ -2,7 +2,6 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import bcrypt from 'bcryptjs';
 import { createSession } from '@/lib/session';
-import { getExternalAccount } from '@/lib/external-api';
 
 export async function POST(req: Request) {
     try {
@@ -37,13 +36,15 @@ export async function POST(req: Request) {
             );
         }
 
-        // Fetch latest permissions from DEV API and cache them
+        // Fetch latest permissions from DEV API by EMAIL (more reliable than username)
         console.log('\n========================================');
         console.log('🔄 FETCHING EXTERNAL ACCOUNT DATA');
         console.log('========================================');
-        console.log('📤 Requesting /accounts for username:', user.username);
+        console.log('📤 Looking up account by EMAIL:', user.email);
         
-        const accountData = await getExternalAccount(user.username);
+        // Import the email-based lookup function
+        const { getExternalAccountByEmail } = await import('@/lib/external-api');
+        const accountData = await getExternalAccountByEmail(user.email);
         
         // Log ALL data from external /accounts API
         console.log('\n📦 FULL RESPONSE FROM /accounts API:');
@@ -71,32 +72,10 @@ export async function POST(req: Request) {
             });
             console.log('💾 Permissions cached to local database');
         } else {
-            console.log('❌ Account NOT found in external system');
+            console.log('❌ Account NOT found in external system for email:', user.email);
             console.log('⚠️  Using cached permissions from local database');
             console.log('   Last synced:', user.permissionsUpdatedAt || 'Never');
             console.log('----------------------------------------\n');
-            
-            // Fetch and log ALL accounts to see what's available
-            console.log('🔍 FETCHING ALL ACCOUNTS FROM EXTERNAL API...');
-            console.log('========================================');
-            const { getAllAccounts } = await import('@/lib/external-api');
-            const allAccounts = await getAllAccounts();
-            
-            if (allAccounts && allAccounts.length > 0) {
-                console.log(`📋 Found ${allAccounts.length} account(s) in external system:\n`);
-                allAccounts.forEach((acc, index) => {
-                    console.log(`   [${index + 1}] 👤 Username: "${acc.username}"`);
-                    console.log(`       📧 Email: ${acc.email}`);
-                    console.log(`       🏷️  Type: ${acc.accountType}`);
-                    console.log(`       🔐 Permissions: QC=${acc.permissions?.QC}, Upload=${acc.permissions?.Upload}, ViewAssignments=${acc.permissions?.ViewAssignments}`);
-                    console.log('');
-                });
-                console.log('   📋 Raw JSON of all accounts:');
-                console.log(JSON.stringify(allAccounts, null, 2));
-            } else {
-                console.log('❌ No accounts found in external system OR failed to fetch');
-            }
-            console.log('========================================\n');
         }
 
         // Create session
