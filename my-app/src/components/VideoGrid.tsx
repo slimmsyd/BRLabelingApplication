@@ -125,7 +125,7 @@ const VideoGrid = () => {
                                 {unassignedVideos.map((video) => (
                                     <Link
                                         key={video.id}
-                                        href={`/video/${video.id}`}
+                                        href={`/workspace?videoId=${video.id}`}
                                         className="block bg-surface border border-border rounded-xl p-3 hover:border-foreground-secondary/50 transition-colors cursor-pointer group/card"
                                     >
                                         <div className="flex items-start gap-3">
