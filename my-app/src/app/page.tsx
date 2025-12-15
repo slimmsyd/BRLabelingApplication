@@ -8,28 +8,28 @@ import VideoGrid from '@/components/VideoGrid';
 export default function Home() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
 
-  // DEBUG: Fetch and log accounts from DEV API on dashboard load
+  // DEBUG: Fetch and log FIGHTS from DEV API on dashboard load (testing proxy)
   useEffect(() => {
-    const fetchAccounts = async () => {
+    const fetchFights = async () => {
       try {
-        console.log('🔍 DEBUG: Fetching accounts via proxy...');
+        console.log('🔍 DEBUG: Fetching fights via proxy...');
         // Use local proxy to avoid CORS - this calls our backend which then calls DEV API
-        const response = await fetch('/api/external/accounts');
+        const response = await fetch('/api/external/fights');
         console.log('🔍 DEBUG: Response status:', response.status);
 
         if (response.ok) {
           const data = await response.json();
-          console.log('✅ DEBUG: Accounts from DEV API:', data);
+          console.log('✅ DEBUG: Fights from DEV API:', data);
         } else {
           const errorData = await response.json();
-          console.error('❌ DEBUG: Failed to fetch accounts:', response.status, errorData);
+          console.error('❌ DEBUG: Failed to fetch fights:', response.status, errorData);
         }
       } catch (error) {
-        console.error('❌ DEBUG: Error fetching accounts:', error);
+        console.error('❌ DEBUG: Error fetching fights:', error);
       }
     };
 
-    fetchAccounts();
+    fetchFights();
   }, []);
 
   const toggleSidebar = () => {

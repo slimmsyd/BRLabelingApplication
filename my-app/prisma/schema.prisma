@@ -86,6 +86,12 @@ model Video {
   createdAt   DateTime           @default(now())
   updatedAt   DateTime           @updatedAt
   
+  // NEW: Link to DEV API fight data
+  externalFightTitle  String?    // e.g., "Crawford_vs_Spence" - links to DEV API /fight/{title}
+  externalRoundId     String?    // e.g., "RD3" - links to DEV API /fight/{title}/round/{id}
+  externalCamera      String?    // e.g., "Cam1" - links to DEV API camera events
+  externalSyncedAt    DateTime?  // When this video was last synced with DEV API
+  
   // Relations
   assignments VideoAssignment[]  // All assignments for this video
   
@@ -93,6 +99,7 @@ model Video {
   @@index([storageProvider])
   @@index([uploadedBy])
   @@index([fightDate])
+  @@index([externalFightTitle])  // Index for faster lookups by DEV API fight
 }
 
 model VideoAssignment {
