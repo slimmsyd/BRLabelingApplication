@@ -89,4 +89,23 @@ export class SupabaseStorageProvider implements StorageProvider {
     
     return data.signedUrl;
   }
+  
+  /**
+   * Generate a signed URL for uploading a file directly from the client
+   * This bypasses serverless function size limits
+   * @param path - Storage path for the file
+   * @param expiresIn - Expiration time in seconds (default 10 minutes)
+   * @returns Signed upload URL
+   */
+  async getSignedUploadUrl(path: string, expiresIn: number = 600): Promise<string> {
+    const { data, error } = await this.client.storage
+      .from(this.bucketName)
+      .createSignedUploadUrl(path);
+      
+    if (error) {
+      throw new Error(`Failed to create signed upload URL: ${error.message}`);
+    }
+    
+    return data.signedUrl;
+  }
 }

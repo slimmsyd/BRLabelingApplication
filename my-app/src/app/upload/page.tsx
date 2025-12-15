@@ -6,12 +6,14 @@ import React, { useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { Upload, X, FileVideo, Loader2, ArrowLeft, Camera } from 'lucide-react';
 import Link from 'next/link';
+import { uploadVideos, DirectUploadProgress } from '@/lib/storage/direct-upload';
 
 
+type CameraKey = 'cam1' | 'cam2' | 'cam3';
 
 const UploadPage = () => {
     const router = useRouter();
-    const [files, setFiles] = useState<{ [key: string]: File | null }>({
+    const [files, setFiles] = useState<{ cam1: File | null; cam2: File | null; cam3: File | null }>({
         cam1: null,
         cam2: null,
         cam3: null
@@ -33,7 +35,7 @@ const UploadPage = () => {
         cam3: useRef<HTMLInputElement>(null)
     };
 
-    const handleFileSelect = (cam: string, e: React.ChangeEvent<HTMLInputElement>) => {
+    const handleFileSelect = (cam: CameraKey, e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files && e.target.files[0]) {
             const selectedFile = e.target.files[0];
             setFiles(prev => ({ ...prev, [cam]: selectedFile }));
@@ -46,19 +48,19 @@ const UploadPage = () => {
         e.stopPropagation();
     };
 
-    const handleDragEnter = (cam: string, e: React.DragEvent<HTMLDivElement>) => {
+    const handleDragEnter = (cam: CameraKey, e: React.DragEvent<HTMLDivElement>) => {
         e.preventDefault();
         e.stopPropagation();
         setDragActive(prev => ({ ...prev, [cam]: true }));
     };
 
-    const handleDragLeave = (cam: string, e: React.DragEvent<HTMLDivElement>) => {
+    const handleDragLeave = (cam: CameraKey, e: React.DragEvent<HTMLDivElement>) => {
         e.preventDefault();
         e.stopPropagation();
         setDragActive(prev => ({ ...prev, [cam]: false }));
     };
 
-    const handleDrop = (cam: string, e: React.DragEvent<HTMLDivElement>) => {
+    const handleDrop = (cam: CameraKey, e: React.DragEvent<HTMLDivElement>) => {
         e.preventDefault();
         e.stopPropagation();
         setDragActive(prev => ({ ...prev, [cam]: false }));
@@ -76,10 +78,10 @@ const UploadPage = () => {
         }
     };
 
-    const removeFile = (cam: string) => {
+    const removeFile = (cam: CameraKey) => {
         setFiles(prev => ({ ...prev, [cam]: null }));
-        if (fileInputRefs[cam as keyof typeof fileInputRefs].current) {
-            fileInputRefs[cam as keyof typeof fileInputRefs].current!.value = '';
+        if (fileInputRefs[cam].current) {
+            fileInputRefs[cam].current!.value = '';
         }
     };
 
@@ -102,31 +104,29 @@ const UploadPage = () => {
         setUploadProgress({ cam1: 0, cam2: 0, cam3: 0 });
 
         try {
-            // Create FormData
-            const formData = new FormData();
-            formData.append('boxer1', boxer1);
-            formData.append('boxer2', boxer2);
-            formData.append('weightClass', weightClass);
-            formData.append('round', round.toString());
-            formData.append('fightDate', fightDate);
-            formData.append('fps', fps.toString());
+            // Use direct upload to Supabase (bypasses Vercel's body size limit)
+            const result = await uploadVideos(
+                files,
+                {
+                    boxer1,
+                    boxer2,
+                    weightClass,
+                    round,
+                    fightDate,
+                    fps
+                },
+                (progressUpdates) => {
+                    // Update progress for each camera
+                    const newProgress = { cam1: 0, cam2: 0, cam3: 0 };
+                    progressUpdates.forEach(update => {
+                        const camKey = `cam${update.camera}` as keyof typeof newProgress;
+                        newProgress[camKey] = update.progress;
+                    });
+                    setUploadProgress(newProgress);
+                }
+            );
 
-            // Add video files
-            if (files.cam1) formData.append('cam1', files.cam1);
-            if (files.cam2) formData.append('cam2', files.cam2);
-            if (files.cam3) formData.append('cam3', files.cam3);
-
-            // Upload to API
-            const response = await fetch('/api/videos/upload', {
-                method: 'POST',
-                body: formData
-            });
-
-            const data = await response.json();
-
-            if (!response.ok) {
-                throw new Error(data.error || 'Upload failed');
-            }
+            console.log('[Upload] Success:', result);
 
             // Success - redirect to home
             router.push('/?uploadSuccess=true');
@@ -157,7 +157,7 @@ const UploadPage = () => {
                     <form onSubmit={handleSubmit} className="space-y-8">
                         {/* Camera Upload Grid */}
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                            {['cam1', 'cam2', 'cam3'].map((cam, index) => (
+                            {(['cam1', 'cam2', 'cam3'] as CameraKey[]).map((cam, index) => (
                                 <div key={cam} className="space-y-2">
                                     <label className="flex items-center gap-2 text-sm font-medium text-foreground-secondary uppercase tracking-wider">
                                         <Camera size={14} />
@@ -165,13 +165,13 @@ const UploadPage = () => {
                                     </label>
 
                                     <div
-                                        className={`relative border-2 border-dashed rounded-xl p-6 text-center transition-all cursor-pointer min-h-[200px] flex flex-col items-center justify-center ${dragActive[cam as keyof typeof dragActive]
+                                        className={`relative border-2 border-dashed rounded-xl p-6 text-center transition-all cursor-pointer min-h-[200px] flex flex-col items-center justify-center ${dragActive[cam]
                                             ? 'border-accent-primary bg-accent-primary/10 shadow-lg shadow-accent-primary/20 scale-[1.02]'
                                             : files[cam]
                                                 ? 'border-accent-primary bg-accent-primary/5'
                                                 : 'border-border hover:border-foreground-secondary hover:bg-surface-hover'
                                             }`}
-                                        onClick={() => fileInputRefs[cam as keyof typeof fileInputRefs].current?.click()}
+                                        onClick={() => fileInputRefs[cam].current?.click()}
                                         onDragEnter={(e) => handleDragEnter(cam, e)}
                                         onDragOver={handleDrag}
                                         onDragLeave={(e) => handleDragLeave(cam, e)}
@@ -179,7 +179,7 @@ const UploadPage = () => {
                                     >
                                         <input
                                             type="file"
-                                            ref={fileInputRefs[cam as keyof typeof fileInputRefs]}
+                                            ref={fileInputRefs[cam]}
                                             className="hidden"
                                             accept="video/*"
                                             onChange={(e) => handleFileSelect(cam, e)}
