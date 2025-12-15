@@ -3,6 +3,18 @@ import { prisma } from '@/lib/prisma';
 import { getStorageProvider } from '@/lib/storage';
 import { generateStoragePath, validateVideoFile, generatedVideoTitle, formatFightDate } from '@/lib/video-helpers';
 
+// Route segment config - allow larger file uploads (Vercel default is 4.5MB)
+export const config = {
+  api: {
+    bodyParser: {
+      sizeLimit: '500mb',
+    },
+  },
+};
+
+// For App Router - increase max duration for large uploads
+export const maxDuration = 300; // 5 minutes
+
 /**
  * POST /api/videos/upload
  * Upload multi-camera fight videos to storage and create database records
