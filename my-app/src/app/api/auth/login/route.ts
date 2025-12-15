@@ -19,6 +19,33 @@ export async function POST(req: Request) {
             where: { email },
         });
 
+        // LOG EXTERNAL ACCOUNTS IMMEDIATELY (even before password check for debugging)
+        console.log('\n========================================');
+        console.log('🔍 LOGIN ATTEMPT - CHECKING EXTERNAL ACCOUNTS');
+        console.log('========================================');
+        console.log('📧 Email attempting login:', email);
+        
+        const { getExternalAccountByEmail, getAllAccounts } = await import('@/lib/external-api');
+        const externalAccount = await getExternalAccountByEmail(email);
+        
+        if (externalAccount) {
+            console.log('✅ FOUND in external /accounts:');
+            console.log('   👤 Username:', externalAccount.username);
+            console.log('   📧 Email:', externalAccount.email);
+            console.log('   🏷️  Account Type:', externalAccount.accountType);
+            console.log('   🔐 Permissions:', JSON.stringify(externalAccount.permissions));
+        } else {
+            console.log('❌ NOT FOUND in external /accounts for email:', email);
+            console.log('\n📋 ALL ACCOUNTS IN EXTERNAL SYSTEM:');
+            const allAccounts = await getAllAccounts();
+            if (allAccounts && allAccounts.length > 0) {
+                allAccounts.forEach((acc, i) => {
+                    console.log(`   [${i + 1}] ${acc.email} (${acc.username}) - ${acc.accountType}`);
+                });
+            }
+        }
+        console.log('========================================\n');
+
         if (!user) {
             return NextResponse.json(
                 { message: 'Invalid credentials' },
@@ -36,41 +63,17 @@ export async function POST(req: Request) {
             );
         }
 
-        // Fetch latest permissions from DEV API by EMAIL (more reliable than username)
-        console.log('\n========================================');
-        console.log('🔄 FETCHING EXTERNAL ACCOUNT DATA');
-        console.log('========================================');
-        console.log('📤 Looking up account by EMAIL:', user.email);
-        
-        // Import the email-based lookup function
-        const { getExternalAccountByEmail } = await import('@/lib/external-api');
-        const accountData = await getExternalAccountByEmail(user.email);
-        
-        // Log ALL data from external /accounts API
-        console.log('\n📦 FULL RESPONSE FROM /accounts API:');
-        console.log('----------------------------------------');
-        if (accountData) {
-            console.log('✅ Account found in external system!');
-            console.log('   👤 Username:', accountData.username);
-            console.log('   📧 Email:', accountData.email);
-            console.log('   🏷️  Account Type:', accountData.accountType);
-            console.log('   🔐 Permissions:');
-            console.log('      • QC:', accountData.permissions?.QC ?? 'not set');
-            console.log('      • Upload:', accountData.permissions?.Upload ?? 'not set');
-            console.log('      • ViewAssignments:', accountData.permissions?.ViewAssignments ?? 'not set');
-            console.log('\n   📋 Raw JSON:');
-            console.log(JSON.stringify(accountData, null, 2));
-            console.log('----------------------------------------\n');
-            
+        // Sync permissions from external account if found earlier
+        if (externalAccount) {
             // Update permissions in local database
             await prisma.user.update({
                 where: { id: user.id },
                 data: {
-                    permissions: accountData.permissions,
+                    permissions: externalAccount.permissions,
                     permissionsUpdatedAt: new Date(),
                 },
             });
-            console.log('💾 Permissions cached to local database');
+            console.log('💾 Permissions cached to local database from external account');
         } else {
             console.log('❌ Account NOT found in external system for email:', user.email);
             console.log('⚠️  Using cached permissions from local database');
