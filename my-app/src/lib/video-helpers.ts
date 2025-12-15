@@ -18,6 +18,7 @@ export function generateStoragePath(
   const boxer1Slug = boxer1.toLowerCase().replace(/\s+/g, '');
   const boxer2Slug = boxer2.toLowerCase().replace(/\s+/g, '');
   
+  console.log(boxer1Slug, boxer2Slug, round, camNum);
   return `${boxer1Slug}_${boxer2Slug}/r${round}/cam${camNum}.mp4`;
 }
 
@@ -28,7 +29,7 @@ export function generateStoragePath(
  * @returns Validation result with error message if invalid
  */
 export function validateVideoFile(file: File): { valid: boolean; error?: string } {
-  const MAX_FILE_SIZE = 500 * 1024 * 1024; // 500MB
+  const MAX_FILE_SIZE = 10 * 1024 * 1024 * 1024; // 10GB
   const VALID_FORMATS = ['video/mp4', 'video/quicktime', 'video/webm'];
   
   // Check file size
