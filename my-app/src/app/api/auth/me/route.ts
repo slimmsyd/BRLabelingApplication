@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getSession } from '@/lib/session';
 import { prisma } from '@/lib/prisma';
-import { getExternalAccount } from '@/lib/external-api';
+import { getExternalAccountByEmail } from '@/lib/external-api';
 
 export async function GET() {
     try {
@@ -36,12 +36,35 @@ export async function GET() {
             );
         }
 
-        // Fetch external account data from /accounts API
-        let externalAccount = null;
-        if (user.username) {
-            externalAccount = await getExternalAccount(user.username);
-            console.log('📦 External account data:', externalAccount);
+        // Fetch external account data from /accounts API by EMAIL
+        const externalAccount = await getExternalAccountByEmail(user.email);
+        
+        // LOG ALL PERMISSIONS FOR DEBUGGING
+        console.log('\n========================================');
+        console.log('🔐 USER PERMISSIONS CHECK');
+        console.log('========================================');
+        console.log('👤 User:', user.username, `(${user.email})`);
+        console.log('🏷️  Account Type:', user.accountType);
+        console.log('\n📦 LOCAL CACHED PERMISSIONS (from Supabase):');
+        if (user.permissions) {
+            const perms = user.permissions as any;
+            console.log('   • QC:', perms.QC ?? 'not set');
+            console.log('   • Upload:', perms.Upload ?? 'not set');
+            console.log('   • ViewAssignments:', perms.ViewAssignments ?? 'not set');
+            console.log('   Last synced:', user.permissionsUpdatedAt || 'Never');
+        } else {
+            console.log('   ❌ No cached permissions');
         }
+        
+        console.log('\n🌐 EXTERNAL PERMISSIONS (from /accounts API):');
+        if (externalAccount) {
+            console.log('   • QC:', externalAccount.permissions?.QC ?? 'not set');
+            console.log('   • Upload:', externalAccount.permissions?.Upload ?? 'not set');
+            console.log('   • ViewAssignments:', externalAccount.permissions?.ViewAssignments ?? 'not set');
+        } else {
+            console.log('   ❌ Not found in external system');
+        }
+        console.log('========================================\n');
 
         // Merge local user data with external account data
         const responseData = {
@@ -74,3 +97,4 @@ export async function GET() {
         );
     }
 }
+

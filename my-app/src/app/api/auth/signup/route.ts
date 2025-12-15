@@ -2,17 +2,12 @@ import { NextResponse } from 'next/server';
 import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 import { createSession } from '@/lib/session';
-import { createExternalUser, getExternalAccount, getAllAccounts, toExternalAccountType } from '@/lib/external-api';
+import { getExternalAccountByEmail } from '@/lib/external-api';
 
 const prisma = new PrismaClient();
 
 export async function POST(req: Request) {
     try {
-        // DEBUG: Log all existing accounts from DEV API
-        console.log('\n========== DEBUG: CHECKING DEV API ==========');
-        await getAllAccounts();
-        console.log('==============================================\n');
-
         const { email, password, username, accountType } = await req.json();
 
         if (!email || !password || !username) {
@@ -45,7 +40,7 @@ export async function POST(req: Request) {
             );
         }
 
-        // Check if user already exists
+        // Check if user already exists in local database
         const existingUser = await prisma.user.findFirst({
             where: {
                 OR: [
@@ -64,26 +59,26 @@ export async function POST(req: Request) {
 
         const finalAccountType = accountType || 'LABELER';
 
-        // STEP 1: Create user in DEV API FIRST (PRIORITY)
-        console.log('🔄 Creating user in DEV API...');
-        const externalSuccess = await createExternalUser({
-            username,
-            email,
-            accountType: toExternalAccountType(finalAccountType),
-        });
-
-        if (!externalSuccess) {
-            console.error('❌ CRITICAL: Failed to create user in DEV API');
-            return NextResponse.json(
-                { 
-                    message: 'Failed to create account in external system. Please contact support or try again later.',
-                    error: 'EXTERNAL_API_FAILURE' 
-                },
-                { status: 500 }
-            );
+        // STEP 1: Check if email exists in external /accounts API
+        console.log('\n========================================');
+        console.log('🔍 CHECKING EXTERNAL ACCOUNTS BY EMAIL');
+        console.log('========================================');
+        console.log('📧 Email:', email);
+        
+        const externalAccount = await getExternalAccountByEmail(email);
+        
+        if (externalAccount) {
+            console.log('✅ Found in external system:');
+            console.log('   👤 Username:', externalAccount.username);
+            console.log('   🏷️  Account Type:', externalAccount.accountType);
+            console.log('   🔐 Permissions:', JSON.stringify(externalAccount.permissions));
+        } else {
+            console.log('⚠️ Email not found in external /accounts');
+            console.log('   User will be created without permissions');
         }
+        console.log('========================================\n');
 
-        // STEP 2: Create user in our local database (backup/cache)
+        // STEP 2: Create user in local Supabase/Prisma database ONLY
         console.log('🔄 Creating user in local database...');
         const hashedPassword = await bcrypt.hash(password, 10);
         
@@ -93,28 +88,20 @@ export async function POST(req: Request) {
                 username,
                 password: hashedPassword,
                 accountType: finalAccountType,
+                // If found in external system, cache their permissions
+                ...(externalAccount?.permissions && {
+                    permissions: externalAccount.permissions,
+                    permissionsUpdatedAt: new Date(),
+                }),
             },
         });
         console.log('✅ User created in local DB:', user.id);
 
-        // STEP 3: Fetch permissions from DEV API immediately
-        console.log('🔄 Fetching permissions from DEV API...');
-        const accountData = await getExternalAccount(username);
-        
-        if (accountData && accountData.permissions) {
-            await prisma.user.update({
-                where: { id: user.id },
-                data: {
-                    permissions: accountData.permissions,
-                    permissionsUpdatedAt: new Date(),
-                },
-            });
-            console.log('✅ Permissions cached:', accountData.permissions);
-        } else {
-            console.warn('⚠️ Could not fetch permissions from DEV API, user created without cached permissions');
+        if (externalAccount) {
+            console.log('💾 Permissions synced from external account');
         }
 
-        // STEP 4: Create session
+        // STEP 3: Create session
         await createSession({
             userId: user.id,
             email: user.email,
@@ -134,5 +121,3 @@ export async function POST(req: Request) {
         );
     }
 }
-
-
