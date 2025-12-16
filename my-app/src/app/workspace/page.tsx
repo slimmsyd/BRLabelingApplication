@@ -24,6 +24,8 @@ interface VideoData {
     storagePath?: string;
     storageProvider: string;
     duration?: number;
+    weightClass?: string;
+    venue?: string;
     createdAt: string;
     updatedAt: string;
 }
@@ -421,40 +423,90 @@ function WorkspacePage() {
     };
 
     const handleSubmit = async () => {
-        const transformEvents = (boxerEvents: EventData[]) => {
-            return boxerEvents.map(event => ({
-                cam: event.cam ? [event.cam] : [],
-                endTime: parseTimeToSeconds(event.endTime),
-                hand: event.hand.toLowerCase(),
-                knockdown: event.knockdown ? 1 : 0,
-                landed: event.landed !== false ? 1 : null,
-                punchQuality: event.landed !== false ? event.punchQuality : null,
-                punchType: event.punchType,
-                startTime: parseTimeToSeconds(event.startTime),
-                stoppageKo: false,
-                target: event.target,
-                visibility: visibilityFlagsToMatrix(event.visibilityFlags),
-                stance: event.stance || 'Orthodox',
-                punchResult: event.punchResult || (event.landed !== false ? 'Landed' : 'Missed'),
-                defenseType: event.punchResult === 'Defended' ? event.defenseType : null
-            }));
-        };
+        // Transform events to external API format
+        const transformEventForExternalAPI = (event: EventData) => ({
+            eventType: "punch",
+            fighter: event.boxer === 'Boxer A' ? 'boxer1' : 'boxer2',
+            startTime: parseTimeToSeconds(event.startTime),
+            endTime: parseTimeToSeconds(event.endTime),
+            hand: event.hand.toLowerCase(),
+            punchType: event.punchType,
+            target: event.target,
+            punchQuality: event.punchQuality,
+            knockdown: event.knockdown,
+            stoppageKo: false,
+            visibility: visibilityFlagsToMatrix(event.visibilityFlags),
+            stance: event.stance || 'Orthodox',
+            punchResult: event.punchResult || (event.landed !== false ? 'Landed' : 'Missed'),
+            defenseType: event.punchResult === 'Defended' ? event.defenseType : null
+        });
 
-        const payload = {
-            submittedBy: user?.userId,
-            submitterEmail: user?.email,
-            boxer1: {
-                punches: transformEvents(events.filter(e => e.boxer === 'Boxer A'))
-            },
-            boxer2: {
-                punches: transformEvents(events.filter(e => e.boxer === 'Boxer B'))
+        // Group events by camera
+        const groupEventsByCamera = (events: EventData[], numCameras: number) => {
+            const cameras: { [key: string]: any[] } = {};
+
+            // Initialize camera arrays
+            for (let i = 1; i <= numCameras; i++) {
+                cameras[`Cam${i}`] = [];
             }
+
+            // Group events by their camera
+            events.forEach(event => {
+                const camKey = event.cam || 'Cam1'; // Default to Cam1 if not specified
+                // Normalize camera key format (e.g., "CAM 1" -> "Cam1")
+                const normalizedCam = camKey.replace(/CAM\s*/i, 'Cam').replace(/\s+/g, '');
+
+                if (cameras[normalizedCam]) {
+                    cameras[normalizedCam].push(transformEventForExternalAPI(event));
+                } else {
+                    // If camera doesn't exist in our range, add to Cam1
+                    cameras['Cam1'].push(transformEventForExternalAPI(event));
+                }
+            });
+
+            return cameras;
         };
 
-        console.log('Submitting Final Data:', JSON.stringify(payload, null, 2));
+        // Format date as YYYY-MM-DD
+        const formatDate = (dateStr: string) => {
+            if (!dateStr) return '';
+            const date = new Date(dateStr);
+            return date.toISOString().split('T')[0];
+        };
+
+        // Build the external API payload
+        const roundKey = `RD${videoData?.round || 1}`;
+        const numCameras = videoData?.numCameraViews || 3;
+
+        // Initialize rounds object with empty camera arrays
+        const initializeRounds = () => {
+            const rounds: { [key: string]: { [cam: string]: any[] } } = {};
+            rounds[roundKey] = {};
+            for (let i = 1; i <= numCameras; i++) {
+                rounds[roundKey][`Cam${i}`] = [];
+            }
+            return rounds;
+        };
+
+        const rounds = initializeRounds();
+        const eventsByCamera = groupEventsByCamera(events, numCameras);
+        rounds[roundKey] = eventsByCamera;
+
+        const externalPayload = {
+            fight_title: videoData?.title || `${videoData?.boxer1} vs ${videoData?.boxer2}`,
+            metadata: {
+                venue: videoData?.venue || '',
+                date: formatDate(videoData?.fightDate || ''),
+                weight_class: videoData?.weightClass || '',
+                num_cameras: numCameras
+            },
+            rounds: rounds
+        };
+
+        console.log('Submitting to External API:', JSON.stringify(externalPayload, null, 2));
 
         try {
-            // 1. Save to local database (tied to video assignment)
+            // 1. Save to local database (tied to video assignment) - unchanged format
             if (videoId && assignment?.id) {
                 const dbPayload = {
                     assignmentId: assignment.id,
@@ -493,13 +545,13 @@ function WorkspacePage() {
                 console.warn('No videoId or assignment - skipping database save');
             }
 
-            // 2. Send to external webhook (huemanAPI)
-            const webhookResponse = await fetch('https://www.huemanapi.com/boxing_fight', {
+            // 2. Send to external webhook (huemanAPI) with new format
+            const webhookResponse = await fetch('https://www.huemanAPI.com/boxing_fight', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                 },
-                body: JSON.stringify(payload),
+                body: JSON.stringify(externalPayload),
             });
 
             if (!webhookResponse.ok) {

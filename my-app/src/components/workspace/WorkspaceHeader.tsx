@@ -54,9 +54,9 @@ const WorkspaceHeader = ({ onSave, onSubmit, readOnly = false, isQCMode = false,
                         )}
                         <div className="flex items-center gap-2 text-xs text-foreground-secondary">
                             <span className={`w-2 h-2 rounded-full ${assignment?.status === 'SUBMITTED' ? 'bg-yellow-500' :
-                                    assignment?.status === 'REVIEWED' ? 'bg-blue-500' :
-                                        assignment?.status === 'COMPLETED' ? 'bg-green-500' :
-                                            readOnly ? 'bg-red-500' : 'bg-green-500'
+                                assignment?.status === 'REVIEWED' ? 'bg-blue-500' :
+                                    assignment?.status === 'COMPLETED' ? 'bg-green-500' :
+                                        readOnly ? 'bg-red-500' : 'bg-green-500'
                                 }`}></span>
                             <span>{
                                 assignment?.status === 'SUBMITTED' ? 'Submitted - Awaiting QC' :
@@ -73,7 +73,7 @@ const WorkspaceHeader = ({ onSave, onSubmit, readOnly = false, isQCMode = false,
                     {!isAssigned ? (
                         <button
                             onClick={() => setShowAssignModal(true)}
-                            className="flex items-center gap-2 px-4 py-2 bg-blue-600/10 border border-blue-600/50 text-blue-600 text-sm font-medium rounded-lg transition-colors hover:bg-blue-600/20 hover:border-blue-600"
+                            className="flex cursor-pointer items-center gap-2 px-4 py-2 bg-blue-600/10 border border-blue-600/50 text-blue-600 text-sm font-medium rounded-lg transition-colors hover:bg-blue-600/20 hover:border-blue-600"
                         >
                             <UserPlus size={16} />
                             Assign to Me

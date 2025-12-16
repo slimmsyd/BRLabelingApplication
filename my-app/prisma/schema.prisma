@@ -71,6 +71,7 @@ model Video {
   boxer1      String                      // First boxer name
   boxer2      String                      // Second boxer name
   weightClass String?                     // e.g., "Welterweight"
+  venue       String?                     // Fight venue location
   round       Int                         // Round number
   segment     String             @default("Seg 1")  // Segment identifier
   fightDate   DateTime                    // Date of the fight
