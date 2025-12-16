@@ -34,6 +34,16 @@ export function uploadFileDirect(
   signedUrl: string,
   onProgress?: (progress: number) => void
 ): Promise<void> {
+  // Log file details for debugging
+  const fileSizeMB = (file.size / (1024 * 1024)).toFixed(2);
+  const fileSizeBytes = file.size;
+  console.log('========================================');
+  console.log('[Direct Upload] Starting file upload');
+  console.log(`[Direct Upload] File name: ${file.name}`);
+  console.log(`[Direct Upload] File type: ${file.type}`);
+  console.log(`[Direct Upload] File size: ${fileSizeMB} MB (${fileSizeBytes} bytes)`);
+  console.log('========================================');
+
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest();
 
@@ -47,24 +57,55 @@ export function uploadFileDirect(
 
     xhr.addEventListener('load', () => {
       if (xhr.status >= 200 && xhr.status < 300) {
+        console.log('[Direct Upload] ✅ Upload successful!');
         onProgress?.(100);
         resolve();
       } else {
+        console.error('========================================');
+        console.error('[Direct Upload] ❌ UPLOAD FAILED - SIZE LIMIT EXCEEDED');
+        console.error('========================================');
+        console.error(`[Direct Upload] FILE BEING UPLOADED:`);
+        console.error(`[Direct Upload]   Name: ${file.name}`);
+        console.error(`[Direct Upload]   Size: ${fileSizeMB} MB (${fileSizeBytes} bytes)`);
+        console.error(`[Direct Upload]   Type: ${file.type}`);
+        console.error('----------------------------------------');
+        console.error(`[Direct Upload] KNOWN LIMITS:`);
+        console.error(`[Direct Upload]   Supabase Free tier: 50 MB`);
+        console.error(`[Direct Upload]   Supabase Pro tier: 5 GB (5368709120 bytes)`);
+        console.error(`[Direct Upload]   Your bucket config: 5 GB (confirmed via SQL)`);
+        console.error('----------------------------------------');
+        console.error(`[Direct Upload] ERROR RESPONSE:`);
+        console.error(`[Direct Upload]   Status: ${xhr.status}`);
+        console.error(`[Direct Upload]   Response: ${xhr.responseText}`);
+        console.error(`[Direct Upload]   URL: ${signedUrl.substring(0, 100)}...`);
+        console.error('----------------------------------------');
+        console.error(`[Direct Upload] ⚠️ POSSIBLE CAUSES:`);
+        console.error(`[Direct Upload]   1. Bucket file_size_limit not actually updated`);
+        console.error(`[Direct Upload]   2. Supabase edge/CDN has separate limits`);
+        console.error(`[Direct Upload]   3. Signed URL method has different limits`);
+        console.error(`[Direct Upload]   4. Contact Supabase support with this info`);
+        console.error('========================================');
         reject(new Error(`Upload failed with status ${xhr.status}: ${xhr.responseText}`));
       }
     });
 
     xhr.addEventListener('error', () => {
+      console.error('[Direct Upload] ❌ Network error during upload');
       reject(new Error('Network error during upload'));
     });
 
     xhr.addEventListener('abort', () => {
+      console.error('[Direct Upload] ❌ Upload aborted');
       reject(new Error('Upload aborted'));
     });
 
     // Open and send
     xhr.open('PUT', signedUrl);
-    xhr.setRequestHeader('Content-Type', file.type || 'video/mp4');
+    const contentType = file.type || 'video/mp4';
+    console.log(`[Direct Upload] Content-Type: ${contentType}`);
+    console.log(`[Direct Upload] Signed URL (first 100 chars): ${signedUrl.substring(0, 100)}...`);
+    console.log(`[Direct Upload] Sending PUT request...`);
+    xhr.setRequestHeader('Content-Type', contentType);
     xhr.send(file);
   });
 }
@@ -99,13 +140,21 @@ export async function finalizeUpload(
   metadata: VideoMetadata,
   storagePaths: string[]
 ): Promise<{ videoId: string; urls: string[] }> {
+  // Debug: Check payload size to ensure no File objects are being serialized
+  const payload = { ...metadata, storagePaths };
+  const payloadString = JSON.stringify(payload);
+  console.log('========================================');
+  console.log('[Finalize] PAYLOAD SIZE:', payloadString.length, 'bytes');
+  console.log('[Finalize] Payload:', payloadString.substring(0, 500));
+  if (payloadString.length > 10000) {
+    console.error('[Finalize] ⚠️ WARNING: Payload is very large! May contain file data.');
+  }
+  console.log('========================================');
+
   const response = await fetch('/api/videos/finalize', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      ...metadata,
-      storagePaths
-    })
+    body: payloadString
   });
 
   if (!response.ok) {

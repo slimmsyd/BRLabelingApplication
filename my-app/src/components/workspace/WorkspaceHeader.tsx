@@ -53,8 +53,17 @@ const WorkspaceHeader = ({ onSave, onSubmit, readOnly = false, isQCMode = false,
                             <p className="text-xs text-foreground-secondary">{videoMetadata}</p>
                         )}
                         <div className="flex items-center gap-2 text-xs text-foreground-secondary">
-                            <span className={`w-2 h-2 rounded-full ${readOnly ? 'bg-red-500' : 'bg-green-500'}`}></span>
-                            <span>{readOnly ? 'Read Only' : 'In Progress'}</span>
+                            <span className={`w-2 h-2 rounded-full ${assignment?.status === 'SUBMITTED' ? 'bg-yellow-500' :
+                                    assignment?.status === 'REVIEWED' ? 'bg-blue-500' :
+                                        assignment?.status === 'COMPLETED' ? 'bg-green-500' :
+                                            readOnly ? 'bg-red-500' : 'bg-green-500'
+                                }`}></span>
+                            <span>{
+                                assignment?.status === 'SUBMITTED' ? 'Submitted - Awaiting QC' :
+                                    assignment?.status === 'REVIEWED' ? 'Reviewed' :
+                                        assignment?.status === 'COMPLETED' ? 'Completed' :
+                                            readOnly ? 'Read Only' : 'In Progress'
+                            }</span>
                         </div>
                     </div>
                 </div>

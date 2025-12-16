@@ -63,10 +63,12 @@ function WorkspacePage() {
     const [isQCMode, setIsQCMode] = useState(false);
     const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
 
-    // Load from localStorage on mount and backfill IDs
+    // Load from localStorage on mount (video-specific) - only for events, not submitted state
+    // Note: isSubmitted is determined by database assignment status, not localStorage
     useEffect(() => {
-        const savedEvents = localStorage.getItem('workspace_events');
-        const savedIsSubmitted = localStorage.getItem('workspace_isSubmitted');
+        if (!videoId) return;
+
+        const savedEvents = localStorage.getItem(`workspace_events_${videoId}`);
 
         if (savedEvents) {
             const parsedEvents: EventData[] = JSON.parse(savedEvents);
@@ -80,8 +82,8 @@ function WorkspacePage() {
             }));
             setEvents(eventsWithIds);
         }
-        if (savedIsSubmitted) setIsSubmitted(JSON.parse(savedIsSubmitted));
-    }, []);
+        // isSubmitted is NOT loaded from localStorage - it comes from database assignment status
+    }, [videoId]);
 
     // Fetch video data when videoId is available
     useEffect(() => {
@@ -124,6 +126,15 @@ function WorkspacePage() {
                 if (response.ok) {
                     const data = await response.json();
                     setAssignment(data.assignment);
+
+                    // Set isSubmitted based on assignment status from database
+                    if (data.assignment?.status) {
+                        const submittedStatuses = ['SUBMITTED', 'REVIEWED', 'COMPLETED'];
+                        if (submittedStatuses.includes(data.assignment.status)) {
+                            setIsSubmitted(true);
+                            console.log(`Video assignment status: ${data.assignment.status} - marking as submitted`);
+                        }
+                    }
                 }
             } catch (err) {
                 console.error('Failed to fetch assignment:', err);
@@ -133,11 +144,55 @@ function WorkspacePage() {
         fetchAssignment();
     }, [videoId]); // Removed user dependency to allow fetching before user loads, and to get global state
 
-    // Save to localStorage whenever critical state changes
+    // Fetch saved events from database when assignment is loaded
     useEffect(() => {
-        localStorage.setItem('workspace_events', JSON.stringify(events));
-        localStorage.setItem('workspace_isSubmitted', JSON.stringify(isSubmitted));
-    }, [events, isSubmitted]);
+        const fetchEventsFromDB = async () => {
+            if (!videoId || !assignment?.id) return;
+
+            try {
+                const response = await fetch(`/api/videos/${videoId}/events?assignmentId=${assignment.id}`);
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.events && data.events.length > 0) {
+                        // Transform DB events to match EventData interface
+                        const dbEvents: EventData[] = data.events.map((e: any) => ({
+                            id: e.id,
+                            details: `${e.punchType} (${e.hand === 'Left' ? 'L' : 'R'}) - ${e.target}`,
+                            startTime: e.startTime,
+                            endTime: e.endTime,
+                            boxer: e.boxer,
+                            punchType: e.punchType,
+                            hand: e.hand,
+                            target: e.target,
+                            visibilityFlags: e.visibilityFlags || [],
+                            knockdown: e.knockdown,
+                            punchQuality: e.punchQuality,
+                            cam: e.cam,
+                            stance: e.stance,
+                            landed: e.landed,
+                            punchResult: e.punchResult,
+                            defenseType: e.defenseType,
+                        }));
+                        setEvents(dbEvents);
+                        // Also mark as submitted if we have DB events
+                        setIsSubmitted(true);
+                        console.log(`Loaded ${dbEvents.length} events from database`);
+                    }
+                }
+            } catch (err) {
+                console.error('Failed to fetch events from database:', err);
+            }
+        };
+
+        fetchEventsFromDB();
+    }, [videoId, assignment?.id]);
+
+    // Save events to localStorage whenever they change (video-specific)
+    useEffect(() => {
+        if (videoId && events.length > 0) {
+            localStorage.setItem(`workspace_events_${videoId}`, JSON.stringify(events));
+        }
+    }, [events, videoId]);
 
     // Handle boxer change
     const handleBoxerChange = (newBoxer: string) => {
@@ -358,12 +413,14 @@ function WorkspacePage() {
         };
 
         console.log('Saving Progress:', JSON.stringify(payload, null, 2));
-        // Explicit save to localStorage (redundant with useEffect but good for immediate feedback if needed)
-        localStorage.setItem('workspace_events', JSON.stringify(events));
+        // Explicit save to localStorage (video-specific)
+        if (videoId) {
+            localStorage.setItem(`workspace_events_${videoId}`, JSON.stringify(events));
+        }
 
     };
 
-    const handleSubmit = () => {
+    const handleSubmit = async () => {
         const transformEvents = (boxerEvents: EventData[]) => {
             return boxerEvents.map(event => ({
                 cam: event.cam ? [event.cam] : [],
@@ -396,59 +453,105 @@ function WorkspacePage() {
 
         console.log('Submitting Final Data:', JSON.stringify(payload, null, 2));
 
-        // Send to Webhook
-        fetch('https://www.huemanapi.com/boxing_fight', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(payload),
-        })
-            .then(response => {
-                if (!response.ok) {
-                    throw new Error('Network response was not ok');
+        try {
+            // 1. Save to local database (tied to video assignment)
+            if (videoId && assignment?.id) {
+                const dbPayload = {
+                    assignmentId: assignment.id,
+                    events: events.map(event => ({
+                        startTime: event.startTime,
+                        endTime: event.endTime,
+                        boxer: event.boxer,
+                        punchType: event.punchType,
+                        hand: event.hand,
+                        target: event.target,
+                        visibilityFlags: event.visibilityFlags,
+                        knockdown: event.knockdown,
+                        punchQuality: event.punchQuality,
+                        cam: event.cam,
+                        stance: event.stance || 'Orthodox',
+                        landed: event.landed,
+                        punchResult: event.punchResult || (event.landed !== false ? 'Landed' : 'Missed'),
+                        defenseType: event.punchResult === 'Defended' ? event.defenseType : null,
+                    })),
+                };
+
+                const dbResponse = await fetch(`/api/videos/${videoId}/events`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(dbPayload),
+                });
+
+                if (!dbResponse.ok) {
+                    const errorData = await dbResponse.json();
+                    console.error('Failed to save events to database:', errorData);
+                    // Continue to external webhook even if local save fails
+                } else {
+                    console.log('Events saved to database successfully');
                 }
-                return response.json();
-            })
-            .then(data => {
-                console.log('Success:', data);
-                setIsSubmitted(true);
-                localStorage.setItem('workspace_isSubmitted', 'true');
-                setShowSuccessModal(true);
-            })
-            .catch((error) => {
-                console.error('Error:', error);
-                alert('Error submitting data. Please try again.');
+            } else {
+                console.warn('No videoId or assignment - skipping database save');
+            }
+
+            // 2. Send to external webhook (huemanAPI)
+            const webhookResponse = await fetch('https://www.huemanapi.com/boxing_fight', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(payload),
             });
+
+            if (!webhookResponse.ok) {
+                throw new Error('Network response was not ok');
+            }
+
+            const data = await webhookResponse.json();
+            console.log('External webhook success:', data);
+
+            setIsSubmitted(true);
+            // Note: isSubmitted state is now determined by database assignment status
+            // No need to persist to localStorage
+            setShowSuccessModal(true);
+
+        } catch (error) {
+            console.error('Error:', error);
+            alert('Error submitting data. Please try again.');
+        }
     };
 
-    // RBAC Logic - Uses external permissions from /accounts API
+    // RBAC Logic - Simplified approach:
+    // - Not submitted: Assigned users can edit
+    // - Submitted: Read-only for everyone UNLESS QC mode is explicitly activated by authorized users
     const canEdit = React.useMemo(() => {
         if (!user) return false;
 
-        // Admins can always edit
-        if (user.accountType === 'ADMIN') return true;
+        // If video is NOT submitted - check if user can edit (labeling phase)
+        if (!isSubmitted) {
+            // Admins can always edit
+            if (user.accountType === 'ADMIN') return true;
 
-        // Check if user is assigned to this video
-        const isAssignedToUser = assignment?.userId === user.userId;
-        if (!isAssignedToUser) return false; // Must be assigned to edit (unless Admin)
-
-        // If not submitted, anyone assigned can edit (labeling phase)
-        if (!isSubmitted) return true;
-
-        // If submitted, only users with QC permission can edit (QC phase)
-        // This uses the permission from external /accounts API
-        if (isSubmitted && user.permissions?.QC === true) {
-            return true;
+            // Check if user is assigned to this video
+            const isAssignedToUser = assignment?.userId === user.userId;
+            return isAssignedToUser;
         }
 
-        // Also allow QUALITY_CONTROL accountType for backwards compatibility
-        if (isSubmitted && user.accountType === 'QUALITY_CONTROL') {
-            return true;
+        // If video IS submitted - only allow editing if QC mode is activated
+        if (isSubmitted) {
+            // Must have QC mode ON to edit
+            if (!isQCMode) return false;
+
+            // Must have QC permission or be ADMIN/QUALITY_CONTROL
+            const hasQCPermission =
+                user.accountType === 'ADMIN' ||
+                user.accountType === 'QUALITY_CONTROL' ||
+                user.permissions?.QC === true;
+
+            return hasQCPermission;
         }
 
         return false;
-    }, [user, isSubmitted, assignment]);
+    }, [user, isSubmitted, assignment, isQCMode]);
 
     // Read-only state derived from canEdit
     // If canEdit is true, readOnly is false.
@@ -533,13 +636,23 @@ function WorkspacePage() {
                     setIsQCMode(!isQCMode);
                     if (isQCMode) handleCancelEdit(); // Clear selection when exiting QC mode
                 }}
-                showQCToggle={user?.accountType === 'ADMIN' || user?.accountType === 'QUALITY_CONTROL'}
+                showQCToggle={isSubmitted && (user?.accountType === 'ADMIN' || user?.accountType === 'QUALITY_CONTROL' || user?.permissions?.QC === true)}
                 videoTitle={videoData.title}
                 videoMetadata={`${videoData.boxer1} vs ${videoData.boxer2} - Round ${videoData.round}`}
                 assignment={assignment}
                 onAssign={handleAssign}
                 currentUser={user}
             />
+
+            {/* Read-Only Banner - Shows when Labeler is viewing submitted video */}
+            {isReadOnly && isSubmitted && (
+                <div className="bg-yellow-500/10 border-b border-yellow-500/30 px-6 py-3 flex items-center justify-center gap-3">
+                    <div className="w-2 h-2 rounded-full bg-yellow-500 animate-pulse"></div>
+                    <p className="text-yellow-500 text-sm font-medium">
+                        This video has been submitted and is awaiting QC review. Editing is disabled.
+                    </p>
+                </div>
+            )}
 
             <div className="flex h-[calc(100vh-64px)] overflow-hidden">
                 {/* Left Sidebar: Controls */}

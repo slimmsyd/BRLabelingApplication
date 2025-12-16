@@ -19,6 +19,14 @@ export async function POST(request: NextRequest) {
     const body: SignedUrlRequest = await request.json();
     const { boxer1, boxer2, round, numCameras } = body;
 
+    console.log('========================================');
+    console.log('[Get Upload URLs API] Request received');
+    console.log(`[Get Upload URLs API] Boxer 1: ${boxer1}`);
+    console.log(`[Get Upload URLs API] Boxer 2: ${boxer2}`);
+    console.log(`[Get Upload URLs API] Round: ${round}`);
+    console.log(`[Get Upload URLs API] Number of cameras: ${numCameras}`);
+    console.log('========================================');
+
     // Validate required fields
     if (!boxer1 || !boxer2 || !round || !numCameras) {
       return NextResponse.json(
@@ -42,6 +50,7 @@ export async function POST(request: NextRequest) {
 
     for (let cam = 1; cam <= numCameras; cam++) {
       const storagePath = generateStoragePath(boxer1, boxer2, round, cam);
+      console.log(`[Get Upload URLs API] Generating signed URL for camera ${cam}, path: ${storagePath}`);
       const signedUrl = await storageProvider.getSignedUploadUrl(storagePath);
 
       uploadUrls.push({
@@ -50,6 +59,11 @@ export async function POST(request: NextRequest) {
         storagePath
       });
     }
+
+    console.log(`[Get Upload URLs API] Successfully generated ${uploadUrls.length} signed URLs`);
+    console.log('[Get Upload URLs API] NOTE: Supabase bucket file_size_limit may restrict uploads.');
+    console.log('[Get Upload URLs API] Check bucket settings in Supabase Dashboard > Storage > fight-videos > Settings');
+    console.log('========================================');
 
     return NextResponse.json({
       success: true,

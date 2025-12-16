@@ -6,7 +6,7 @@ import React, { useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { Upload, X, FileVideo, Loader2, ArrowLeft, Camera } from 'lucide-react';
 import Link from 'next/link';
-import { uploadVideos, DirectUploadProgress } from '@/lib/storage/direct-upload';
+import { uploadVideosStandard, StandardUploadProgress } from '@/lib/storage/standard-upload';
 
 
 type CameraKey = 'cam1' | 'cam2' | 'cam3';
@@ -104,8 +104,8 @@ const UploadPage = () => {
         setUploadProgress({ cam1: 0, cam2: 0, cam3: 0 });
 
         try {
-            // Use direct upload to Supabase (bypasses Vercel's body size limit)
-            const result = await uploadVideos(
+            // Use STANDARD Supabase endpoint (not signed URLs)
+            const result = await uploadVideosStandard(
                 files,
                 {
                     boxer1,
@@ -115,10 +115,9 @@ const UploadPage = () => {
                     fightDate,
                     fps
                 },
-                (progressUpdates) => {
-                    // Update progress for each camera
+                (progressUpdates: StandardUploadProgress[]) => {
                     const newProgress = { cam1: 0, cam2: 0, cam3: 0 };
-                    progressUpdates.forEach(update => {
+                    progressUpdates.forEach((update: StandardUploadProgress) => {
                         const camKey = `cam${update.camera}` as keyof typeof newProgress;
                         newProgress[camKey] = update.progress;
                     });

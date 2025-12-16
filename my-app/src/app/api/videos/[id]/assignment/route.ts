@@ -25,10 +25,19 @@ export async function GET(
       whereClause.userId = userId;
     }
 
-    // Get assignment
+    // Get assignment with explicit field selection
     const assignment = await prisma.videoAssignment.findFirst({
       where: whereClause,
-      include: {
+      select: {
+        id: true,
+        videoId: true,
+        userId: true,
+        labelType: true,
+        status: true,
+        assignedAt: true,
+        submittedAt: true,
+        reviewedAt: true,
+        notes: true,
         user: {
           select: {
             email: true,
