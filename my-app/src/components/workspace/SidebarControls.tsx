@@ -41,6 +41,7 @@ interface SidebarControlsProps {
     isEditing?: boolean;
     onCancelEdit?: () => void;
     onUpdateEvent?: (eventData: any) => void;
+    boxerNames?: { boxerA: string; boxerB: string };
 }
 
 const SidebarControls = ({
@@ -54,8 +55,12 @@ const SidebarControls = ({
     readOnly = false,
     isEditing = false,
     onCancelEdit,
-    onUpdateEvent
+    onUpdateEvent,
+    boxerNames
 }: SidebarControlsProps) => {
+    // Get display names for boxers (fallback to generic labels)
+    const boxerAName = boxerNames?.boxerA || 'Boxer A';
+    const boxerBName = boxerNames?.boxerB || 'Boxer B';
     const { boxer, startTime, endTime, punchType, hand, target, visibilityFlags, knockdown, punchQuality, stance, landed, punchResult, defenseType } = formState;
     const { setBoxer, setStartTime, setEndTime, setPunchType, setHand, setTarget, setVisibilityFlags, setKnockdown, setPunchQuality, setStance, setLanded, setPunchResult, setDefenseType } = setFormState;
 
@@ -235,14 +240,14 @@ const SidebarControls = ({
                             disabled={readOnly}
                             className={`flex-1 py-2 text-xs font-medium rounded transition-colors cursor-pointer ${boxer === 'Boxer A' ? 'bg-white/10 text-foreground' : 'text-foreground-secondary hover:text-foreground'}`}
                         >
-                            Boxer A (Crawford)
+                            Boxer A ({boxerAName})
                         </button>
                         <button
                             onClick={() => setBoxer('Boxer B')}
                             disabled={readOnly}
                             className={`flex-1 py-2 text-xs font-medium rounded transition-colors cursor-pointer ${boxer === 'Boxer B' ? 'bg-white/10 text-foreground' : 'text-foreground-secondary hover:text-foreground'}`}
                         >
-                            Boxer B (Canelo)
+                            Boxer B ({boxerBName})
                         </button>
                     </div>
                 </div>

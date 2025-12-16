@@ -30,6 +30,30 @@ interface VideoData {
     updatedAt: string;
 }
 
+/**
+ * Parse boxer names from video title.
+ * Expected format: "Abdullah_Mason v Sam_Noakes - R1" or "Name1 vs Name2 - R1"
+ * Returns { boxerA, boxerB } with cleaned names (underscores replaced with spaces)
+ */
+function parseBoxerNamesFromTitle(title: string): { boxerA: string; boxerB: string } | null {
+    if (!title) return null;
+
+    // Match " v " or " vs " (case insensitive)
+    const vsMatch = title.match(/^(.+?)\s+(?:v|vs)\s+(.+?)(?:\s*-\s*R\d+)?$/i);
+
+    if (vsMatch) {
+        // Clean up names: replace underscores with spaces, trim whitespace
+        const cleanName = (name: string) => name.replace(/_/g, ' ').trim();
+
+        return {
+            boxerA: cleanName(vsMatch[1]),
+            boxerB: cleanName(vsMatch[2])
+        };
+    }
+
+    return null;
+}
+
 function WorkspacePage() {
     const searchParams = useSearchParams();
     const videoId = searchParams.get('videoId');
@@ -626,6 +650,28 @@ function WorkspacePage() {
         };
     }, [videoData]);
 
+    // Parse boxer names from video title, fallback to database fields
+    const boxerNames = React.useMemo(() => {
+        if (!videoData) return undefined;
+
+        // Try to parse from title first
+        const parsedNames = parseBoxerNamesFromTitle(videoData.title);
+
+        if (parsedNames) {
+            return parsedNames;
+        }
+
+        // Fallback to database fields if they exist and aren't empty
+        if (videoData.boxer1 && videoData.boxer2) {
+            return {
+                boxerA: videoData.boxer1,
+                boxerB: videoData.boxer2
+            };
+        }
+
+        return undefined;
+    }, [videoData]);
+
     // Show loading state
     if (videoLoading) {
         return (
@@ -721,6 +767,7 @@ function WorkspacePage() {
                         isEditing={!!selectedEventId}
                         onUpdateEvent={handleUpdateEvent}
                         onCancelEdit={handleCancelEdit}
+                        boxerNames={boxerNames}
                     />
                 </aside>
 
