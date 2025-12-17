@@ -171,152 +171,143 @@ const SidebarControls = ({
     };
 
     return (
-        <div className={`space-y-6 overflow-y-auto scrollbar-hide ${readOnly ? 'pointer-events-none' : ''}`} style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
-            {/* Timer Display */}
-            <div className="bg-surface border border-border rounded-xl p-4">
-                <div className="grid grid-cols-2 gap-4 mb-4">
+        <div className={`space-y-3 overflow-y-auto scrollbar-hide ${readOnly ? 'pointer-events-none' : ''}`} style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+            {/* Timer Display - Compacted */}
+            <div className="bg-surface border border-border rounded-xl p-3">
+                <div className="grid grid-cols-2 gap-3">
                     <div
                         onClick={() => setActiveTimeMode('start')}
-                        className={`p-3 rounded-lg border cursor-pointer transition-all ${activeTimeMode === 'start'
+                        className={`p-2 rounded-lg border cursor-pointer transition-all ${activeTimeMode === 'start'
                             ? 'bg-accent-primary/10 border-accent-primary'
                             : 'bg-background border-border hover:border-foreground-secondary'
                             }`}
                     >
-                        <div className={`text-xs font-medium mb-1 ${activeTimeMode === 'start' ? 'text-accent-primary' : 'text-foreground-secondary'}`}>
+                        <div className={`text-[10px] font-medium mb-0.5 ${activeTimeMode === 'start' ? 'text-accent-primary' : 'text-foreground-secondary'}`}>
                             Start Time
                         </div>
-                        <div className="text-sm font-mono font-bold text-foreground tracking-wider">
+                        <div className="text-xs font-mono font-bold text-foreground tracking-wider">
                             {startTime || '00:00.00'}
                         </div>
                     </div>
                     <div
                         onClick={() => setActiveTimeMode('end')}
-                        className={`p-3 rounded-lg border cursor-pointer transition-all ${activeTimeMode === 'end'
+                        className={`p-2 rounded-lg border cursor-pointer transition-all ${activeTimeMode === 'end'
                             ? 'bg-accent-primary/10 border-accent-primary'
                             : 'bg-background border-border hover:border-foreground-secondary'
                             }`}
                     >
-                        <div className={`text-xs font-medium mb-1 ${activeTimeMode === 'end' ? 'text-accent-primary' : 'text-foreground-secondary'}`}>
+                        <div className={`text-[10px] font-medium mb-0.5 ${activeTimeMode === 'end' ? 'text-accent-primary' : 'text-foreground-secondary'}`}>
                             End Time
                         </div>
-                        <div className="text-sm font-mono font-bold text-foreground tracking-wider">
+                        <div className="text-xs font-mono font-bold text-foreground tracking-wider">
                             {endTime || '00:00.00'}
                         </div>
                     </div>
                 </div>
-
-                <button
-                    onClick={handleUseCurrentTime}
-                    disabled={readOnly}
-                    className={`w-full py-3 bg-white/5 hover:bg-white/10 border border-border rounded-lg text-sm font-medium text-foreground transition-colors flex items-center justify-center gap-2 cursor-pointer ${readOnly ? 'opacity-50 cursor-not-allowed' : ''}`}
-                >
-                    <Clock size={16} />
-                    Use Current Time
-                </button>
             </div>
 
             {/* Log New Event Form */}
-            <div className="bg-surface rounded-xl border border-border p-4 shrink-0">
-                <div className="flex items-center justify-between mb-4">
+            <div className="bg-surface rounded-xl border border-border p-3 shrink-0">
+                <div className="flex items-center justify-between mb-3">
                     <h2 className="text-sm font-semibold text-foreground flex items-center gap-2">
-                        <Plus size={16} className="text-accent-primary" />
                         {isEditing ? 'Update Event' : 'Log New Event'}
                     </h2>
                     <button
                         onClick={handleCancel}
                         disabled={readOnly}
-                        className="text-xs text-foreground-secondary hover:text-foreground transition-colors"
+                        className="text-[10px] text-foreground-secondary hover:text-foreground transition-colors"
                     >
-                        {isEditing ? 'Cancel Edit' : 'Reset Form'}
+                        {isEditing ? 'Cancel Edit' : 'Reset'}
                     </button>
                 </div>
 
-                {/* Boxer Selection */}
-                <div className="mb-4">
-                    <label className="block text-xs font-medium text-foreground-secondary mb-1.5">Boxer</label>
-                    <div className="flex bg-background rounded-lg p-1 border border-border">
-                        <button
-                            onClick={() => setBoxer('Boxer A')}
-                            disabled={readOnly}
-                            className={`flex-1 py-2 text-xs font-medium rounded transition-colors cursor-pointer ${boxer === 'Boxer A' ? 'bg-white/10 text-foreground' : 'text-foreground-secondary hover:text-foreground'}`}
-                        >
-                            {boxerAName}
-                        </button>
-                        <button
-                            onClick={() => setBoxer('Boxer B')}
-                            disabled={readOnly}
-                            className={`flex-1 py-2 text-xs font-medium rounded transition-colors cursor-pointer ${boxer === 'Boxer B' ? 'bg-white/10 text-foreground' : 'text-foreground-secondary hover:text-foreground'}`}
-                        >
-                            {boxerBName}
-                        </button>
-                    </div>
-                </div>
-                {/* Stance Selection */}
-                <div className="mb-4">
-                    <label className="block text-xs font-medium text-foreground-secondary mb-1.5">Stance</label>
-                    <div className="flex bg-background rounded-lg p-1 border border-border">
-                        <button
-                            onClick={() => setStance('Orthodox')}
-                            disabled={readOnly}
-                            className={`flex-1 py-2 text-xs font-medium rounded transition-colors cursor-pointer ${stance === 'Orthodox' ? 'bg-white/10 text-foreground' : 'text-foreground-secondary hover:text-foreground'}`}
-                        >
-                            Orthodox
-                        </button>
-                        <button
-                            onClick={() => setStance('Southpaw')}
-                            disabled={readOnly}
-                            className={`flex-1 py-2 text-xs font-medium rounded transition-colors cursor-pointer ${stance === 'Southpaw' ? 'bg-white/10 text-foreground' : 'text-foreground-secondary hover:text-foreground'}`}
-                        >
-                            Southpaw
-                        </button>
-                    </div>
-                </div>
-
-                {/* Punch Result - Moved up for better UX */}
-                <div className="mb-4">
-                    <label className="block text-xs font-medium text-foreground-secondary mb-1.5">Punch Result</label>
-                    <select
-                        value={punchResult}
-                        onChange={(e) => {
-                            setPunchResult(e.target.value);
-                            // Auto-update landed state for compat
-                            setLanded(e.target.value === 'Landed');
-                        }}
-                        disabled={readOnly}
-                        className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground focus:outline-none focus:border-accent-primary mb-3"
-                    >
-                        {['Landed', 'Missed', 'Unseen', 'Defended'].map(res => (
-                            <option key={res} value={res}>{res}</option>
-                        ))}
-                    </select>
-
-                    {/* Defense Type - Conditional */}
-                    {punchResult === 'Defended' && (
-                        <div className="mt-3 animate-in fade-in slide-in-from-top-2 duration-200">
-                            <label className="block text-xs font-medium text-foreground-secondary mb-1.5">Defense Type</label>
-                            <select
-                                value={defenseType}
-                                onChange={(e) => setDefenseType(e.target.value)}
-                                disabled={readOnly}
-                                className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground focus:outline-none focus:border-accent-primary"
-                            >
-                                {['Guard', 'Slip', 'Parry', 'Duck'].map(type => (
-                                    <option key={type} value={type}>{type}</option>
-                                ))}
-                            </select>
-                        </div>
-                    )}
-                </div>
-
-                {/* Punch Type & Quality */}
-                <div className="grid grid-cols-2 gap-3 mb-4">
+                {/* Boxer & Stance - Combined Row */}
+                <div className="grid grid-cols-2 gap-3 mb-3">
                     <div>
-                        <label className="block text-xs font-medium text-foreground-secondary mb-1.5">Punch Type</label>
+                        <label className="block text-[10px] font-medium text-foreground-secondary mb-1">Boxer</label>
+                        <div className="flex bg-background rounded-lg p-0.5 border border-border">
+                            <button
+                                onClick={() => setBoxer('Boxer A')}
+                                disabled={readOnly}
+                                className={`flex-1 py-1.5 text-[10px] font-medium rounded transition-colors cursor-pointer truncate px-1 ${boxer === 'Boxer A' ? 'bg-white/10 text-foreground' : 'text-foreground-secondary hover:text-foreground'}`}
+                                title={boxerAName}
+                            >
+                                {boxerAName}
+                            </button>
+                            <button
+                                onClick={() => setBoxer('Boxer B')}
+                                disabled={readOnly}
+                                className={`flex-1 py-1.5 text-[10px] font-medium rounded transition-colors cursor-pointer truncate px-1 ${boxer === 'Boxer B' ? 'bg-white/10 text-foreground' : 'text-foreground-secondary hover:text-foreground'}`}
+                                title={boxerBName}
+                            >
+                                {boxerBName}
+                            </button>
+                        </div>
+                    </div>
+                    <div>
+                        <label className="block text-[10px] font-medium text-foreground-secondary mb-1">Stance</label>
+                        <div className="flex bg-background rounded-lg p-0.5 border border-border">
+                            <button
+                                onClick={() => setStance('Orthodox')}
+                                disabled={readOnly}
+                                className={`flex-1 py-1.5 text-[10px] font-medium rounded transition-colors cursor-pointer ${stance === 'Orthodox' ? 'bg-white/10 text-foreground' : 'text-foreground-secondary hover:text-foreground'}`}
+                            >
+                                Orth
+                            </button>
+                            <button
+                                onClick={() => setStance('Southpaw')}
+                                disabled={readOnly}
+                                className={`flex-1 py-1.5 text-[10px] font-medium rounded transition-colors cursor-pointer ${stance === 'Southpaw' ? 'bg-white/10 text-foreground' : 'text-foreground-secondary hover:text-foreground'}`}
+                            >
+                                South
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Punch Result & Defense - Compact */}
+                <div className="mb-3">
+                    <label className="block text-[10px] font-medium text-foreground-secondary mb-1">Result</label>
+                    <div className="flex gap-2">
+                        <select
+                            value={punchResult}
+                            onChange={(e) => {
+                                setPunchResult(e.target.value);
+                                setLanded(e.target.value === 'Landed');
+                            }}
+                            disabled={readOnly}
+                            className="flex-1 bg-background border border-border rounded-lg px-2 py-1.5 text-xs text-foreground focus:outline-none focus:border-accent-primary"
+                        >
+                            {['Landed', 'Missed', 'Unseen', 'Defended'].map(res => (
+                                <option key={res} value={res}>{res}</option>
+                            ))}
+                        </select>
+                        {punchResult === 'Defended' && (
+                            <div className="flex-1 animate-in fade-in slide-in-from-left-2 duration-200">
+                                <select
+                                    value={defenseType}
+                                    onChange={(e) => setDefenseType(e.target.value)}
+                                    disabled={readOnly}
+                                    className="w-full bg-background border border-border rounded-lg px-2 py-1.5 text-xs text-foreground focus:outline-none focus:border-accent-primary"
+                                >
+                                    {['Guard', 'Slip', 'Parry', 'Duck'].map(type => (
+                                        <option key={type} value={type}>{type}</option>
+                                    ))}
+                                </select>
+                            </div>
+                        )}
+                    </div>
+                </div>
+
+                {/* Punch Type & Quality - Compact */}
+                <div className="grid grid-cols-3 gap-3 mb-3">
+                    <div className="col-span-2">
+                        <label className="block text-[10px] font-medium text-foreground-secondary mb-1">Type</label>
                         <select
                             value={punchType}
                             onChange={(e) => setPunchType(e.target.value)}
                             disabled={readOnly}
-                            className="w-full bg-background border border-border rounded-lg px-2 py-2 text-xs text-foreground focus:outline-none focus:border-accent-primary"
+                            className="w-full bg-background border border-border rounded-lg px-2 py-1.5 text-xs text-foreground focus:outline-none focus:border-accent-primary"
                         >
                             {['Jab', 'Cross', 'Hook', 'Uppercut', 'Overhand', 'Screwshot'].map(type => (
                                 <option key={type} value={type}>{type}</option>
@@ -324,48 +315,45 @@ const SidebarControls = ({
                         </select>
                     </div>
                     <div>
-                        <label className="block text-xs font-medium text-foreground-secondary mb-1.5">Quality (1-2)</label>
+                        <label className="block text-[10px] font-medium text-foreground-secondary mb-1">Qual (1-2)</label>
                         <select
                             value={punchQuality}
                             onChange={(e) => setPunchQuality(e.target.value)}
                             disabled={punchResult !== 'Landed' || readOnly}
-                            className={`w-full bg-background border border-border rounded-lg px-2 py-2 text-xs text-foreground focus:outline-none focus:border-accent-primary ${punchResult !== 'Landed' ? 'opacity-50 cursor-not-allowed' : ''}`}
+                            className={`w-full bg-background border border-border rounded-lg px-2 py-1.5 text-xs text-foreground focus:outline-none focus:border-accent-primary ${punchResult !== 'Landed' ? 'opacity-50 cursor-not-allowed' : ''}`}
                         >
                             {['1', '2'].map(q => (
                                 <option key={q} value={q}>{q}</option>
                             ))}
                         </select>
-                        {punchResult !== 'Landed' && (
-                            <p className="text-[10px] text-orange-400 mt-1">Quality only applies to landed punches</p>
-                        )}
                     </div>
                 </div>
 
-                {/* Hand & Target */}
-                <div className="mb-4">
+                {/* Hand & Target - Compact */}
+                <div className="mb-3">
                     <div className="flex gap-3">
                         <div className="flex-1">
-                            <label className="block text-xs font-medium text-foreground-secondary mb-1.5">Hand</label>
-                            <div className="flex bg-background rounded-lg p-1 border border-border">
+                            <label className="block text-[10px] font-medium text-foreground-secondary mb-1">Hand</label>
+                            <div className="flex bg-background rounded-lg p-0.5 border border-border">
                                 <button
                                     onClick={() => setHand('Left')}
                                     disabled={readOnly}
-                                    className={`flex-1 py-1.5 text-[10px] font-medium rounded transition-colors cursor-pointer ${hand === 'Left' ? 'bg-white/10 text-foreground' : 'text-foreground-secondary hover:text-foreground'}`}
+                                    className={`flex-1 py-1.5 text-[10px] font-medium rounded transition-colors cursor-pointer truncate ${hand === 'Left' ? 'bg-white/10 text-foreground' : 'text-foreground-secondary hover:text-foreground'}`}
                                 >
                                     {getHandLabel('Left')}
                                 </button>
                                 <button
                                     onClick={() => setHand('Right')}
                                     disabled={readOnly}
-                                    className={`flex-1 py-1.5 text-[10px] font-medium rounded transition-colors cursor-pointer ${hand === 'Right' ? 'bg-white/10 text-foreground' : 'text-foreground-secondary hover:text-foreground'}`}
+                                    className={`flex-1 py-1.5 text-[10px] font-medium rounded transition-colors cursor-pointer truncate ${hand === 'Right' ? 'bg-white/10 text-foreground' : 'text-foreground-secondary hover:text-foreground'}`}
                                 >
                                     {getHandLabel('Right')}
                                 </button>
                             </div>
                         </div>
                         <div className="flex-1">
-                            <label className="block text-xs font-medium text-foreground-secondary mb-1.5">Target</label>
-                            <div className="flex bg-background rounded-lg p-1 border border-border">
+                            <label className="block text-[10px] font-medium text-foreground-secondary mb-1">Target</label>
+                            <div className="flex bg-background rounded-lg p-0.5 border border-border">
                                 <button
                                     onClick={() => setTarget('Head')}
                                     disabled={readOnly}
@@ -385,69 +373,61 @@ const SidebarControls = ({
                     </div>
                 </div>
 
-                {/* Visibility Flags - Larger and Clickable */}
-                <div className="mb-6">
-                    <label className="block text-xs font-medium text-foreground-secondary mb-3">Visibility</label>
-                    <div className="flex flex-col gap-2">
+                {/* Visibility Flags - Compact Chips */}
+                <div className="mb-3">
+                    <label className="block text-[10px] font-medium text-foreground-secondary mb-1.5">Visibility</label>
+                    <div className="flex flex-wrap gap-1.5">
                         {['Full Body', 'Profile', 'Origin', 'Trajectory', 'Impact'].map((flag) => {
                             const isSelected = visibilityFlags.includes(flag);
                             return (
-                                <label
+                                <button
                                     key={flag}
-                                    className={`flex items-center gap-3 p-2 rounded-lg border cursor-pointer transition-all duration-200 ${isSelected
-                                        ? 'bg-accent-primary/10 border-accent-primary'
-                                        : 'bg-background border-border hover:border-foreground-secondary'
-                                        }`}
                                     onClick={() => toggleFlag(flag)}
+                                    disabled={readOnly}
+                                    className={`px-2 py-1 rounded text-[10px] font-medium border transition-all ${isSelected
+                                        ? 'bg-accent-primary/20 border-accent-primary text-accent-primary'
+                                        : 'bg-background border-border text-foreground-secondary hover:border-foreground-secondary'
+                                        }`}
                                 >
-                                    <div className={`w-5 h-5 rounded border flex items-center justify-center transition-colors ${isSelected ? 'bg-accent-primary border-accent-primary' : 'border-foreground-secondary'
-                                        }`}>
-                                        {isSelected && <Check size={14} className="text-white" />}
-                                    </div>
-                                    <span className={`text-sm font-medium ${isSelected ? 'text-foreground' : 'text-foreground-secondary'}`}>
-                                        {flag}
-                                    </span>
-                                </label>
+                                    {flag}
+                                </button>
                             );
                         })}
                     </div>
                 </div>
 
-                {/* Knockdown */}
-                <div className="mb-6">
-                    <label className="block text-xs font-medium text-foreground-secondary mb-3">Knockdown</label>
+                {/* Knockdown - Compact */}
+                <div className="mb-4 flex items-center justify-between bg-background border border-border rounded-lg p-2">
+                    <span className="text-[10px] font-medium text-foreground-secondary">Knockdown?</span>
                     <div className="flex gap-2">
-                        <button
-                            onClick={() => setKnockdown(false)}
-                            disabled={readOnly}
-                            className={`flex-1 py-2 px-3 rounded-lg text-xs font-medium transition-colors cursor-pointer ${!knockdown
-                                ? 'bg-accent-primary text-white'
-                                : 'bg-background border border-border text-foreground-secondary hover:text-foreground hover:border-foreground-secondary'
-                                }`}
-                        >
-                            NO
-                        </button>
                         <button
                             onClick={() => setKnockdown(true)}
                             disabled={readOnly}
-                            className={`flex-1 py-2 px-3 rounded-lg text-xs font-medium transition-colors cursor-pointer ${knockdown
+                            className={`px-3 py-1 rounded text-[10px] font-bold transition-colors ${knockdown
                                 ? 'bg-red-500 text-white'
-                                : 'bg-background border border-border text-foreground-secondary hover:text-foreground hover:border-foreground-secondary'
+                                : 'bg-surface border border-border text-foreground-secondary hover:text-foreground'
                                 }`}
                         >
                             YES
                         </button>
+                        {knockdown && (
+                            <button
+                                onClick={() => setKnockdown(false)}
+                                disabled={readOnly}
+                                className="text-[10px] text-foreground-secondary hover:text-foreground underline"
+                            >
+                                Clear
+                            </button>
+                        )}
                     </div>
                 </div>
 
-
-
                 {/* Actions */}
-                <div className="flex items-center gap-2 pt-3 border-t border-border">
+                <div className="flex items-center gap-2 pt-2 border-t border-border">
                     <button
                         onClick={handleAction}
                         disabled={readOnly || isTimeInvalid}
-                        className={`flex-1 cursor-pointer py-3 text-sm font-bold rounded-lg transition-colors shadow-lg shadow-white/5 ${isTimeInvalid || readOnly
+                        className={`flex-1 cursor-pointer py-2.5 text-xs font-bold rounded-lg transition-colors shadow-lg shadow-white/5 ${isTimeInvalid || readOnly
                             ? 'bg-foreground text-black opacity-50 cursor-not-allowed'
                             : isEditing
                                 ? 'bg-accent-primary text-white hover:bg-accent-primary/90'
@@ -458,7 +438,7 @@ const SidebarControls = ({
                     <button
                         onClick={handleCancel}
                         disabled={readOnly}
-                        className={`px-4 cursor-pointer py-3 bg-red-500/10 border border-red-500/50 text-red-500 text-sm font-medium rounded-lg transition-colors ${readOnly ? 'opacity-50 cursor-not-allowed' : 'hover:bg-red-500/20 hover:border-red-500'}`}
+                        className={`px-3 cursor-pointer py-2.5 bg-red-500/10 border border-red-500/50 text-red-500 text-xs font-medium rounded-lg transition-colors ${readOnly ? 'opacity-50 cursor-not-allowed' : 'hover:bg-red-500/20 hover:border-red-500'}`}
                     >
                         {isEditing ? 'Cancel' : 'Clear'}
                     </button>

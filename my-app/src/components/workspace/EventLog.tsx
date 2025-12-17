@@ -56,22 +56,24 @@ const EventLog = ({ events, onStartPunch, onEndPunch, onDeleteEvent, readOnly = 
         return mins * 60 + secs + ms / 100;
     };
 
-    // Sort events by start time (chronological order in video)
-    const sortEventsByTimestamp = (eventList: EventData[]) => {
+    // Sort events by start time - descending (latest in round at top) or ascending
+    const sortEventsByTimestamp = (eventList: EventData[], descending: boolean = true) => {
         return [...eventList].sort((a, b) => {
             const timeA = parseTimeToSeconds(a.startTime);
             const timeB = parseTimeToSeconds(b.startTime);
-            return timeA - timeB;
+            return descending ? timeB - timeA : timeA - timeB;
         });
     };
 
     // Apply sorting based on mode
+    // 'recent' = latest timestamp first (descending - events later in the round at top)
+    // 'timestamp' = earliest timestamp first (ascending - chronological from start)
     const applySorting = (eventList: EventData[]) => {
         if (sortMode === 'timestamp') {
-            return sortEventsByTimestamp(eventList);
+            return sortEventsByTimestamp(eventList, false); // ascending
         }
-        // 'recent' mode: keep original order (most recently added first)
-        return eventList;
+        // 'recent' mode: latest timestamp first (descending)
+        return sortEventsByTimestamp(eventList, true);
     };
 
     const boxerAEvents = applySorting(events.filter(e => e.boxer === 'Boxer A'));
@@ -213,9 +215,6 @@ const EventLog = ({ events, onStartPunch, onEndPunch, onDeleteEvent, readOnly = 
         </div>
     );
 
-    // Get the ID of the most recently added event (first in original array order)
-    const latestEventId = events.length > 0 ? events[0].id : null;
-
     const EventTable = ({ title, data }: { title: string, data: EventData[] }) => (
         <div className="flex-1 min-w-0 bg-surface rounded-xl border border-border overflow-hidden flex flex-col h-[400px]">
             <div className="p-3 border-b border-border bg-white/5">
@@ -235,7 +234,7 @@ const EventLog = ({ events, onStartPunch, onEndPunch, onDeleteEvent, readOnly = 
                             key={event.id || index}
                             event={event}
                             index={index}
-                            isLatest={event.id === latestEventId}
+                            isLatest={index === 0}
                         />
                     ))
                 )}
@@ -273,7 +272,7 @@ const EventLog = ({ events, onStartPunch, onEndPunch, onDeleteEvent, readOnly = 
                     className="flex items-center gap-1.5 px-3 py-1.5 bg-surface hover:bg-white/10 border border-border rounded-lg text-xs font-medium transition-colors"
                 >
                     <ArrowUpDown size={12} />
-                    {sortMode === 'recent' ? 'Recent First' : 'Video Time'}
+                    {sortMode === 'recent' ? 'Latest First' : 'Earliest First'}
                 </button>
             </div>
 
