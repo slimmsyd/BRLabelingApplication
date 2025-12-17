@@ -57,7 +57,6 @@ function parseBoxerNamesFromTitle(title: string): { boxerA: string; boxerB: stri
 function WorkspacePage() {
     const searchParams = useSearchParams();
     const videoId = searchParams.get('videoId');
-
     const [videoData, setVideoData] = useState<VideoData | null>(null);
     const [videoLoading, setVideoLoading] = useState(true);
     const [videoError, setVideoError] = useState<string | null>(null);
@@ -781,6 +780,7 @@ function WorkspacePage() {
                                 activeCam={activeCam}
                                 setActiveCam={setActiveCam}
                                 videoSources={videoSources}
+                                fps={videoData.fps}
                             />
                         </section>
 

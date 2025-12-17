@@ -1,5 +1,5 @@
 import React, { useState, useEffect, RefObject } from 'react';
-import { Play, Pause, SkipBack, SkipForward, Maximize2, Volume2, VolumeX, Volume1, Settings, Gauge } from 'lucide-react';
+import { Play, Pause, SkipBack, SkipForward, Maximize2, Volume2, VolumeX, Volume1, Settings, Gauge, ChevronUp, ChevronDown } from 'lucide-react';
 
 interface VideoPlayerProps {
     videoRef: RefObject<HTMLVideoElement | null>;
@@ -10,9 +10,10 @@ interface VideoPlayerProps {
         cam2?: string;
         cam3?: string;
     };
+    fps?: number; // Video frame rate for frame-by-frame navigation
 }
 
-const VideoPlayer = ({ videoRef, activeCam, setActiveCam, videoSources }: VideoPlayerProps) => {
+const VideoPlayer = ({ videoRef, activeCam, setActiveCam, videoSources, fps = 30 }: VideoPlayerProps) => {
     const [isPlaying, setIsPlaying] = useState(false);
     const [currentTime, setCurrentTime] = useState(0);
     const [duration, setDuration] = useState(0);
@@ -73,18 +74,18 @@ const VideoPlayer = ({ videoRef, activeCam, setActiveCam, videoSources }: VideoP
                     break;
                 case 'ArrowLeft':
                     e.preventDefault();
-                    skipBackward();
+                    stepFrameBackward();
                     break;
                 case 'ArrowRight':
                     e.preventDefault();
-                    skipForward();
+                    stepFrameForward();
                     break;
             }
         };
 
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [isPlaying, skipDuration]); // Dependencies for togglePlay and skip functions
+    }, [isPlaying, fps]); // Dependencies for togglePlay and frame step functions
 
     // Reset zoom when camera changes
     useEffect(() => {
@@ -235,6 +236,37 @@ const VideoPlayer = ({ videoRef, activeCam, setActiveCam, videoSources }: VideoP
         }
     };
 
+    // Frame-by-frame navigation
+    const frameDuration = 1 / fps;
+
+    const stepFrameForward = () => {
+        if (videoRef.current) {
+            // Pause video when stepping frames for precision
+            if (!videoRef.current.paused) {
+                videoRef.current.pause();
+                setIsPlaying(false);
+            }
+            videoRef.current.currentTime = Math.min(
+                videoRef.current.duration,
+                videoRef.current.currentTime + frameDuration
+            );
+        }
+    };
+
+    const stepFrameBackward = () => {
+        if (videoRef.current) {
+            // Pause video when stepping frames for precision
+            if (!videoRef.current.paused) {
+                videoRef.current.pause();
+                setIsPlaying(false);
+            }
+            videoRef.current.currentTime = Math.max(
+                0,
+                videoRef.current.currentTime - frameDuration
+            );
+        }
+    };
+
     const formatTime = (seconds: number): string => {
         if (isNaN(seconds)) return '00:00';
         const mins = Math.floor(seconds / 60);
@@ -375,19 +407,41 @@ const VideoPlayer = ({ videoRef, activeCam, setActiveCam, videoSources }: VideoP
                             </button>
 
                             <div className="flex items-center gap-2">
+                                {/* Time Skip Controls */}
                                 <button
                                     onClick={skipBackward}
                                     className="text-white/70 hover:text-white transition-colors"
-                                    title="Skip back 10s"
+                                    title={`Skip back ${skipDuration}s`}
                                 >
                                     <SkipBack size={20} />
                                 </button>
                                 <button
                                     onClick={skipForward}
                                     className="text-white/70 hover:text-white transition-colors"
-                                    title="Skip forward 10s"
+                                    title={`Skip forward ${skipDuration}s`}
                                 >
                                     <SkipForward size={20} />
+                                </button>
+
+                                {/* Frame Step Divider */}
+                                <div className="w-px h-4 bg-white/20 mx-1"></div>
+
+                                {/* Frame Step Controls */}
+                                <button
+                                    onClick={stepFrameBackward}
+                                    className="text-white/70 hover:text-white transition-colors flex items-center gap-0.5"
+                                    title="Previous frame (← Arrow)"
+                                >
+                                    <ChevronDown size={16} />
+                                    <span className="text-[10px] font-mono">1f</span>
+                                </button>
+                                <button
+                                    onClick={stepFrameForward}
+                                    className="text-white/70 hover:text-white transition-colors flex items-center gap-0.5"
+                                    title="Next frame (→ Arrow)"
+                                >
+                                    <ChevronUp size={16} />
+                                    <span className="text-[10px] font-mono">1f</span>
                                 </button>
                             </div>
 
