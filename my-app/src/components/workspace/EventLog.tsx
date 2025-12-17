@@ -1,5 +1,5 @@
-import React from 'react';
-import { Trash2, Clock } from 'lucide-react';
+import React, { useState } from 'react';
+import { Trash2, Clock, ArrowUpDown } from 'lucide-react';
 
 export interface EventData {
     id: string;
@@ -24,13 +24,21 @@ interface EventLogProps {
     events: EventData[];
     onStartPunch: () => void;
     onEndPunch: () => void;
-    onDeleteEvent: (index: number) => void;
+    onDeleteEvent: (eventId: string) => void;
     readOnly?: boolean;
     onSeek?: (event: EventData) => void;
     onSelectEvent?: (event: EventData) => void;
+    boxerNames?: { boxerA: string; boxerB: string };
 }
 
-const EventLog = ({ events, onStartPunch, onEndPunch, onDeleteEvent, readOnly = false, onSeek, onSelectEvent }: EventLogProps) => {
+const EventLog = ({ events, onStartPunch, onEndPunch, onDeleteEvent, readOnly = false, onSeek, onSelectEvent, boxerNames }: EventLogProps) => {
+    // Sort mode: 'recent' = order added (most recent first), 'timestamp' = by video time
+    const [sortMode, setSortMode] = useState<'recent' | 'timestamp'>('recent');
+
+    // Get display names for boxers (fallback to generic labels)
+    const boxerAName = boxerNames?.boxerA || 'Boxer A';
+    const boxerBName = boxerNames?.boxerB || 'Boxer B';
+
     // Helper function to parse time string to seconds for sorting
     const parseTimeToSeconds = (timeStr: string): number => {
         if (!timeStr) return 0;
@@ -48,8 +56,8 @@ const EventLog = ({ events, onStartPunch, onEndPunch, onDeleteEvent, readOnly = 
         return mins * 60 + secs + ms / 100;
     };
 
-    // Sort events by start time (chronological order)
-    const sortEventsByTime = (eventList: EventData[]) => {
+    // Sort events by start time (chronological order in video)
+    const sortEventsByTimestamp = (eventList: EventData[]) => {
         return [...eventList].sort((a, b) => {
             const timeA = parseTimeToSeconds(a.startTime);
             const timeB = parseTimeToSeconds(b.startTime);
@@ -57,14 +65,32 @@ const EventLog = ({ events, onStartPunch, onEndPunch, onDeleteEvent, readOnly = 
         });
     };
 
-    const boxerAEvents = sortEventsByTime(events.filter(e => e.boxer === 'Boxer A'));
-    const boxerBEvents = sortEventsByTime(events.filter(e => e.boxer === 'Boxer B'));
+    // Apply sorting based on mode
+    const applySorting = (eventList: EventData[]) => {
+        if (sortMode === 'timestamp') {
+            return sortEventsByTimestamp(eventList);
+        }
+        // 'recent' mode: keep original order (most recently added first)
+        return eventList;
+    };
 
-    const EventRow = ({ event, index }: { event: EventData, index: number }) => (
+    const boxerAEvents = applySorting(events.filter(e => e.boxer === 'Boxer A'));
+    const boxerBEvents = applySorting(events.filter(e => e.boxer === 'Boxer B'));
+
+    const EventRow = ({ event, index, isLatest }: { event: EventData, index: number, isLatest?: boolean }) => (
         <div
             onClick={() => !readOnly && onSelectEvent?.(event)}
-            className={`group hover:bg-white/5 transition-colors p-3 flex items-start gap-4 ${!readOnly ? 'cursor-pointer' : ''}`}
+            className={`group relative transition-colors p-3 flex items-start gap-4 rounded-lg ${isLatest
+                ? 'bg-accent-primary/10 border border-accent-primary/30 ring-1 ring-accent-primary/20'
+                : 'hover:bg-white/5'
+                } ${!readOnly ? 'cursor-pointer' : ''}`}
         >
+            {/* Latest badge */}
+            {isLatest && (
+                <div className="absolute -top-2 left-3 px-2 py-0.5 bg-accent-primary text-white text-[9px] font-bold uppercase tracking-wider rounded-full">
+                    Latest
+                </div>
+            )}
             {/* Left: Context & Details */}
             <div className="flex-1 min-w-0">
                 {/* Punch Type & Target */}
@@ -175,7 +201,7 @@ const EventLog = ({ events, onStartPunch, onEndPunch, onDeleteEvent, readOnly = 
                     <button
                         onClick={(e) => {
                             e.stopPropagation();
-                            onDeleteEvent(index);
+                            onDeleteEvent(event.id);
                         }}
                         className="p-1.5 text-foreground-secondary hover:text-red-500 hover:bg-red-500/10 rounded transition-colors opacity-0 group-hover:opacity-100"
                         title="Delete Event"
@@ -186,6 +212,9 @@ const EventLog = ({ events, onStartPunch, onEndPunch, onDeleteEvent, readOnly = 
             </div>
         </div>
     );
+
+    // Get the ID of the most recently added event (first in original array order)
+    const latestEventId = events.length > 0 ? events[0].id : null;
 
     const EventTable = ({ title, data }: { title: string, data: EventData[] }) => (
         <div className="flex-1 min-w-0 bg-surface rounded-xl border border-border overflow-hidden flex flex-col h-[400px]">
@@ -202,7 +231,12 @@ const EventLog = ({ events, onStartPunch, onEndPunch, onDeleteEvent, readOnly = 
                     </div>
                 ) : (
                     data.map((event, index) => (
-                        <EventRow key={event.id || index} event={event} index={index} />
+                        <EventRow
+                            key={event.id || index}
+                            event={event}
+                            index={index}
+                            isLatest={event.id === latestEventId}
+                        />
                     ))
                 )}
             </div>
@@ -231,10 +265,22 @@ const EventLog = ({ events, onStartPunch, onEndPunch, onDeleteEvent, readOnly = 
                 </div>
             )}
 
+            {/* Sort Toggle */}
+            <div className="flex items-center justify-end gap-2">
+                <span className="text-xs text-foreground-secondary">Sort by:</span>
+                <button
+                    onClick={() => setSortMode(sortMode === 'recent' ? 'timestamp' : 'recent')}
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-surface hover:bg-white/10 border border-border rounded-lg text-xs font-medium transition-colors"
+                >
+                    <ArrowUpDown size={12} />
+                    {sortMode === 'recent' ? 'Recent First' : 'Video Time'}
+                </button>
+            </div>
+
             {/* Split View Tables */}
             <div className="flex gap-4">
-                <EventTable title="Boxer A (Crawford)" data={boxerAEvents} />
-                <EventTable title="Boxer B (Canelo)" data={boxerBEvents} />
+                <EventTable title={boxerAName} data={boxerAEvents} />
+                <EventTable title={boxerBName} data={boxerBEvents} />
             </div>
         </div>
     );

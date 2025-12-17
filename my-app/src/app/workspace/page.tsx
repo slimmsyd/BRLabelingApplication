@@ -306,9 +306,9 @@ function WorkspacePage() {
         setActiveTimeMode('end');
     };
 
-    const handleDeleteEvent = (index: number) => {
-        setEvents(events.filter((_, i) => i !== index));
-        if (selectedEventId && events[index].id === selectedEventId) {
+    const handleDeleteEvent = (eventId: string) => {
+        setEvents(events.filter(event => event.id !== eventId));
+        if (selectedEventId === eventId) {
             handleCancelEdit();
         }
     };
@@ -794,6 +794,7 @@ function WorkspacePage() {
                                 readOnly={isReadOnly}
                                 onSeek={handleSeek}
                                 onSelectEvent={handleSelectEvent}
+                                boxerNames={boxerNames}
                             />
                         </section>
                     </div>

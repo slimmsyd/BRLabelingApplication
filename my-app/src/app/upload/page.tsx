@@ -2,7 +2,7 @@
 
 
 
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Upload, X, FileVideo, Loader2, ArrowLeft, Camera } from 'lucide-react';
 import Link from 'next/link';
@@ -26,8 +26,32 @@ const UploadPage = () => {
     const [fps, setFps] = useState(25);
     const [uploading, setUploading] = useState(false);
     const [error, setError] = useState('');
-    const [uploadProgress, setUploadProgress] = useState({ cam1: 0, cam2: 0, cam3: 0 });
+    const [uploadProgress, setUploadProgress] = useState<{
+        cam1: { progress: number; status: 'pending' | 'uploading' | 'complete' | 'error' };
+        cam2: { progress: number; status: 'pending' | 'uploading' | 'complete' | 'error' };
+        cam3: { progress: number; status: 'pending' | 'uploading' | 'complete' | 'error' };
+    }>({
+        cam1: { progress: 0, status: 'pending' },
+        cam2: { progress: 0, status: 'pending' },
+        cam3: { progress: 0, status: 'pending' }
+    });
+    const [uploadStartTime, setUploadStartTime] = useState<number | null>(null);
+    const [elapsedTime, setElapsedTime] = useState(0);
     const [dragActive, setDragActive] = useState({ cam1: false, cam2: false, cam3: false });
+
+    // Update elapsed time every second while uploading
+    useEffect(() => {
+        if (!uploadStartTime) {
+            setElapsedTime(0);
+            return;
+        }
+
+        const interval = setInterval(() => {
+            setElapsedTime(Math.floor((Date.now() - uploadStartTime) / 1000));
+        }, 1000);
+
+        return () => clearInterval(interval);
+    }, [uploadStartTime]);
 
     const fileInputRefs = {
         cam1: useRef<HTMLInputElement>(null),
@@ -101,7 +125,12 @@ const UploadPage = () => {
 
         setUploading(true);
         setError('');
-        setUploadProgress({ cam1: 0, cam2: 0, cam3: 0 });
+        setUploadStartTime(Date.now());
+        setUploadProgress({
+            cam1: { progress: 0, status: 'pending' },
+            cam2: { progress: 0, status: 'pending' },
+            cam3: { progress: 0, status: 'pending' }
+        });
 
         try {
             // Use STANDARD Supabase endpoint (not signed URLs)
@@ -116,12 +145,17 @@ const UploadPage = () => {
                     fps
                 },
                 (progressUpdates: StandardUploadProgress[]) => {
-                    const newProgress = { cam1: 0, cam2: 0, cam3: 0 };
-                    progressUpdates.forEach((update: StandardUploadProgress) => {
-                        const camKey = `cam${update.camera}` as keyof typeof newProgress;
-                        newProgress[camKey] = update.progress;
+                    setUploadProgress(prev => {
+                        const newProgress = { ...prev };
+                        progressUpdates.forEach((update: StandardUploadProgress) => {
+                            const camKey = `cam${update.camera}` as 'cam1' | 'cam2' | 'cam3';
+                            newProgress[camKey] = {
+                                progress: update.progress,
+                                status: update.status
+                            };
+                        });
+                        return newProgress;
                     });
-                    setUploadProgress(newProgress);
                 }
             );
 
@@ -133,6 +167,7 @@ const UploadPage = () => {
             setError(err instanceof Error ? err.message : 'Upload failed. Please try again.');
         } finally {
             setUploading(false);
+            setUploadStartTime(null);
         }
     };
 
@@ -328,6 +363,89 @@ const UploadPage = () => {
                                 </div>
                             </div>
                         </div>
+
+                        {/* Upload Progress Display */}
+                        {uploading && (
+                            <div className="bg-surface border border-border rounded-xl p-6 space-y-4">
+                                <div className="flex items-center justify-between mb-2">
+                                    <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
+                                        <Loader2 size={16} className="animate-spin text-accent-primary" />
+                                        Uploading Videos...
+                                    </h3>
+                                    {uploading && (
+                                        <span className="text-xs text-foreground-secondary font-mono">
+                                            {Math.floor(elapsedTime / 60)}:{(elapsedTime % 60).toString().padStart(2, '0')} elapsed
+                                        </span>
+                                    )}
+                                </div>
+
+                                {/* Per-camera progress */}
+                                {(['cam1', 'cam2', 'cam3'] as CameraKey[]).map((cam, index) => {
+                                    const camProgress = uploadProgress[cam];
+                                    const hasFile = files[cam] !== null;
+
+                                    if (!hasFile) return null;
+
+                                    return (
+                                        <div key={cam} className="space-y-2">
+                                            <div className="flex items-center justify-between text-xs">
+                                                <span className="text-foreground-secondary flex items-center gap-2">
+                                                    <Camera size={12} />
+                                                    Camera {index + 1}
+                                                    {camProgress.status === 'complete' && (
+                                                        <span className="text-green-500">✓</span>
+                                                    )}
+                                                    {camProgress.status === 'error' && (
+                                                        <span className="text-red-500">✗</span>
+                                                    )}
+                                                </span>
+                                                <span className={`font-mono ${camProgress.status === 'complete' ? 'text-green-500' :
+                                                    camProgress.status === 'uploading' ? 'text-accent-primary' :
+                                                        'text-foreground-secondary'
+                                                    }`}>
+                                                    {camProgress.progress}%
+                                                </span>
+                                            </div>
+                                            <div className="h-2 bg-background rounded-full overflow-hidden border border-border">
+                                                <div
+                                                    className={`h-full transition-all duration-300 ease-out ${camProgress.status === 'complete' ? 'bg-green-500' :
+                                                        camProgress.status === 'error' ? 'bg-red-500' :
+                                                            'bg-accent-primary'
+                                                        }`}
+                                                    style={{ width: `${camProgress.progress}%` }}
+                                                />
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+
+                                {/* Overall progress */}
+                                <div className="pt-3 border-t border-border">
+                                    <div className="flex items-center justify-between text-xs mb-2">
+                                        <span className="text-foreground font-medium">Overall Progress</span>
+                                        <span className="text-foreground font-mono">
+                                            {(() => {
+                                                const activeCams = (['cam1', 'cam2', 'cam3'] as CameraKey[]).filter(c => files[c] !== null);
+                                                const totalProgress = activeCams.reduce((sum, c) => sum + uploadProgress[c].progress, 0);
+                                                return Math.round(totalProgress / activeCams.length);
+                                            })()}%
+                                        </span>
+                                    </div>
+                                    <div className="h-3 bg-background rounded-full overflow-hidden border border-border">
+                                        <div
+                                            className="h-full bg-gradient-to-r from-accent-primary to-green-500 transition-all duration-300 ease-out"
+                                            style={{
+                                                width: `${(() => {
+                                                    const activeCams = (['cam1', 'cam2', 'cam3'] as CameraKey[]).filter(c => files[c] !== null);
+                                                    const totalProgress = activeCams.reduce((sum, c) => sum + uploadProgress[c].progress, 0);
+                                                    return Math.round(totalProgress / activeCams.length);
+                                                })()}%`
+                                            }}
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+                        )}
 
                         {error && (
                             <div className="text-sm p-3 rounded-lg bg-red-500/10 text-red-500">
