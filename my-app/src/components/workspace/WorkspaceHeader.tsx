@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ArrowLeft, Save, ShieldCheck, Send, AlertTriangle, X, UserPlus, User } from 'lucide-react';
+import { ArrowLeft, Save, ShieldCheck, Send, AlertTriangle, X, UserPlus, User, Check, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 
 interface WorkspaceHeaderProps {
@@ -14,9 +14,10 @@ interface WorkspaceHeaderProps {
     assignment?: any;
     onAssign?: () => void;
     currentUser?: { userId: string; email: string; accountType: string } | null;
+    saveStatus?: 'idle' | 'saving' | 'saved' | 'error';
 }
 
-const WorkspaceHeader = ({ onSave, onSubmit, readOnly = false, isQCMode = false, onToggleQCMode, showQCToggle = false, videoTitle, videoMetadata, assignment, onAssign, currentUser }: WorkspaceHeaderProps) => {
+const WorkspaceHeader = ({ onSave, onSubmit, readOnly = false, isQCMode = false, onToggleQCMode, showQCToggle = false, videoTitle, videoMetadata, assignment, onAssign, currentUser, saveStatus = 'idle' }: WorkspaceHeaderProps) => {
     const [showSubmitModal, setShowSubmitModal] = useState(false);
     const [showAssignModal, setShowAssignModal] = useState(false);
 
@@ -98,11 +99,25 @@ const WorkspaceHeader = ({ onSave, onSubmit, readOnly = false, isQCMode = false,
                     )}
                     <button
                         onClick={onSave}
-                        disabled={readOnly}
-                        className={`flex items-center gap-2 px-4 py-2 bg-white/10 text-foreground text-sm font-medium rounded-lg transition-colors cursor-pointer ${readOnly ? 'opacity-50 cursor-not-allowed' : 'hover:bg-white/20'}`}
+                        disabled={readOnly || saveStatus === 'saving'}
+                        className={`flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg transition-all cursor-pointer ${
+                            saveStatus === 'saved' 
+                                ? 'bg-green-500/20 text-green-500 border border-green-500/50' 
+                                : saveStatus === 'error'
+                                    ? 'bg-red-500/20 text-red-500 border border-red-500/50'
+                                    : saveStatus === 'saving'
+                                        ? 'bg-white/10 text-foreground-secondary'
+                                        : 'bg-white/10 text-foreground hover:bg-white/20'
+                        } ${readOnly ? 'opacity-50 cursor-not-allowed' : ''}`}
                     >
-                        <Save size={16} />
-                        Save Progress
+                        {saveStatus === 'saving' ? (
+                            <Loader2 size={16} className="animate-spin" />
+                        ) : saveStatus === 'saved' ? (
+                            <Check size={16} />
+                        ) : (
+                            <Save size={16} />
+                        )}
+                        {saveStatus === 'saving' ? 'Saving...' : saveStatus === 'saved' ? 'Saved!' : saveStatus === 'error' ? 'Error!' : 'Save Progress'}
                     </button>
                     <button
                         onClick={() => setShowSubmitModal(true)}

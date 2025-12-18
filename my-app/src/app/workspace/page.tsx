@@ -87,6 +87,7 @@ function WorkspacePage() {
     const [isSubmitted, setIsSubmitted] = useState(false);
     const [isQCMode, setIsQCMode] = useState(false);
     const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
+    const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
 
     // Resizable sidebar state
     const [sidebarWidth, setSidebarWidth] = useState(320);
@@ -239,8 +240,8 @@ function WorkspacePage() {
                             defenseType: e.defenseType,
                         }));
                         setEvents(dbEvents);
-                        // Also mark as submitted if we have DB events
-                        setIsSubmitted(true);
+                        // Note: Don't set isSubmitted here - that's determined by assignment.status
+                        // Having events in DB just means progress was saved, not necessarily submitted
                         console.log(`Loaded ${dbEvents.length} events from database`);
                     }
                 }
@@ -446,43 +447,59 @@ function WorkspacePage() {
         fetchUser();
     }, [isSubmitted]);
 
-    const handleSaveProgress = () => {
-        const transformEvents = (boxerEvents: EventData[]) => {
-            return boxerEvents.map(event => ({
-                cam: event.cam ? [event.cam] : [],
-                endTime: parseTimeToSeconds(event.endTime),
-                hand: event.hand.toLowerCase(),
-                knockdown: event.knockdown ? 1 : 0,
-                landed: event.landed !== false ? 1 : null,
-                punchQuality: event.landed !== false ? event.punchQuality : null,
-                punchType: event.punchType,
-                startTime: parseTimeToSeconds(event.startTime),
-                stoppageKo: false,
-                target: event.target,
-                visibility: visibilityFlagsToMatrix(event.visibilityFlags),
-                stance: event.stance || 'Orthodox',
-                punchResult: event.punchResult || (event.landed !== false ? 'Landed' : 'Missed'),
-                defenseType: event.punchResult === 'Defended' ? event.defenseType : null
-            }));
-        };
-
-        const payload = {
-            submittedBy: user?.userId,
-            submitterEmail: user?.email,
-            boxer1: {
-                punches: transformEvents(events.filter(e => e.boxer === 'Boxer A'))
-            },
-            boxer2: {
-                punches: transformEvents(events.filter(e => e.boxer === 'Boxer B'))
+    const handleSaveProgress = async () => {
+        setSaveStatus('saving');
+        
+        try {
+            // Save to localStorage (video-specific)
+            if (videoId) {
+                localStorage.setItem(`workspace_events_${videoId}`, JSON.stringify(events));
             }
-        };
 
-        console.log('Saving Progress:', JSON.stringify(payload, null, 2));
-        // Explicit save to localStorage (video-specific)
-        if (videoId) {
-            localStorage.setItem(`workspace_events_${videoId}`, JSON.stringify(events));
+            // Save to database so admins can see progress (but NOT submit/finalize)
+            if (videoId && assignment?.id) {
+                const dbPayload = {
+                    assignmentId: assignment.id,
+                    events: events.map(event => ({
+                        startTime: event.startTime,
+                        endTime: event.endTime,
+                        boxer: event.boxer,
+                        punchType: event.punchType,
+                        hand: event.hand,
+                        target: event.target,
+                        visibilityFlags: event.visibilityFlags,
+                        knockdown: event.knockdown,
+                        punchQuality: event.punchQuality,
+                        cam: event.cam,
+                        stance: event.stance || 'Orthodox',
+                        landed: event.landed,
+                        punchResult: event.punchResult || (event.landed !== false ? 'Landed' : 'Missed'),
+                        defenseType: event.punchResult === 'Defended' ? event.defenseType : null,
+                    })),
+                    saveOnly: true, // Flag to indicate this is a progress save, NOT a submission
+                };
+
+                const response = await fetch(`/api/videos/${videoId}/events`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(dbPayload),
+                });
+
+                if (!response.ok) {
+                    throw new Error('Failed to save progress to database');
+                }
+                console.log('Progress saved to database (not submitted)');
+            }
+
+            setSaveStatus('saved');
+            
+            // Reset status after 2 seconds
+            setTimeout(() => setSaveStatus('idle'), 2000);
+        } catch (error) {
+            console.error('Error saving progress:', error);
+            setSaveStatus('error');
+            setTimeout(() => setSaveStatus('idle'), 3000);
         }
-
     };
 
     const handleSubmit = async () => {
@@ -779,6 +796,7 @@ function WorkspacePage() {
                 assignment={assignment}
                 onAssign={handleAssign}
                 currentUser={user}
+                saveStatus={saveStatus}
             />
 
             {/* Read-Only Banner - Shows when Labeler is viewing submitted video */}
@@ -850,6 +868,7 @@ function WorkspacePage() {
                                 onSeek={handleSeek}
                                 onSelectEvent={handleSelectEvent}
                                 boxerNames={boxerNames}
+                                selectedEventId={selectedEventId}
                             />
                         </section>
                     </div>

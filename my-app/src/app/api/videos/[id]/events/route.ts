@@ -21,6 +21,7 @@ interface EventInput {
 interface SaveEventsBody {
   assignmentId: string;
   events: EventInput[];
+  saveOnly?: boolean; // If true, don't mark as submitted (just save progress)
 }
 
 /**
@@ -34,7 +35,7 @@ export async function POST(
   try {
     const { id: videoId } = await params;
     const body: SaveEventsBody = await request.json();
-    const { assignmentId, events } = body;
+    const { assignmentId, events, saveOnly } = body;
 
     // Validate required fields
     if (!assignmentId || !events || !Array.isArray(events)) {
@@ -85,16 +86,19 @@ export async function POST(
       })),
     });
 
-    // Update assignment status to SUBMITTED
-    await prisma.videoAssignment.update({
-      where: { id: assignmentId },
-      data: {
-        status: 'SUBMITTED',
-        submittedAt: new Date(),
-      },
-    });
-
-    console.log(`[Events API] Saved ${createdEvents.count} events for assignment ${assignmentId}`);
+    // Only update assignment status to SUBMITTED if NOT a saveOnly request
+    if (!saveOnly) {
+      await prisma.videoAssignment.update({
+        where: { id: assignmentId },
+        data: {
+          status: 'SUBMITTED',
+          submittedAt: new Date(),
+        },
+      });
+      console.log(`[Events API] Submitted ${createdEvents.count} events for assignment ${assignmentId}`);
+    } else {
+      console.log(`[Events API] Saved progress: ${createdEvents.count} events for assignment ${assignmentId} (not submitted)`);
+    }
 
     return NextResponse.json({
       success: true,

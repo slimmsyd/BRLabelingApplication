@@ -29,9 +29,10 @@ interface EventLogProps {
     onSeek?: (event: EventData) => void;
     onSelectEvent?: (event: EventData) => void;
     boxerNames?: { boxerA: string; boxerB: string };
+    selectedEventId?: string | null; // Currently editing event
 }
 
-const EventLog = ({ events, onStartPunch, onEndPunch, onDeleteEvent, readOnly = false, onSeek, onSelectEvent, boxerNames }: EventLogProps) => {
+const EventLog = ({ events, onStartPunch, onEndPunch, onDeleteEvent, readOnly = false, onSeek, onSelectEvent, boxerNames, selectedEventId }: EventLogProps) => {
     // Sort mode: 'recent' = order added (most recent first), 'timestamp' = by video time
     const [sortMode, setSortMode] = useState<'recent' | 'timestamp'>('recent');
 
@@ -79,16 +80,25 @@ const EventLog = ({ events, onStartPunch, onEndPunch, onDeleteEvent, readOnly = 
     const boxerAEvents = applySorting(events.filter(e => e.boxer === 'Boxer A'));
     const boxerBEvents = applySorting(events.filter(e => e.boxer === 'Boxer B'));
 
-    const EventRow = ({ event, index, isLatest }: { event: EventData, index: number, isLatest?: boolean }) => (
+    const EventRow = ({ event, index, isLatest, isEditing }: { event: EventData, index: number, isLatest?: boolean, isEditing?: boolean }) => (
         <div
             onClick={() => !readOnly && onSelectEvent?.(event)}
-            className={`group relative transition-colors p-3 flex items-start gap-4 rounded-lg ${isLatest
-                ? 'bg-accent-primary/10 border border-accent-primary/30 ring-1 ring-accent-primary/20'
-                : 'hover:bg-white/5'
+            className={`group relative transition-all duration-200 p-3 flex items-start gap-4 rounded-lg ${
+                isEditing
+                    ? 'bg-gradient-to-r from-orange-500/20 to-red-500/20 border-2 border-orange-500 ring-2 ring-orange-500/30 shadow-lg shadow-orange-500/10'
+                    : isLatest
+                        ? 'bg-accent-primary/10 border border-accent-primary/30 ring-1 ring-accent-primary/20'
+                        : 'hover:bg-white/5 border border-transparent'
                 } ${!readOnly ? 'cursor-pointer' : ''}`}
         >
-            {/* Latest badge */}
-            {isLatest && (
+            {/* Editing badge - takes priority over Latest */}
+            {isEditing && (
+                <div className="absolute -top-2 left-3 px-2 py-0.5 bg-gradient-to-r from-orange-500 to-red-500 text-white text-[9px] font-bold uppercase tracking-wider rounded-full animate-pulse">
+                    Editing
+                </div>
+            )}
+            {/* Latest badge - only show if not editing */}
+            {isLatest && !isEditing && (
                 <div className="absolute -top-2 left-3 px-2 py-0.5 bg-accent-primary text-white text-[9px] font-bold uppercase tracking-wider rounded-full">
                     Latest
                 </div>
@@ -235,6 +245,7 @@ const EventLog = ({ events, onStartPunch, onEndPunch, onDeleteEvent, readOnly = 
                             event={event}
                             index={index}
                             isLatest={index === 0}
+                            isEditing={selectedEventId === event.id}
                         />
                     ))
                 )}
