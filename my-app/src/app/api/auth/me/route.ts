@@ -40,18 +40,18 @@ export async function GET() {
         const externalAccount = await getExternalAccountByEmail(user.email);
         
         // LOG ALL PERMISSIONS FOR DEBUGGING
-        console.log('\n========================================');
-        console.log('🔐 USER PERMISSIONS CHECK');
-        console.log('========================================');
-        console.log('👤 User:', user.username, `(${user.email})`);
-        console.log('🏷️  Account Type:', user.accountType);
-        console.log('\n📦 LOCAL CACHED PERMISSIONS (from Supabase):');
+        // console.log('\n========================================');
+        // console.log('🔐 USER PERMISSIONS CHECK');
+        // console.log('========================================');
+        // console.log('👤 User:', user.username, `(${user.email})`);
+        // console.log('🏷️  Account Type:', user.accountType);
+        // console.log('\n📦 LOCAL CACHED PERMISSIONS (from Supabase):');
         if (user.permissions) {
             const perms = user.permissions as any;
-            console.log('   • QC:', perms.QC ?? 'not set');
-            console.log('   • Upload:', perms.Upload ?? 'not set');
-            console.log('   • ViewAssignments:', perms.ViewAssignments ?? 'not set');
-            console.log('   Last synced:', user.permissionsUpdatedAt || 'Never');
+            // console.log('   • QC:', perms.QC ?? 'not set');
+            // console.log('   • Upload:', perms.Upload ?? 'not set');
+            // console.log('   • ViewAssignments:', perms.ViewAssignments ?? 'not set');
+            // console.log('   Last synced:', user.permissionsUpdatedAt || 'Never');
         } else {
             console.log('   ❌ No cached permissions');
         }
@@ -64,7 +64,7 @@ export async function GET() {
         } else {
             console.log('   ❌ Not found in external system');
         }
-        console.log('========================================\n');
+        // console.log('========================================\n');
 
         // Merge local user data with external account data
         const responseData = {

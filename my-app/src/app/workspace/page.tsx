@@ -88,6 +88,46 @@ function WorkspacePage() {
     const [isQCMode, setIsQCMode] = useState(false);
     const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
 
+    // Resizable sidebar state
+    const [sidebarWidth, setSidebarWidth] = useState(320);
+    const isResizing = useRef(false);
+    const sidebarRef = useRef<HTMLElement>(null);
+
+    // Sidebar resize handlers
+    const startResizing = React.useCallback((e: React.MouseEvent) => {
+        e.preventDefault();
+        isResizing.current = true;
+        document.body.style.cursor = 'ew-resize';
+        document.body.style.userSelect = 'none';
+    }, []);
+
+    useEffect(() => {
+        const handleMouseMove = (e: MouseEvent) => {
+            if (!isResizing.current) return;
+            
+            const newWidth = e.clientX;
+            // Min width: 320px (current), Max width: 600px (or half the viewport)
+            const maxWidth = Math.min(600, window.innerWidth * 0.5);
+            if (newWidth >= 320 && newWidth <= maxWidth) {
+                setSidebarWidth(newWidth);
+            }
+        };
+
+        const handleMouseUp = () => {
+            isResizing.current = false;
+            document.body.style.cursor = '';
+            document.body.style.userSelect = '';
+        };
+
+        document.addEventListener('mousemove', handleMouseMove);
+        document.addEventListener('mouseup', handleMouseUp);
+
+        return () => {
+            document.removeEventListener('mousemove', handleMouseMove);
+            document.removeEventListener('mouseup', handleMouseUp);
+        };
+    }, []);
+
     // Load from localStorage on mount (video-specific) - only for events, not submitted state
     // Note: isSubmitted is determined by database assignment status, not localStorage
     useEffect(() => {
@@ -733,7 +773,7 @@ function WorkspacePage() {
                     setIsQCMode(!isQCMode);
                     if (isQCMode) handleCancelEdit(); // Clear selection when exiting QC mode
                 }}
-                showQCToggle={isSubmitted && (user?.accountType === 'ADMIN' || user?.accountType === 'QUALITY_CONTROL' || user?.permissions?.QC === true)}
+                showQCToggle={user?.accountType === 'ADMIN' || (isSubmitted && (user?.accountType === 'QUALITY_CONTROL' || user?.permissions?.QC === true))}
                 videoTitle={videoData.title}
                 videoMetadata={`${videoData.boxer1} vs ${videoData.boxer2} - Round ${videoData.round}`}
                 assignment={assignment}
@@ -752,8 +792,13 @@ function WorkspacePage() {
             )}
 
             <div className="flex h-[calc(100vh-64px)] overflow-hidden">
-                {/* Left Sidebar: Controls */}
-                <aside className="w-[320px] border-r border-border bg-background overflow-y-auto p-4 shrink-0">
+                {/* Left Sidebar: Controls - Resizable */}
+                <aside 
+                    ref={sidebarRef}
+                    style={{ width: sidebarWidth }}
+                    className="relative border-r border-border bg-background p-4 shrink-0 flex flex-col"
+                >
+                    <div className="flex-1 min-h-0">
                     <SidebarControls
                         onLogEvent={handleLogEvent}
                         getCurrentTime={getCurrentTime}
@@ -768,6 +813,16 @@ function WorkspacePage() {
                         onCancelEdit={handleCancelEdit}
                         boxerNames={boxerNames}
                     />
+                    </div>
+                    
+                    {/* Resize Handle */}
+                    <div
+                        onMouseDown={startResizing}
+                        className="absolute top-0 right-0 w-1.5 h-full cursor-ew-resize hover:bg-accent-primary/50 active:bg-accent-primary transition-colors group"
+                        title="Drag to resize"
+                    >
+                        <div className="absolute top-1/2 right-0 -translate-y-1/2 w-1 h-12 bg-foreground-secondary/30 rounded-full opacity-0 group-hover:opacity-100 transition-opacity" />
+                    </div>
                 </aside>
 
                 {/* Main Content: Video & Table */}

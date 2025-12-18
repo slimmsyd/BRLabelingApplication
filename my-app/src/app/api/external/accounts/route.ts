@@ -28,6 +28,23 @@ export async function GET() {
     const data = await response.json();
     console.log('✅ DEBUG: Accounts from DEV API:', JSON.stringify(data, null, 2));
     
+    // Log each account individually
+    console.log('\n📋 === ALL ACCOUNTS ===');
+    if (Array.isArray(data)) {
+      data.forEach((account: Record<string, unknown>, index: number) => {
+        console.log(`\n🔹 Account ${index + 1}:`, JSON.stringify(account, null, 2));
+      });
+      console.log(`\n📊 Total accounts: ${data.length}`);
+    } else if (data.accounts && Array.isArray(data.accounts)) {
+      data.accounts.forEach((account: Record<string, unknown>, index: number) => {
+        console.log(`\n🔹 Account ${index + 1}:`, JSON.stringify(account, null, 2));
+      });
+      console.log(`\n📊 Total accounts: ${data.accounts.length}`);
+    } else {
+      console.log('⚠️ Unexpected data format:', typeof data);
+    }
+    console.log('======================\n');
+    
     return NextResponse.json(data);
   } catch (error) {
     console.error('❌ Error proxying to DEV API:', error);
