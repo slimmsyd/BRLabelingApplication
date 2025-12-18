@@ -1,0 +1,124 @@
+# Supabase Support Ticket - 413 Error Debug Logs
+# Project ID: rshqxpbcqidfsbdfjrqd
+# Bucket: fight-videos
+# Generated: 2025-12-15T20:28:00-05:00
+
+================================================================================
+BUCKET CONFIGURATION (via SQL query)
+================================================================================
+name: fight-videos
+file_size_limit: 5368709120 (5 GB)
+limit_mb: 5120
+public: true
+allowed_mime_types: ["video/mp4","video/quicktime","video/webm","video/x-msvideo"]
+
+================================================================================
+FILE BEING UPLOADED
+================================================================================
+Name: Abdullah_Mason_vs_Noakes.mov
+Size: 124.70 MB (130,759,692 bytes)
+Type: video/quicktime
+Storage Path: terrance_one_terrance_two/r1/cam1.mp4
+
+================================================================================
+METHOD 1: SIGNED UPLOAD URL (createSignedUploadUrl)
+================================================================================
+Endpoint: PUT /storage/v1/object/upload/sign/fight-videos/...?token=xxx
+Result: FAILED
+Status: 400
+Response: {"statusCode":"413","error":"Payload too large","message":"The object exceeded the maximum allowed size"}
+
+Console Logs:
+----------------------------------------
+[Direct Upload] Starting file upload
+[Direct Upload] File name: Abdullah_Mason_vs_Noakes.mov
+[Direct Upload] File type: video/quicktime
+[Direct Upload] File size: 124.70 MB (130759692 bytes)
+[Direct Upload] Content-Type: video/quicktime
+[Direct Upload] Sending PUT request...
+PUT https://rshqxpbcqidfsbdfjrqd.supabase.co/storage/v1/object/upload/sign/fight-videos/terrance_one_terrance_two/r1/cam1.mp4?token=eyJ... 400 (Bad Request)
+[Direct Upload] ❌ UPLOAD FAILED - SIZE LIMIT EXCEEDED
+[Direct Upload] Status: 400
+[Direct Upload] Response: {"statusCode":"413","error":"Payload too large","message":"The object exceeded the maximum allowed size"}
+
+================================================================================
+METHOD 2: STANDARD ENDPOINT (POST with Authorization header)
+================================================================================
+Endpoint: POST /storage/v1/object/fight-videos/...
+Authorization: Bearer {service_role_key}
+Result: FAILED (after 100% upload progress)
+Status: 400
+Response: {"statusCode":"413","error":"Payload too large","message":"The object exceeded the maximum allowed size"}
+
+Console Logs:
+----------------------------------------
+[Standard Upload] Starting upload (NO signed URL)
+[Standard Upload] File name: Abdullah_Mason_vs_Noakes.mov
+[Standard Upload] File size: 124.70 MB (130759692 bytes)
+[Standard Upload] Storage path: terrance_one_terrance_two/r1/cam1.mp4
+[Standard Upload] Endpoint: /storage/v1/object/fight-videos/terrance_one_terrance_two/r1/cam1.mp4
+[Standard Upload] URL: https://rshqxpbcqidfsbdfjrqd.supabase.co/storage/v1/object/fight-videos/terrance_one_terrance_two/r1/cam1.mp4
+[Standard Upload] Progress: 94%
+[Standard Upload] Progress: 95%
+[Standard Upload] Progress: 96%
+[Standard Upload] Progress: 97%
+[Standard Upload] Progress: 98%
+[Standard Upload] Progress: 99%
+[Standard Upload] Progress: 100%
+POST https://rshqxpbcqidfsbdfjrqd.supabase.co/storage/v1/object/fight-videos/terrance_one_terrance_two/r1/cam1.mp4 400 (Bad Request)
+[Standard Upload] ❌ UPLOAD FAILED
+[Standard Upload] Status: 400
+[Standard Upload] Response: {"statusCode":"413","error":"Payload too large","message":"The object exceeded the maximum allowed size"}
+
+NOTE: File fully uploaded (100% progress) before being rejected!
+
+================================================================================
+METHOD 3: TUS RESUMABLE UPLOAD
+================================================================================
+Endpoint: POST /storage/v1/upload/resumable
+Authorization: Bearer {service_role_key}
+Chunk Size: 6 MB
+Result: FAILED after first chunk
+Status: 413
+Response: {"statusCode":"413","error":"Payload too large","message":"The object exceeded the maximum allowed size"}
+
+Console Logs:
+----------------------------------------
+[Resumable Upload] Starting TUS upload
+[Resumable Upload] File name: Abdullah_Mason_vs_Noakes.mov
+[Resumable Upload] File type: video/quicktime
+[Resumable Upload] File size: 217.90 MB (228481043 bytes)
+[Resumable Upload] Chunk size: 6 MB
+[Resumable Upload] Progress: 0.00% (0.00 MB / 217.90 MB)
+[Resumable Upload] Progress: 0.49% (1.06 MB / 217.90 MB)
+[Resumable Upload] Progress: 2.75% (6.00 MB / 217.90 MB)
+POST https://rshqxpbcqidfsbdfjrqd.supabase.co/storage/v1/upload/resumable 413 (Content Too Large)
+
+================================================================================
+METHOD 4: SUPABASE JS CLIENT (supabase.storage.upload())
+================================================================================
+Using: @supabase/supabase-js ^2.87.1
+Result: FAILED
+Status: 413
+Response: {"statusCode":"413","error":"Payload too large","message":"The object exceeded the maximum allowed size"}
+
+================================================================================
+SUMMARY
+================================================================================
+- Bucket file_size_limit is correctly set to 5 GB (verified via SQL)
+- File being uploaded is only 124.70 MB (well under 5 GB limit)
+- ALL four upload methods fail with the same 413 error
+- Standard endpoint method shows file uploads to 100% before rejection
+- This suggests a server-side limit is being enforced that overrides bucket config
+- Files under ~50 MB upload successfully
+
+EXPECTED BEHAVIOR:
+- Files up to 5 GB should upload (per bucket file_size_limit setting)
+
+ACTUAL BEHAVIOR:
+- Files over ~50 MB are rejected with 413 error
+- Error occurs even after file fully transfers (100% progress)
+
+REQUEST:
+Please investigate if there is a project-level or infrastructure limit 
+that is overriding the bucket's file_size_limit configuration.
