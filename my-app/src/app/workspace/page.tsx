@@ -159,6 +159,7 @@ function WorkspacePage() {
                 setVideoError('No video ID provided');
                 return;
             }
+            console.log("Fetching")
 
             try {
                 setVideoLoading(true);
