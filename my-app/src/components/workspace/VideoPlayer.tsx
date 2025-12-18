@@ -1,5 +1,7 @@
 import React, { useState, useEffect, RefObject } from 'react';
-import { Play, Pause, SkipBack, SkipForward, Maximize2, Volume2, VolumeX, Volume1, Settings, Gauge, ChevronUp, ChevronDown } from 'lucide-react';
+import { Play, Pause, SkipBack, SkipForward, Maximize2, Minimize2, Volume2, VolumeX, Volume1, Settings, Gauge, ChevronUp, ChevronDown } from 'lucide-react';
+
+type VideoSize = 'small' | 'medium' | 'large';
 
 interface VideoPlayerProps {
     videoRef: RefObject<HTMLVideoElement | null>;
@@ -34,6 +36,16 @@ const VideoPlayer = ({ videoRef, activeCam, setActiveCam, videoSources, fps = 30
     const [isPanning, setIsPanning] = useState(false);
     const [startPan, setStartPan] = useState({ x: 0, y: 0 });
     const [zoomModeEnabled, setZoomModeEnabled] = useState(false);
+
+    // Video size state
+    const [videoSize, setVideoSize] = useState<VideoSize>('large');
+
+    // Video size configurations
+    const sizeConfig = {
+        small: { maxWidth: '480px', label: 'S' },
+        medium: { maxWidth: '720px', label: 'M' },
+        large: { maxWidth: '100%', label: 'L' },
+    };
 
     // Update progress as video plays
     useEffect(() => {
@@ -338,27 +350,52 @@ const VideoPlayer = ({ videoRef, activeCam, setActiveCam, videoSources, fps = 30
 
     return (
         <div className="flex flex-col gap-4">
-            {/* Camera Tabs - Only show available cameras */}
-            {availableCameras.length > 0 && (
-                <div className="flex items-center gap-1">
-                    {availableCameras.map((cam) => (
-                        <button
-                            key={cam}
-                            onClick={() => setActiveCam(cam)}
-                            className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-colors ${activeCam === cam
-                                ? 'bg-surface text-accent-primary border-t border-x border-border'
-                                : 'text-foreground-secondary hover:text-foreground hover:bg-white/5'
+            {/* Camera Tabs & Size Controls */}
+            <div className="flex items-center justify-between">
+                {/* Camera Tabs - Only show available cameras */}
+                {availableCameras.length > 0 && (
+                    <div className="flex items-center gap-1">
+                        {availableCameras.map((cam) => (
+                            <button
+                                key={cam}
+                                onClick={() => setActiveCam(cam)}
+                                className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-colors ${activeCam === cam
+                                    ? 'bg-surface text-accent-primary border-t border-x border-border'
+                                    : 'text-foreground-secondary hover:text-foreground hover:bg-white/5'
+                                    }`}
+                            >
+                                {cam}
+                            </button>
+                        ))}
+                    </div>
+                )}
+
+                {/* Video Size Controls */}
+                <div className="flex items-center gap-2">
+                    <span className="text-xs text-foreground-secondary mr-1">Size:</span>
+                    <div className="flex bg-surface border border-border rounded-lg p-0.5">
+                        {(['small', 'medium', 'large'] as VideoSize[]).map((size) => (
+                            <button
+                                key={size}
+                                onClick={() => setVideoSize(size)}
+                                className={`px-3 py-1 text-xs font-medium rounded transition-colors ${
+                                    videoSize === size
+                                        ? 'bg-accent-primary text-white'
+                                        : 'text-foreground-secondary hover:text-foreground hover:bg-white/5'
                                 }`}
-                        >
-                            {cam}
-                        </button>
-                    ))}
+                                title={`${size.charAt(0).toUpperCase() + size.slice(1)} video`}
+                            >
+                                {sizeConfig[size].label}
+                            </button>
+                        ))}
+                    </div>
                 </div>
-            )}
+            </div>
 
             {/* Video Container */}
             <div
-                className="relative aspect-video bg-black rounded-lg overflow-hidden border border-border group"
+                className="relative aspect-video bg-black rounded-lg overflow-hidden border border-border group mx-auto w-full transition-all duration-300"
+                style={{ maxWidth: sizeConfig[videoSize].maxWidth }}
                 onWheel={handleWheel}
                 onMouseLeave={handleVideoMouseUp}
             >

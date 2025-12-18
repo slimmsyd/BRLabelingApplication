@@ -171,7 +171,7 @@ const SidebarControls = ({
     };
 
     return (
-        <div className={`h-full flex flex-col gap-3 ${readOnly ? 'pointer-events-none' : ''}`}>
+        <div className={`space-y-3 overflow-y-auto scrollbar-hide ${readOnly ? 'pointer-events-none' : ''}`} style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
             {/* Timer Display - Compacted */}
             <div className="bg-surface border border-border rounded-xl p-3">
                 <div className="grid grid-cols-2 gap-3">
@@ -207,7 +207,7 @@ const SidebarControls = ({
             </div>
 
             {/* Log New Event Form */}
-            <div className="bg-surface rounded-xl border border-border p-3 flex-1 flex flex-col min-h-0">
+            <div className="bg-surface rounded-xl border border-border p-3 shrink-0">
                 <div className="flex items-center justify-between mb-3">
                     <h2 className="text-sm font-semibold text-foreground flex items-center gap-2">
                         {isEditing ? 'Update Event' : 'Log New Event'}
@@ -422,8 +422,8 @@ const SidebarControls = ({
                     </div>
                 </div>
 
-                {/* Actions - Pushed to bottom */}
-                <div className="flex items-center gap-2 pt-2 border-t border-border mt-auto">
+                {/* Actions */}
+                <div className="flex items-center gap-2 pt-2 border-t border-border">
                     <button
                         onClick={handleAction}
                         disabled={readOnly || isTimeInvalid}
