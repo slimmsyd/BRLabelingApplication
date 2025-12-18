@@ -273,8 +273,8 @@ function WorkspacePage() {
 
         setEvents([newEvent, ...events]);
 
-        // Only reset times if NOT in QC mode (correction mode keeps the time)
-        if (!isQCMode) {
+        // Only reset times if NOT editing an event (keep times when editing for convenience)
+        if (!selectedEventId) {
             setStartTime('');
             setEndTime('');
         }
@@ -376,8 +376,10 @@ function WorkspacePage() {
             videoRef.current.currentTime = seconds;
         }
 
-        // Only allow editing in QC mode
-        if (isQCMode) {
+        // Allow editing if:
+        // 1. Not submitted (labelers can edit their own work before submission)
+        // 2. OR in QC mode (QC reviewers can edit after submission)
+        if (!isSubmitted || isQCMode) {
             setSelectedEventId(event.id);
             // Populate form with event data
             setBoxer(event.boxer);
