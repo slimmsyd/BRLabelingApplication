@@ -1,4 +1,4 @@
-import React, { useState, useEffect, RefObject } from 'react';
+import React, { useState, useEffect, useRef, RefObject } from 'react';
 import { Play, Pause, SkipBack, SkipForward, Maximize2, Minimize2, Volume2, VolumeX, Volume1, Settings, Gauge, ChevronUp, ChevronDown } from 'lucide-react';
 
 type VideoSize = 'small' | 'medium' | 'large';
@@ -36,6 +36,12 @@ const VideoPlayer = ({ videoRef, activeCam, setActiveCam, videoSources, fps = 30
     const [isPanning, setIsPanning] = useState(false);
     const [startPan, setStartPan] = useState({ x: 0, y: 0 });
     const [zoomModeEnabled, setZoomModeEnabled] = useState(false);
+
+    // Timestamp sync for multi-camera switching
+    const previousTimeRef = useRef<number>(0);
+    const previousCamRef = useRef<string>(activeCam);
+    const wasPlayingRef = useRef<boolean>(false);
+    const [isSwitchingCamera, setIsSwitchingCamera] = useState(false);
 
     // Video size state
     const [videoSize, setVideoSize] = useState<VideoSize>('large');
@@ -99,10 +105,61 @@ const VideoPlayer = ({ videoRef, activeCam, setActiveCam, videoSources, fps = 30
         return () => window.removeEventListener('keydown', handleKeyDown);
     }, [isPlaying, fps]); // Dependencies for togglePlay and frame step functions
 
-    // Reset zoom when camera changes
+    // Preserve timestamp when switching cameras - CRITICAL for multi-angle labeling
     useEffect(() => {
+        const video = videoRef.current;
+        if (!video) return;
+
+        // Skip on initial mount (no previous camera to compare)
+        if (previousCamRef.current === activeCam) return;
+
+        // Store current playback state before switch
+        previousTimeRef.current = video.currentTime || 0;
+        wasPlayingRef.current = !video.paused;
+        setIsSwitchingCamera(true);
+
+        // Pause during transition to prevent audio glitches
+        if (!video.paused) {
+            video.pause();
+            setIsPlaying(false);
+        }
+
+        // Handler for when new camera video loads
+        const handleLoadedMetadata = () => {
+            // Seek to the same timestamp (or end of video if shorter)
+            const targetTime = Math.min(previousTimeRef.current, video.duration || previousTimeRef.current);
+            video.currentTime = targetTime;
+
+            // Restore play state if it was playing before
+            if (wasPlayingRef.current) {
+                video.play().then(() => {
+                    setIsPlaying(true);
+                }).catch(err => {
+                    console.warn('Auto-play after camera switch failed:', err);
+                });
+            }
+
+            setIsSwitchingCamera(false);
+        };
+
+        // Listen for new video to be ready
+        video.addEventListener('loadedmetadata', handleLoadedMetadata, { once: true });
+
+        // Also handle case where video is already loaded (same file, different camera)
+        if (video.readyState >= 1) {
+            handleLoadedMetadata();
+        }
+
+        // Update previous cam ref
+        previousCamRef.current = activeCam;
+
+        // Reset zoom/pan (existing behavior)
         setZoom(1);
         setPan({ x: 0, y: 0 });
+
+        return () => {
+            video.removeEventListener('loadedmetadata', handleLoadedMetadata);
+        };
     }, [activeCam]);
 
     const togglePlay = () => {
@@ -378,11 +435,10 @@ const VideoPlayer = ({ videoRef, activeCam, setActiveCam, videoSources, fps = 30
                             <button
                                 key={size}
                                 onClick={() => setVideoSize(size)}
-                                className={`px-3 py-1 text-xs font-medium rounded transition-colors ${
-                                    videoSize === size
-                                        ? 'bg-accent-primary text-white'
-                                        : 'text-foreground-secondary hover:text-foreground hover:bg-white/5'
-                                }`}
+                                className={`px-3 py-1 text-xs font-medium rounded transition-colors ${videoSize === size
+                                    ? 'bg-accent-primary text-white'
+                                    : 'text-foreground-secondary hover:text-foreground hover:bg-white/5'
+                                    }`}
                                 title={`${size.charAt(0).toUpperCase() + size.slice(1)} video`}
                             >
                                 {sizeConfig[size].label}
