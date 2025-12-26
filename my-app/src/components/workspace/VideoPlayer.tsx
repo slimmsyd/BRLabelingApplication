@@ -53,7 +53,7 @@ const VideoPlayer = ({ videoRef, activeCam, setActiveCam, videoSources, fps = 30
         large: { maxWidth: '100%', label: 'L' },
     };
 
-    // Update progress as video plays
+    // Update progress as video plays + DEBUG EVENT HANDLERS
     useEffect(() => {
         const video = videoRef.current;
         if (!video) return;
@@ -64,15 +64,80 @@ const VideoPlayer = ({ videoRef, activeCam, setActiveCam, videoSources, fps = 30
         };
 
         const updateDuration = () => {
+            console.log('[VIDEO DEBUG] loadedmetadata fired - duration:', video.duration);
             setDuration(video.duration);
+        };
+
+        // DEBUG: Error handler
+        const handleError = (e: Event) => {
+            const mediaError = video.error;
+            console.error('[VIDEO DEBUG] ❌ VIDEO ERROR:', {
+                code: mediaError?.code,
+                message: mediaError?.message,
+                MEDIA_ERR_ABORTED: mediaError?.code === 1,
+                MEDIA_ERR_NETWORK: mediaError?.code === 2,
+                MEDIA_ERR_DECODE: mediaError?.code === 3,
+                MEDIA_ERR_SRC_NOT_SUPPORTED: mediaError?.code === 4,
+                currentSrc: video.currentSrc,
+                networkState: video.networkState,
+                readyState: video.readyState
+            });
+        };
+
+        // DEBUG: Loading events
+        const handleLoadStart = () => {
+            console.log('[VIDEO DEBUG] loadstart - Beginning to load:', video.currentSrc?.substring(0, 80));
+        };
+
+        const handleCanPlay = () => {
+            console.log('[VIDEO DEBUG] ✅ canplay - Video is ready to play');
+        };
+
+        const handleCanPlayThrough = () => {
+            console.log('[VIDEO DEBUG] ✅ canplaythrough - Video can play through without buffering');
+        };
+
+        const handleStalled = () => {
+            console.warn('[VIDEO DEBUG] ⚠️ stalled - Download stalled');
+        };
+
+        const handleWaiting = () => {
+            console.log('[VIDEO DEBUG] waiting - Buffering...');
+        };
+
+        const handleSuspend = () => {
+            console.log('[VIDEO DEBUG] suspend - Download suspended (normal for lazy loading)');
+        };
+
+        const handleProgress = () => {
+            if (video.buffered.length > 0) {
+                const bufferedEnd = video.buffered.end(video.buffered.length - 1);
+                console.log('[VIDEO DEBUG] progress - Buffered:', Math.round(bufferedEnd), 'seconds');
+            }
         };
 
         video.addEventListener('timeupdate', updateProgress);
         video.addEventListener('loadedmetadata', updateDuration);
+        video.addEventListener('error', handleError);
+        video.addEventListener('loadstart', handleLoadStart);
+        video.addEventListener('canplay', handleCanPlay);
+        video.addEventListener('canplaythrough', handleCanPlayThrough);
+        video.addEventListener('stalled', handleStalled);
+        video.addEventListener('waiting', handleWaiting);
+        video.addEventListener('suspend', handleSuspend);
+        video.addEventListener('progress', handleProgress);
 
         return () => {
             video.removeEventListener('timeupdate', updateProgress);
             video.removeEventListener('loadedmetadata', updateDuration);
+            video.removeEventListener('error', handleError);
+            video.removeEventListener('loadstart', handleLoadStart);
+            video.removeEventListener('canplay', handleCanPlay);
+            video.removeEventListener('canplaythrough', handleCanPlayThrough);
+            video.removeEventListener('stalled', handleStalled);
+            video.removeEventListener('waiting', handleWaiting);
+            video.removeEventListener('suspend', handleSuspend);
+            video.removeEventListener('progress', handleProgress);
         };
     }, [videoRef]);
 
@@ -377,18 +442,32 @@ const VideoPlayer = ({ videoRef, activeCam, setActiveCam, videoSources, fps = 30
 
     // Get current video source based on active camera
     const getCurrentVideoSrc = (): string | undefined => {
-        if (!videoSources) return undefined;
+        if (!videoSources) {
+            console.log('[VIDEO DEBUG] getCurrentVideoSrc: No videoSources available');
+            return undefined;
+        }
 
+        let src: string | undefined;
         switch (activeCam) {
             case 'CAM 1':
-                return videoSources.cam1;
+                src = videoSources.cam1;
+                break;
             case 'CAM 2':
-                return videoSources.cam2;
+                src = videoSources.cam2;
+                break;
             case 'CAM 3':
-                return videoSources.cam3;
+                src = videoSources.cam3;
+                break;
             default:
-                return videoSources.cam1;
+                src = videoSources.cam1;
         }
+
+        console.log('[VIDEO DEBUG] getCurrentVideoSrc:', {
+            activeCam,
+            selectedSrc: src ? `${src.substring(0, 100)}...` : 'UNDEFINED'
+        });
+
+        return src;
     };
 
     // Get available cameras (only those with video sources)
@@ -400,10 +479,13 @@ const VideoPlayer = ({ videoRef, activeCam, setActiveCam, videoSources, fps = 30
         if (videoSources.cam2) cameras.push('CAM 2');
         if (videoSources.cam3) cameras.push('CAM 3');
 
+        console.log('[VIDEO DEBUG] Available cameras:', cameras);
+
         return cameras;
     }, [videoSources]);
 
     const currentVideoSrc = getCurrentVideoSrc();
+    console.log('[VIDEO DEBUG] Final currentVideoSrc to render:', currentVideoSrc ? 'HAS URL' : 'EMPTY');
 
     return (
         <div className="flex flex-col gap-4">

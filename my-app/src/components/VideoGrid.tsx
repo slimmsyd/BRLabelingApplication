@@ -97,83 +97,97 @@ const VideoGrid = () => {
                                 />
                             ))}
 
-                            {/* Upload Video Card */}
-                            <Link href="/upload" className="group border border-dashed border-border hover:border-foreground-secondary rounded-xl p-6 flex flex-col items-center justify-center gap-4 cursor-pointer transition-colors min-h-[300px]">
-                                <div className="w-12 h-12 rounded-full border border-foreground-secondary flex items-center justify-center group-hover:bg-white/5 transition-colors">
-                                    <Plus size={24} className="text-foreground" />
-                                </div>
-                                <span className="font-medium text-foreground">Upload Video</span>
-                            </Link>
                         </div>
                     </div>
 
                     {/* Right Column: In Queue (Unassigned) */}
-                    <div className="w-80 shrink-0">
-                        <div className="flex items-center gap-2 mb-6">
-                            <h3 className="text-lg font-medium text-foreground tracking-tight">In Queue</h3>
-                            <span className="px-2 py-0.5 text-xs font-medium bg-amber-500/10 text-amber-500 rounded-full border border-amber-500/20">
-                                {unassignedVideos.length}
-                            </span>
-                        </div>
-
-                        {unassignedVideos.length === 0 ? (
-                            <div className="border border-dashed border-border rounded-xl p-6 text-center">
-                                <p className="text-sm text-foreground-secondary">No videos waiting for assignment</p>
+                    <div className="w-80 shrink-0 space-y-6">
+                        {/* Upload Video Indicator */}
+                        <Link
+                            href="/upload"
+                            className="flex items-center justify-between p-4 bg-accent-primary group hover:bg-accent-primary/90 rounded-2xl transition-all duration-300 shadow-lg shadow-accent-primary/10 border border-white/10"
+                        >
+                            <div className="flex items-center gap-3">
+                                <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center backdrop-blur-sm group-hover:scale-110 transition-transform">
+                                    <Plus size={20} className="text-white" />
+                                </div>
+                                <div className="flex flex-col">
+                                    <span className="text-sm font-semibold text-white">Upload Video</span>
+                                    <span className="text-[10px] text-white/60">Add new footage</span>
+                                </div>
                             </div>
-                        ) : (
-                            <div className="space-y-4">
-                                {unassignedVideos.map((video) => (
-                                    <Link
-                                        key={video.id}
-                                        href={`/workspace?videoId=${video.id}`}
-                                        className="block bg-surface border border-border rounded-xl p-3 hover:border-foreground-secondary/50 transition-colors cursor-pointer group/card"
-                                    >
-                                        <div className="flex items-start gap-3">
-                                            {/* Video Preview Thumbnail */}
-                                            <div className="w-24 h-16 rounded-lg bg-black overflow-hidden shrink-0 relative border border-white/10">
-                                                {video.sourceUrls?.[0] ? (
-                                                    <video
-                                                        src={video.sourceUrls[0]}
-                                                        className="w-full h-full object-cover opacity-80 group-hover/card:opacity-100 transition-opacity"
-                                                        muted
-                                                        playsInline
-                                                        onMouseOver={e => e.currentTarget.play()}
-                                                        onMouseOut={e => {
-                                                            e.currentTarget.pause();
-                                                            e.currentTarget.currentTime = 0;
-                                                        }}
-                                                    />
-                                                ) : (
-                                                    <div className="w-full h-full flex items-center justify-center text-foreground-secondary">
-                                                        <span className="text-xs">No Video</span>
+                            <div className="w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center text-white/40 group-hover:text-white transition-colors">
+                                <Plus size={14} />
+                            </div>
+                        </Link>
+
+                        <div>
+                            <div className="flex items-center gap-2 mb-4">
+                                <h3 className="text-lg font-medium text-foreground tracking-tight">In Queue</h3>
+                                <span className="px-2 py-0.5 text-xs font-medium bg-amber-500/10 text-amber-500 rounded-full border border-amber-500/20">
+                                    {unassignedVideos.length}
+                                </span>
+                            </div>
+
+                            {unassignedVideos.length === 0 ? (
+                                <div className="border border-dashed border-border rounded-xl p-6 text-center">
+                                    <p className="text-sm text-foreground-secondary">No videos waiting for assignment</p>
+                                </div>
+                            ) : (
+                                <div className="space-y-4">
+                                    {unassignedVideos.map((video) => (
+                                        <Link
+                                            key={video.id}
+                                            href={`/workspace?videoId=${video.id}`}
+                                            className="block bg-surface border border-border rounded-xl p-3 hover:border-foreground-secondary/50 transition-colors cursor-pointer group/card"
+                                        >
+                                            <div className="flex items-start gap-3">
+                                                {/* Video Preview Thumbnail */}
+                                                <div className="w-24 h-16 rounded-lg bg-black overflow-hidden shrink-0 relative border border-white/10">
+                                                    {video.sourceUrls?.[0] ? (
+                                                        <video
+                                                            src={video.sourceUrls[0]}
+                                                            className="w-full h-full object-cover opacity-80 group-hover/card:opacity-100 transition-opacity"
+                                                            muted
+                                                            playsInline
+                                                            onMouseOver={e => e.currentTarget.play()}
+                                                            onMouseOut={e => {
+                                                                e.currentTarget.pause();
+                                                                e.currentTarget.currentTime = 0;
+                                                            }}
+                                                        />
+                                                    ) : (
+                                                        <div className="w-full h-full flex items-center justify-center text-foreground-secondary">
+                                                            <span className="text-xs">No Video</span>
+                                                        </div>
+                                                    )}
+                                                    {/* Round Badge Overlay */}
+                                                    <div className="absolute top-1 right-1 px-1.5 py-0.5 bg-black/60 backdrop-blur-sm rounded text-[8px] font-bold text-white border border-white/10">
+                                                        R{video.round}
                                                     </div>
-                                                )}
-                                                {/* Round Badge Overlay */}
-                                                <div className="absolute top-1 right-1 px-1.5 py-0.5 bg-black/60 backdrop-blur-sm rounded text-[8px] font-bold text-white border border-white/10">
-                                                    R{video.round}
+                                                </div>
+
+                                                <div className="flex-1 min-w-0 py-0.5">
+                                                    <h4 className="text-sm font-medium text-foreground truncate group-hover/card:text-accent-primary transition-colors">{video.title}</h4>
+                                                    <p className="text-xs text-foreground-secondary mt-0.5 truncate">
+                                                        {video.boxer1} vs {video.boxer2}
+                                                    </p>
+                                                    <div className="flex items-center gap-2 mt-2">
+                                                        <span className="px-2 py-0.5 text-[10px] font-medium bg-amber-500/10 text-amber-500 rounded border border-amber-500/20">
+                                                            AWAITING PICKUP
+                                                        </span>
+                                                    </div>
                                                 </div>
                                             </div>
+                                        </Link>
+                                    ))}
+                                </div>
+                            )}
 
-                                            <div className="flex-1 min-w-0 py-0.5">
-                                                <h4 className="text-sm font-medium text-foreground truncate group-hover/card:text-accent-primary transition-colors">{video.title}</h4>
-                                                <p className="text-xs text-foreground-secondary mt-0.5 truncate">
-                                                    {video.boxer1} vs {video.boxer2}
-                                                </p>
-                                                <div className="flex items-center gap-2 mt-2">
-                                                    <span className="px-2 py-0.5 text-[10px] font-medium bg-amber-500/10 text-amber-500 rounded border border-amber-500/20">
-                                                        AWAITING PICKUP
-                                                    </span>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </Link>
-                                ))}
-                            </div>
-                        )}
-
-                        <p className="text-xs text-foreground-secondary mt-4 text-center">
-                            Videos waiting to be picked up by team members
-                        </p>
+                            <p className="text-xs text-foreground-secondary mt-4 text-center">
+                                Videos waiting to be picked up by team members
+                            </p>
+                        </div>
                     </div>
                 </div>
             )}

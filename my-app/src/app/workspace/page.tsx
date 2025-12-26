@@ -105,7 +105,7 @@ function WorkspacePage() {
     useEffect(() => {
         const handleMouseMove = (e: MouseEvent) => {
             if (!isResizing.current) return;
-            
+
             const newWidth = e.clientX;
             // Min width: 320px (current), Max width: 600px (or half the viewport)
             const maxWidth = Math.min(600, window.innerWidth * 0.5);
@@ -157,22 +157,36 @@ function WorkspacePage() {
             if (!videoId) {
                 setVideoLoading(false);
                 setVideoError('No video ID provided');
+                console.warn('[VIDEO DEBUG] No videoId in URL params');
                 return;
             }
-            console.log("Fetching")
+            console.log('[VIDEO DEBUG] Fetching video data for ID:', videoId);
 
             try {
                 setVideoLoading(true);
                 const response = await fetch(`/api/videos/${videoId}`);
 
+                console.log('[VIDEO DEBUG] API response status:', response.status, response.statusText);
+
                 if (!response.ok) {
-                    throw new Error('Failed to fetch video');
+                    throw new Error(`Failed to fetch video: ${response.status} ${response.statusText}`);
                 }
 
                 const data = await response.json();
+                console.log('[VIDEO DEBUG] Raw API response:', JSON.stringify(data, null, 2));
+                console.log('[VIDEO DEBUG] Video data:', {
+                    id: data.video?.id,
+                    title: data.video?.title,
+                    sourceUrls: data.video?.sourceUrls,
+                    storagePath: data.video?.storagePath,
+                    storageProvider: data.video?.storageProvider,
+                    numCameraViews: data.video?.numCameraViews
+                });
+
                 setVideoData(data.video);
                 setVideoError(null);
             } catch (err) {
+                console.error('[VIDEO DEBUG] Error fetching video:', err);
                 setVideoError(err instanceof Error ? err.message : 'Failed to load video');
             } finally {
                 setVideoLoading(false);
@@ -452,7 +466,7 @@ function WorkspacePage() {
 
     const handleSaveProgress = async () => {
         setSaveStatus('saving');
-        
+
         try {
             // Save to localStorage (video-specific)
             if (videoId) {
@@ -495,7 +509,7 @@ function WorkspacePage() {
             }
 
             setSaveStatus('saved');
-            
+
             // Reset status after 2 seconds
             setTimeout(() => setSaveStatus('idle'), 2000);
         } catch (error) {
@@ -699,14 +713,32 @@ function WorkspacePage() {
 
     // Parse video sources from videoData
     const videoSources = React.useMemo(() => {
-        if (!videoData?.sourceUrls) return undefined;
+        if (!videoData?.sourceUrls) {
+            console.log('[VIDEO DEBUG] No sourceUrls in videoData');
+            return undefined;
+        }
 
         const urls = videoData.sourceUrls;
-        return {
+        console.log('[VIDEO DEBUG] Parsing sourceUrls:', {
+            raw: urls,
+            type: typeof urls,
+            isArray: Array.isArray(urls),
+            keys: typeof urls === 'object' ? Object.keys(urls) : 'N/A'
+        });
+
+        const parsed = {
             cam1: urls.cam1 || urls[0],
             cam2: urls.cam2 || urls[1],
             cam3: urls.cam3 || urls[2],
         };
+
+        console.log('[VIDEO DEBUG] Parsed video sources:', {
+            cam1: parsed.cam1 ? `${parsed.cam1.substring(0, 80)}...` : 'EMPTY/UNDEFINED',
+            cam2: parsed.cam2 ? `${parsed.cam2.substring(0, 80)}...` : 'EMPTY/UNDEFINED',
+            cam3: parsed.cam3 ? `${parsed.cam3.substring(0, 80)}...` : 'EMPTY/UNDEFINED',
+        });
+
+        return parsed;
     }, [videoData]);
 
     // Parse boxer names from video title, fallback to database fields
@@ -814,28 +846,28 @@ function WorkspacePage() {
 
             <div className="flex h-[calc(100vh-64px)] overflow-hidden">
                 {/* Left Sidebar: Controls - Resizable */}
-                <aside 
+                <aside
                     ref={sidebarRef}
                     style={{ width: sidebarWidth }}
                     className="relative border-r border-border bg-background p-4 shrink-0 flex flex-col"
                 >
                     <div className="flex-1 min-h-0">
-                    <SidebarControls
-                        onLogEvent={handleLogEvent}
-                        getCurrentTime={getCurrentTime}
-                        formState={{ boxer, startTime, endTime, punchType, hand, target, visibilityFlags, knockdown, punchQuality, stance, landed, punchResult, defenseType }}
-                        setFormState={{ setBoxer: handleBoxerChange, setStartTime, setEndTime, setPunchType, setHand, setTarget, setVisibilityFlags, setKnockdown, setPunchQuality, setStance, setLanded, setPunchResult, setDefenseType }}
-                        activeTimeMode={activeTimeMode}
-                        setActiveTimeMode={setActiveTimeMode}
-                        activeCam={activeCam}
-                        readOnly={isSidebarReadOnly}
-                        isEditing={!!selectedEventId}
-                        onUpdateEvent={handleUpdateEvent}
-                        onCancelEdit={handleCancelEdit}
-                        boxerNames={boxerNames}
-                    />
+                        <SidebarControls
+                            onLogEvent={handleLogEvent}
+                            getCurrentTime={getCurrentTime}
+                            formState={{ boxer, startTime, endTime, punchType, hand, target, visibilityFlags, knockdown, punchQuality, stance, landed, punchResult, defenseType }}
+                            setFormState={{ setBoxer: handleBoxerChange, setStartTime, setEndTime, setPunchType, setHand, setTarget, setVisibilityFlags, setKnockdown, setPunchQuality, setStance, setLanded, setPunchResult, setDefenseType }}
+                            activeTimeMode={activeTimeMode}
+                            setActiveTimeMode={setActiveTimeMode}
+                            activeCam={activeCam}
+                            readOnly={isSidebarReadOnly}
+                            isEditing={!!selectedEventId}
+                            onUpdateEvent={handleUpdateEvent}
+                            onCancelEdit={handleCancelEdit}
+                            boxerNames={boxerNames}
+                        />
                     </div>
-                    
+
                     {/* Resize Handle */}
                     <div
                         onMouseDown={startResizing}

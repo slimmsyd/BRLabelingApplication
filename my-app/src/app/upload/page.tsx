@@ -4,7 +4,7 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Upload, X, FileVideo, Loader2, ArrowLeft, Camera } from 'lucide-react';
+import { Upload, X, FileVideo, Loader2, ArrowLeft, Camera, AlertTriangle } from 'lucide-react';
 import Link from 'next/link';
 import { uploadVideosStandard, StandardUploadProgress } from '@/lib/storage/standard-upload';
 
@@ -39,6 +39,9 @@ const UploadPage = () => {
     const [elapsedTime, setElapsedTime] = useState(0);
     const [dragActive, setDragActive] = useState({ cam1: false, cam2: false, cam3: false });
 
+    // MOV file warning state
+    const [showMovWarning, setShowMovWarning] = useState(false);
+
     // Update elapsed time every second while uploading
     useEffect(() => {
         if (!uploadStartTime) {
@@ -59,11 +62,22 @@ const UploadPage = () => {
         cam3: useRef<HTMLInputElement>(null)
     };
 
+    // Check if file is a MOV and show warning
+    const checkAndSetFile = (cam: CameraKey, file: File) => {
+        const extension = file.name.split('.').pop()?.toLowerCase();
+
+        if (extension === 'mov' || extension === 'mxf') {
+            setShowMovWarning(true);
+            // Still set the file but warn user
+        }
+
+        setFiles(prev => ({ ...prev, [cam]: file }));
+        setError('');
+    };
+
     const handleFileSelect = (cam: CameraKey, e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files && e.target.files[0]) {
-            const selectedFile = e.target.files[0];
-            setFiles(prev => ({ ...prev, [cam]: selectedFile }));
-            setError('');
+            checkAndSetFile(cam, e.target.files[0]);
         }
     };
 
@@ -92,10 +106,9 @@ const UploadPage = () => {
         if (e.dataTransfer.files && e.dataTransfer.files[0]) {
             const droppedFile = e.dataTransfer.files[0];
 
-            // Validate file type
-            if (droppedFile.type.startsWith('video/')) {
-                setFiles(prev => ({ ...prev, [cam]: droppedFile }));
-                setError('');
+            // Validate file type - accept video/* and common video extensions
+            if (droppedFile.type.startsWith('video/') || /\.(mp4|mov|webm|mkv|avi|mxf)$/i.test(droppedFile.name)) {
+                checkAndSetFile(cam, droppedFile);
             } else {
                 setError('Please drop a valid video file (MP4, MOV, WebM)');
             }
@@ -253,7 +266,7 @@ const UploadPage = () => {
                                                         {dragActive[cam as keyof typeof dragActive] ? 'Drop video here' : 'Click or drag to upload'}
                                                     </p>
                                                     <p className="text-[10px] text-foreground-secondary">
-                                                        MP4, MOV, WebM
+                                                        MP4 recommended (convert MOV first)
                                                     </p>
                                                 </div>
                                             </div>
@@ -443,6 +456,29 @@ const UploadPage = () => {
                                             }}
                                         />
                                     </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* MOV Warning Banner */}
+                        {showMovWarning && (
+                            <div className="flex items-start gap-3 p-4 rounded-xl bg-amber-500/10 border border-amber-500/20">
+                                <AlertTriangle size={20} className="text-amber-500 shrink-0 mt-0.5" />
+                                <div className="flex-1">
+                                    <p className="text-sm font-medium text-amber-500 mb-1">MOV files may not play on all browsers</p>
+                                    <p className="text-xs text-foreground-secondary">
+                                        ProRes/HEVC videos don&apos;t work on Chrome or Firefox. For best results, convert to MP4 first using:
+                                    </p>
+                                    <code className="block mt-2 px-3 py-2 bg-background rounded-lg text-xs font-mono text-foreground-secondary border border-border">
+                                        ffmpeg -i input.mov -c:v libx264 -crf 18 -c:a aac output.mp4
+                                    </code>
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowMovWarning(false)}
+                                        className="mt-2 text-xs text-amber-500 hover:underline"
+                                    >
+                                        Dismiss
+                                    </button>
                                 </div>
                             </div>
                         )}
