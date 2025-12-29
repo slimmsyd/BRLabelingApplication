@@ -12,8 +12,22 @@ export async function POST(
   try {
     const { id: videoId } = await params;
     const body = await request.json();
-    const { userId, email, labelType = 'OFFENSE' } = body;
+    const { userId, email, labelType = 'OFFENSE', targetUserId } = body;
 
+    console.log('[Assign API] Received assignment request:', {
+      videoId,
+      requestingUserId: userId,
+      targetUserId,
+      labelType
+    });
+
+    // If targetUserId is provided (admin assigning to another user), use that
+    // Otherwise, use the current user's userId (self-assignment)
+    const assigneeUserId = targetUserId || userId;
+    
+    console.log('[Assign API] Assigning to user:', assigneeUserId);
+    
+    // We still need userId and email for auth purposes
     if (!userId || !email) {
       return NextResponse.json(
         { error: 'User ID and email are required' },
@@ -33,29 +47,31 @@ export async function POST(
       );
     }
 
-    // Check if already assigned to this user for this label type
-    const existingAssignment = await prisma.videoAssignment.findUnique({
+    // IMPORTANT: Delete any existing assignments for this video and label type
+    // This ensures when reassigning to a different user, we remove the old assignment
+    const existingAssignments = await prisma.videoAssignment.findMany({
       where: {
-        videoId_userId_labelType: {
-          videoId,
-          userId,
-          labelType,
-        },
+        videoId,
+        labelType,
       },
     });
 
-    if (existingAssignment) {
-      return NextResponse.json(
-        { assignment: existingAssignment },
-        { status: 200 }
-      );
+    if (existingAssignments.length > 0) {
+      console.log('[Assign API] Removing', existingAssignments.length, 'existing assignment(s) before reassigning');
+      
+      await prisma.videoAssignment.deleteMany({
+        where: {
+          videoId,
+          labelType,
+        },
+      });
     }
 
     // Create new assignment
     const assignment = await prisma.videoAssignment.create({
       data: {
         videoId,
-        userId,
+        userId: assigneeUserId,
         labelType,
         status: 'ASSIGNED',
       },

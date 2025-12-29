@@ -1,5 +1,5 @@
-import React from 'react';
-import { Play, MoreVertical, Clock, CheckCircle2, Video as VideoIcon } from 'lucide-react';
+import React, { useState } from 'react';
+import { Play, MoreVertical, Clock, CheckCircle2, Video as VideoIcon, UserPlus, UserMinus } from 'lucide-react';
 import Link from 'next/link';
 
 interface VideoCardProps {
@@ -17,9 +17,16 @@ interface VideoCardProps {
         status: string;
     };
     thumbnailUrl?: string;
+    isAdmin?: boolean;
+    assignmentId?: string;
+    onAssignmentChange?: () => void;
+    onAssignClick?: () => void;
 }
 
-const VideoCard = ({ id, title, boxer1, boxer2, round, fightDate, numCameraViews, createdAt, assignee, thumbnailUrl }: VideoCardProps) => {
+const VideoCard = ({ id, title, boxer1, boxer2, round, fightDate, numCameraViews, createdAt, assignee, thumbnailUrl, isAdmin = false, assignmentId, onAssignmentChange, onAssignClick }: VideoCardProps) => {
+    const [showMenu, setShowMenu] = useState(false);
+    const [removing, setRemoving] = useState(false);
+
     // Format the fight date
     const formattedDate = new Date(fightDate).toLocaleDateString('en-US', {
         month: 'short',
@@ -32,6 +39,36 @@ const VideoCard = ({ id, title, boxer1, boxer2, round, fightDate, numCameraViews
         month: 'short',
         day: 'numeric'
     });
+
+    const handleRemoveAssignment = async (e: React.MouseEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+
+        if (!assignmentId || !confirm('Are you sure you want to remove this assignment?')) {
+            return;
+        }
+
+        setRemoving(true);
+        try {
+            const response = await fetch(`/api/videos/${id}/unassign`, {
+                method: 'DELETE',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ assignmentId }),
+            });
+
+            if (response.ok) {
+                onAssignmentChange?.();
+            } else {
+                alert('Failed to remove assignment');
+            }
+        } catch (err) {
+            console.error('Error removing assignment:', err);
+            alert('Error removing assignment');
+        } finally {
+            setRemoving(false);
+            setShowMenu(false);
+        }
+    };
 
     return (
         <Link href={`/workspace?videoId=${id}`}>
@@ -50,6 +87,54 @@ const VideoCard = ({ id, title, boxer1, boxer2, round, fightDate, numCameraViews
                             />
                         ) : (
                             <div className="absolute inset-0 bg-gradient-to-br from-gray-800 to-gray-900 group-hover:scale-105 transition-transform duration-500" />
+                        )}
+
+                        {/* Admin Menu - Top Left */}
+                        {isAdmin && (
+                            <div className="absolute top-2 left-2 z-20">
+                                <button
+                                    onClick={(e) => {
+                                        e.preventDefault();
+                                        e.stopPropagation();
+                                        setShowMenu(!showMenu);
+                                    }}
+                                    className="w-8 h-8 rounded-lg bg-black/60 backdrop-blur-sm border border-white/20 hover:bg-black/80 flex items-center justify-center transition-all"
+                                >
+                                    <MoreVertical size={16} className="text-white" />
+                                </button>
+
+                                {/* Dropdown Menu */}
+                                {showMenu && (
+                                    <div className="absolute top-10 left-0 w-48 bg-surface border border-border rounded-lg shadow-xl overflow-hidden z-30">
+                                        {/* Assign to User - Always show for admins */}
+                                        <button
+                                            onClick={(e) => {
+                                                e.preventDefault();
+                                                e.stopPropagation();
+                                                console.log('[VideoCard] Assign clicked for video:', { id, title, hasAssignee: !!assignee });
+                                                setShowMenu(false);
+                                                onAssignClick?.();
+                                            }}
+                                            className="w-full px-4 py-2.5 text-left text-sm text-accent-primary hover:bg-accent-primary/10 flex items-center gap-2 transition-colors border-b border-border"
+                                        >
+                                            <UserPlus size={14} />
+                                            {assignee ? 'Reassign Video' : 'Assign to User'}
+                                        </button>
+
+                                        {/* Remove Assignment - Only show if assigned */}
+                                        {assignee && assignmentId && (
+                                            <button
+                                                onClick={handleRemoveAssignment}
+                                                disabled={removing}
+                                                className="w-full px-4 py-2.5 text-left text-sm text-red-500 hover:bg-red-500/10 flex items-center gap-2 transition-colors disabled:opacity-50"
+                                            >
+                                                <UserMinus size={14} />
+                                                {removing ? 'Removing...' : 'Remove Assignment'}
+                                            </button>
+                                        )}
+                                    </div>
+                                )}
+                            </div>
                         )}
 
                         {/* Camera Count Badge */}

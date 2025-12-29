@@ -2,7 +2,8 @@
 
 import React, { useEffect, useState } from 'react';
 import VideoCard from './VideoCard';
-import { Plus, Loader2 } from 'lucide-react';
+import AssignmentModal from './AssignmentModal';
+import { Plus, Loader2, UserPlus } from 'lucide-react';
 import Link from 'next/link';
 
 interface Video {
@@ -16,6 +17,8 @@ interface Video {
     sourceUrls: string[];
     createdAt: string;
     assignments?: Array<{
+        id: string;
+        userId: string;
         user: {
             username: string | null;
             email: string;
@@ -28,6 +31,10 @@ const VideoGrid = () => {
     const [videos, setVideos] = useState<Video[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const [currentUser, setCurrentUser] = useState<{ accountType: string } | null>(null);
+    const [assignModalOpen, setAssignModalOpen] = useState(false);
+    const [selectedVideoForAssign, setSelectedVideoForAssign] = useState<{ id: string; title: string; currentAssigneeUserId?: string } | null>(null);
+
 
     useEffect(() => {
         const fetchVideos = async () => {
@@ -48,6 +55,36 @@ const VideoGrid = () => {
 
         fetchVideos();
     }, []);
+
+    // Fetch current user to check if admin
+    useEffect(() => {
+        const fetchUser = async () => {
+            try {
+                const response = await fetch('/api/auth/me');
+                if (response.ok) {
+                    const data = await response.json();
+                    setCurrentUser(data);
+                }
+            } catch (err) {
+                console.error('Failed to fetch user:', err);
+            }
+        };
+        fetchUser();
+    }, []);
+
+    const handleRefreshVideos = async () => {
+        console.log('[VideoGrid] Refreshing videos after assignment change...');
+        try {
+            const response = await fetch('/api/videos');
+            if (response.ok) {
+                const data = await response.json();
+                console.log('[VideoGrid] Videos refreshed, count:', data.videos?.length);
+                setVideos(data.videos);
+            }
+        } catch (err) {
+            console.error('[VideoGrid] Failed to refresh videos:', err);
+        }
+    };
 
     // Separate videos into assigned and unassigned
     const assignedVideos = videos.filter(video => video.assignments && video.assignments.length > 0);
@@ -94,6 +131,19 @@ const VideoGrid = () => {
                                         status: video.assignments[0].status
                                     } : undefined}
                                     thumbnailUrl={video.sourceUrls?.[0]}
+                                    isAdmin={currentUser?.accountType === 'ADMIN'}
+                                    assignmentId={video.assignments?.[0]?.id}
+                                    onAssignmentChange={handleRefreshVideos}
+                                    onAssignClick={() => {
+                                        const currentAssigneeUserId = video.assignments?.[0]?.userId;
+                                        console.log('[VideoGrid] Reassigning video:', video.title, 'Current assignee:', currentAssigneeUserId);
+                                        setSelectedVideoForAssign({
+                                            id: video.id,
+                                            title: video.title,
+                                            currentAssigneeUserId
+                                        });
+                                        setAssignModalOpen(true);
+                                    }}
                                 />
                             ))}
 
@@ -136,50 +186,67 @@ const VideoGrid = () => {
                             ) : (
                                 <div className="space-y-4">
                                     {unassignedVideos.map((video) => (
-                                        <Link
-                                            key={video.id}
-                                            href={`/workspace?videoId=${video.id}`}
-                                            className="block bg-surface border border-border rounded-xl p-3 hover:border-foreground-secondary/50 transition-colors cursor-pointer group/card"
-                                        >
-                                            <div className="flex items-start gap-3">
-                                                {/* Video Preview Thumbnail */}
-                                                <div className="w-24 h-16 rounded-lg bg-black overflow-hidden shrink-0 relative border border-white/10">
-                                                    {video.sourceUrls?.[0] ? (
-                                                        <video
-                                                            src={video.sourceUrls[0]}
-                                                            className="w-full h-full object-cover opacity-80 group-hover/card:opacity-100 transition-opacity"
-                                                            muted
-                                                            playsInline
-                                                            onMouseOver={e => e.currentTarget.play()}
-                                                            onMouseOut={e => {
-                                                                e.currentTarget.pause();
-                                                                e.currentTarget.currentTime = 0;
-                                                            }}
-                                                        />
-                                                    ) : (
-                                                        <div className="w-full h-full flex items-center justify-center text-foreground-secondary">
-                                                            <span className="text-xs">No Video</span>
+                                        <div key={video.id} className="relative">
+                                            <Link
+                                                href={`/workspace?videoId=${video.id}`}
+                                                className="block bg-surface border border-border rounded-xl p-3 hover:border-foreground-secondary/50 transition-colors cursor-pointer group/card"
+                                            >
+                                                <div className="flex items-start gap-3">
+                                                    {/* Video Preview Thumbnail */}
+                                                    <div className="w-24 h-16 rounded-lg bg-black overflow-hidden shrink-0 relative border border-white/10">
+                                                        {video.sourceUrls?.[0] ? (
+                                                            <video
+                                                                src={video.sourceUrls[0]}
+                                                                className="w-full h-full object-cover opacity-80 group-hover/card:opacity-100 transition-opacity"
+                                                                muted
+                                                                playsInline
+                                                                onMouseOver={e => e.currentTarget.play()}
+                                                                onMouseOut={e => {
+                                                                    e.currentTarget.pause();
+                                                                    e.currentTarget.currentTime = 0;
+                                                                }}
+                                                            />
+                                                        ) : (
+                                                            <div className="w-full h-full flex items-center justify-center text-foreground-secondary">
+                                                                <span className="text-xs">No Video</span>
+                                                            </div>
+                                                        )}
+                                                        {/* Round Badge Overlay */}
+                                                        <div className="absolute top-1 right-1 px-1.5 py-0.5 bg-black/60 backdrop-blur-sm rounded text-[8px] font-bold text-white border border-white/10">
+                                                            R{video.round}
                                                         </div>
-                                                    )}
-                                                    {/* Round Badge Overlay */}
-                                                    <div className="absolute top-1 right-1 px-1.5 py-0.5 bg-black/60 backdrop-blur-sm rounded text-[8px] font-bold text-white border border-white/10">
-                                                        R{video.round}
                                                     </div>
-                                                </div>
 
-                                                <div className="flex-1 min-w-0 py-0.5">
-                                                    <h4 className="text-sm font-medium text-foreground truncate group-hover/card:text-accent-primary transition-colors">{video.title}</h4>
-                                                    <p className="text-xs text-foreground-secondary mt-0.5 truncate">
-                                                        {video.boxer1} vs {video.boxer2}
-                                                    </p>
-                                                    <div className="flex items-center gap-2 mt-2">
-                                                        <span className="px-2 py-0.5 text-[10px] font-medium bg-amber-500/10 text-amber-500 rounded border border-amber-500/20">
-                                                            AWAITING PICKUP
-                                                        </span>
+                                                    <div className="flex-1 min-w-0 py-0.5">
+                                                        <h4 className="text-sm font-medium text-foreground truncate group-hover/card:text-accent-primary transition-colors">{video.title}</h4>
+                                                        <p className="text-xs text-foreground-secondary mt-0.5 truncate">
+                                                            {video.boxer1} vs {video.boxer2}
+                                                        </p>
+                                                        <div className="flex items-center gap-2 mt-2">
+                                                            <span className="px-2 py-0.5 text-[10px] font-medium bg-amber-500/10 text-amber-500 rounded border border-amber-500/20">
+                                                                AWAITING PICKUP
+                                                            </span>
+                                                        </div>
                                                     </div>
                                                 </div>
-                                            </div>
-                                        </Link>
+                                            </Link>
+
+                                            {/* Admin Assign Button - Outside Link */}
+                                            {currentUser?.accountType === 'ADMIN' && (
+                                                <button
+                                                    onClick={(e) => {
+                                                        e.preventDefault();
+                                                        e.stopPropagation();
+                                                        setSelectedVideoForAssign({ id: video.id, title: video.title });
+                                                        setAssignModalOpen(true);
+                                                    }}
+                                                    className="absolute top-2 right-2 px-3 py-1.5 bg-accent-primary hover:bg-accent-primary/90 text-white text-[10px] font-bold rounded-lg flex items-center gap-1.5 transition-all z-10"
+                                                >
+                                                    <UserPlus size={12} />
+                                                    ASSIGN
+                                                </button>
+                                            )}
+                                        </div>
                                     ))}
                                 </div>
                             )}
@@ -190,6 +257,21 @@ const VideoGrid = () => {
                         </div>
                     </div>
                 </div>
+            )}
+
+            {/* Assignment Modal */}
+            {selectedVideoForAssign && (
+                <AssignmentModal
+                    isOpen={assignModalOpen}
+                    onClose={() => {
+                        setAssignModalOpen(false);
+                        setSelectedVideoForAssign(null);
+                    }}
+                    videoId={selectedVideoForAssign.id}
+                    videoTitle={selectedVideoForAssign.title}
+                    currentAssigneeId={selectedVideoForAssign.currentAssigneeUserId}
+                    onAssignmentSuccess={handleRefreshVideos}
+                />
             )}
         </div>
     );

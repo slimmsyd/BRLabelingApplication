@@ -29,6 +29,8 @@ export async function GET() {
           take: 1,
           where: { labelType: 'OFFENSE' },
           select: {
+            id: true,
+            userId: true,
             user: {
               select: {
                 username: true,
