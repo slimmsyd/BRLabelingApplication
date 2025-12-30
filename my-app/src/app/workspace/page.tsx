@@ -448,17 +448,42 @@ function WorkspacePage() {
     useEffect(() => {
         const fetchUser = async () => {
             try {
+                console.log('\n🔐 [PERMISSIONS DEBUG] ========================');
+                console.log('📡 Fetching user data from /api/auth/me...');
+                
                 const res = await fetch('/api/auth/me');
                 if (res.ok) {
                     const data = await res.json();
+                    
+                    console.log('✅ User data received:');
+                    console.log('   👤 User ID:', data.userId);
+                    console.log('   📧 Email:', data.email);
+                    console.log('   🏷️  Account Type:', data.accountType);
+                    console.log('   📦 Local Permissions (cached):', JSON.stringify(data.permissions));
+                    console.log('   🌐 External Account Data:', data.externalAccount ? 'PRESENT' : 'MISSING');
+                    
+                    if (data.externalAccount) {
+                        console.log('   🌐 External Account Details:');
+                        console.log('      👤 Username:', data.externalAccount.username);
+                        console.log('      🏷️  Account Type:', data.externalAccount.accountType);
+                        console.log('      🔐 Permissions:', JSON.stringify(data.externalAccount.permissions));
+                    } else {
+                        console.warn('   ⚠️  NO EXTERNAL ACCOUNT DATA - User may not have proper permissions!');
+                    }
+                    
+                    console.log('   ✅ External Verified:', data.isExternalVerified);
+                    console.log('🔐 [PERMISSIONS DEBUG] ========================\n');
+                    
                     setUser(data);
                     // Auto-enable QC mode for QC/Admin if submitted
                     if ((data.accountType === 'QUALITY_CONTROL' || data.accountType === 'ADMIN') && isSubmitted) {
                         setIsQCMode(true);
                     }
+                } else {
+                    console.error('❌ Failed to fetch user:', res.status, res.statusText);
                 }
             } catch (error) {
-                console.error('Failed to fetch user:', error);
+                console.error('❌ Failed to fetch user:', error);
             }
         };
         fetchUser();
@@ -673,32 +698,64 @@ function WorkspacePage() {
     // - Not submitted: Assigned users can edit
     // - Submitted: Read-only for everyone UNLESS QC mode is explicitly activated by authorized users
     const canEdit = React.useMemo(() => {
-        if (!user) return false;
+        console.log('\n🔐 [RBAC DEBUG] Checking edit permissions...');
+        console.log('   👤 User:', user?.email);
+        console.log('   📝 Video Submitted:', isSubmitted);
+        console.log('   🔍 QC Mode Active:', isQCMode);
+        
+        if (!user) {
+            console.log('   ❌ No user - cannot edit');
+            return false;
+        }
 
         // If video is NOT submitted - check if user can edit (labeling phase)
         if (!isSubmitted) {
+            console.log('   📋 Video NOT submitted - checking assignment...');
+            
             // Admins can always edit
-            if (user.accountType === 'ADMIN') return true;
+            if (user.accountType === 'ADMIN') {
+                console.log('   ✅ User is ADMIN - can edit');
+                return true;
+            }
 
             // Check if user is assigned to this video
             const isAssignedToUser = assignment?.userId === user.userId;
+            console.log('   📌 Assigned to user:', isAssignedToUser);
+            console.log('   Assignment user ID:', assignment?.userId);
+            console.log('   Current user ID:', user.userId);
             return isAssignedToUser;
         }
 
         // If video IS submitted - only allow editing if QC mode is activated
         if (isSubmitted) {
+            console.log('   📋 Video IS submitted - checking QC permissions...');
+            
             // Must have QC mode ON to edit
-            if (!isQCMode) return false;
+            if (!isQCMode) {
+                console.log('   ❌ QC mode not activated - cannot edit');
+                return false;
+            }
+
+            console.log('   🔍 QC mode is ON - checking permissions...');
+            console.log('   🏷️  Account Type:', user.accountType);
+            console.log('   📦 Local permissions:', JSON.stringify(user.permissions));
+            
+            // Check external account permissions if available
+            const externalQC = (user as any).externalAccount?.permissions?.QC;
+            console.log('   🌐 External QC permission:', externalQC);
 
             // Must have QC permission or be ADMIN/QUALITY_CONTROL
             const hasQCPermission =
                 user.accountType === 'ADMIN' ||
                 user.accountType === 'QUALITY_CONTROL' ||
-                user.permissions?.QC === true;
+                user.permissions?.QC === true ||
+                externalQC === true; // NOW CHECKING EXTERNAL PERMISSIONS!
 
+            console.log('   ✅ Has QC Permission:', hasQCPermission);
             return hasQCPermission;
         }
 
+        console.log('   ❌ Default - cannot edit');
         return false;
     }, [user, isSubmitted, assignment, isQCMode]);
 
@@ -825,7 +882,21 @@ function WorkspacePage() {
                     setIsQCMode(!isQCMode);
                     if (isQCMode) handleCancelEdit(); // Clear selection when exiting QC mode
                 }}
-                showQCToggle={user?.accountType === 'ADMIN' || (isSubmitted && (user?.accountType === 'QUALITY_CONTROL' || user?.permissions?.QC === true))}
+                showQCToggle={(() => {
+                    const shouldShow = user?.accountType === 'ADMIN' || 
+                        (isSubmitted && (
+                            user?.accountType === 'QUALITY_CONTROL' || 
+                            user?.permissions?.QC === true ||
+                            (user as any)?.externalAccount?.permissions?.QC === true
+                        ));
+                    
+                    console.log('🔍 [QC TOGGLE DEBUG] Should show QC toggle:', shouldShow);
+                    console.log('   Account Type:', user?.accountType);
+                    console.log('   Local QC perm:', user?.permissions?.QC);
+                    console.log('   External QC perm:', (user as any)?.externalAccount?.permissions?.QC);
+                    
+                    return shouldShow;
+                })()}
                 videoTitle={videoData.title}
                 videoMetadata={`${videoData.boxer1} vs ${videoData.boxer2} - Round ${videoData.round}`}
                 assignment={assignment}

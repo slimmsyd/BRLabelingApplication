@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, RefObject } from 'react';
-import { Play, Pause, SkipBack, SkipForward, Maximize2, Minimize2, Volume2, VolumeX, Volume1, Settings, Gauge, ChevronUp, ChevronDown } from 'lucide-react';
+import { Play, Pause, SkipBack, SkipForward, Maximize2, Minimize2, Volume2, VolumeX, Volume1, Settings, Gauge, ChevronUp, ChevronDown, Loader2 } from 'lucide-react';
 
 type VideoSize = 'small' | 'medium' | 'large';
 
@@ -13,6 +13,12 @@ interface VideoPlayerProps {
         cam3?: string;
     };
     fps?: number; // Video frame rate for frame-by-frame navigation
+}
+
+interface VideoLoadingState {
+    cam1: 'loading' | 'ready' | 'error' | 'idle';
+    cam2: 'loading' | 'ready' | 'error' | 'idle';
+    cam3: 'loading' | 'ready' | 'error' | 'idle';
 }
 
 const VideoPlayer = ({ videoRef, activeCam, setActiveCam, videoSources, fps = 30 }: VideoPlayerProps) => {
@@ -46,12 +52,113 @@ const VideoPlayer = ({ videoRef, activeCam, setActiveCam, videoSources, fps = 30
     // Video size state
     const [videoSize, setVideoSize] = useState<VideoSize>('large');
 
+    // PRELOADING: Create refs for all video elements
+    const cam1Ref = useRef<HTMLVideoElement>(null);
+    const cam2Ref = useRef<HTMLVideoElement>(null);
+    const cam3Ref = useRef<HTMLVideoElement>(null);
+    
+    // Track loading state for each camera
+    const [videoLoadingState, setVideoLoadingState] = useState<VideoLoadingState>({
+        cam1: 'idle',
+        cam2: 'idle',
+        cam3: 'idle',
+    });
+
+    // Helper to get the active video element based on current camera
+    const getActiveVideoElement = (): HTMLVideoElement | null => {
+        switch (activeCam) {
+            case 'CAM 1': return cam1Ref.current;
+            case 'CAM 2': return cam2Ref.current;
+            case 'CAM 3': return cam3Ref.current;
+            default: return cam1Ref.current;
+        }
+    };
+
+    // Helper to get all video refs
+    const getAllVideoRefs = () => [cam1Ref, cam2Ref, cam3Ref];
+
     // Video size configurations
     const sizeConfig = {
         small: { maxWidth: '480px', label: 'S' },
         medium: { maxWidth: '720px', label: 'M' },
         large: { maxWidth: '100%', label: 'L' },
     };
+
+    // Sync the parent's videoRef to always point to the active video element
+    useEffect(() => {
+        const activeVideo = getActiveVideoElement();
+        if (videoRef.current !== activeVideo) {
+            // @ts-ignore - Update parent ref to point to active video
+            videoRef.current = activeVideo;
+        }
+    }, [activeCam, videoRef]);
+
+    // PRELOAD ALL VIDEOS when sources become available
+    useEffect(() => {
+        if (!videoSources) return;
+
+        console.log('\n🎬 [VIDEO PRELOAD] Starting preload for all cameras...');
+        console.log('📹 CAM 1:', videoSources.cam1 ? 'HAS URL' : 'MISSING');
+        console.log('📹 CAM 2:', videoSources.cam2 ? 'HAS URL' : 'MISSING');
+        console.log('📹 CAM 3:', videoSources.cam3 ? 'HAS URL' : 'MISSING');
+
+        const preloadVideo = (
+            ref: React.RefObject<HTMLVideoElement | null>, 
+            camName: 'cam1' | 'cam2' | 'cam3',
+            url: string | undefined
+        ) => {
+            const video = ref.current;
+            if (!video || !url) return;
+
+            console.log(`⏳ [${camName.toUpperCase()}] Starting preload...`);
+            setVideoLoadingState(prev => ({ ...prev, [camName]: 'loading' }));
+
+            const handleCanPlay = () => {
+                console.log(`✅ [${camName.toUpperCase()}] Ready! Duration: ${video.duration}s`);
+                setVideoLoadingState(prev => ({ ...prev, [camName]: 'ready' }));
+            };
+
+            const handleError = (e: Event) => {
+                console.error(`❌ [${camName.toUpperCase()}] Load error:`, video.error);
+                setVideoLoadingState(prev => ({ ...prev, [camName]: 'error' }));
+            };
+
+            video.addEventListener('canplay', handleCanPlay, { once: true });
+            video.addEventListener('error', handleError, { once: true });
+
+            // Set preload attribute to force loading
+            video.preload = 'auto';
+            video.load(); // Force load
+
+            return () => {
+                video.removeEventListener('canplay', handleCanPlay);
+                video.removeEventListener('error', handleError);
+            };
+        };
+
+        // Preload all cameras
+        const cleanup1 = preloadVideo(cam1Ref, 'cam1', videoSources.cam1);
+        const cleanup2 = preloadVideo(cam2Ref, 'cam2', videoSources.cam2);
+        const cleanup3 = preloadVideo(cam3Ref, 'cam3', videoSources.cam3);
+
+        return () => {
+            cleanup1?.();
+            cleanup2?.();
+            cleanup3?.();
+        };
+    }, [videoSources]);
+
+    // Apply volume and playback rate to ALL videos (keep them in sync)
+    useEffect(() => {
+        const videos = [cam1Ref.current, cam2Ref.current, cam3Ref.current];
+        videos.forEach(video => {
+            if (video) {
+                video.volume = volume;
+                video.muted = isMuted;
+                video.playbackRate = playbackRate;
+            }
+        });
+    }, [volume, isMuted, playbackRate]);
 
     // Update progress as video plays + DEBUG EVENT HANDLERS
     useEffect(() => {
@@ -170,62 +277,202 @@ const VideoPlayer = ({ videoRef, activeCam, setActiveCam, videoSources, fps = 30
         return () => window.removeEventListener('keydown', handleKeyDown);
     }, [isPlaying, fps]); // Dependencies for togglePlay and frame step functions
 
-    // Preserve timestamp when switching cameras - CRITICAL for multi-angle labeling
+    // INSTANT camera switching with preloaded videos + TIMESTAMP SYNC DEBUGGING
     useEffect(() => {
-        const video = videoRef.current;
-        if (!video) return;
-
-        // Skip on initial mount (no previous camera to compare)
+        // Skip on initial mount
         if (previousCamRef.current === activeCam) return;
 
-        // Store current playback state before switch
-        previousTimeRef.current = video.currentTime || 0;
-        wasPlayingRef.current = !video.paused;
-        setIsSwitchingCamera(true);
+        const switchStartTime = performance.now();
+        console.log('\n🎥 [CAMERA SWITCH + TIMESTAMP SYNC DEBUG] ===========================');
+        console.log('🔄 Switching camera:', previousCamRef.current, '->', activeCam);
 
-        // Pause during transition to prevent audio glitches
-        if (!video.paused) {
-            video.pause();
-            setIsPlaying(false);
-        }
-
-        // Handler for when new camera video loads
-        const handleLoadedMetadata = () => {
-            // Seek to the same timestamp (or end of video if shorter)
-            const targetTime = Math.min(previousTimeRef.current, video.duration || previousTimeRef.current);
-            video.currentTime = targetTime;
-
-            // Restore play state if it was playing before
-            if (wasPlayingRef.current) {
-                video.play().then(() => {
-                    setIsPlaying(true);
-                }).catch(err => {
-                    console.warn('Auto-play after camera switch failed:', err);
-                });
+        // Get previous and new video elements
+        const getPrevVideoElement = (): HTMLVideoElement | null => {
+            switch (previousCamRef.current) {
+                case 'CAM 1': return cam1Ref.current;
+                case 'CAM 2': return cam2Ref.current;
+                case 'CAM 3': return cam3Ref.current;
+                default: return null;
             }
-
-            setIsSwitchingCamera(false);
         };
 
-        // Listen for new video to be ready
-        video.addEventListener('loadedmetadata', handleLoadedMetadata, { once: true });
+        const prevVideo = getPrevVideoElement();
+        const newVideo = getActiveVideoElement();
 
-        // Also handle case where video is already loaded (same file, different camera)
-        if (video.readyState >= 1) {
-            handleLoadedMetadata();
+        if (!prevVideo || !newVideo) {
+            console.warn('⚠️  Missing video element(s)');
+            previousCamRef.current = activeCam;
+            return;
+        }
+
+        console.log('📍 Previous video currentTime:', prevVideo.currentTime);
+        console.log('📏 Previous video duration:', prevVideo.duration);
+        console.log('📊 Previous video readyState:', prevVideo.readyState);
+        console.log('🌐 Previous video networkState:', prevVideo.networkState);
+        console.log('⏸️  Was playing:', !prevVideo.paused);
+        console.log('---');
+        console.log('📏 New video duration:', newVideo.duration);
+        console.log('📊 New video readyState:', newVideo.readyState);
+        console.log('🌐 New video networkState:', newVideo.networkState);
+        console.log('📍 New video BEFORE sync:', newVideo.currentTime);
+
+        // Store state
+        const targetTime = prevVideo.currentTime;
+        const wasPlaying = !prevVideo.paused;
+
+        console.log('🎯 Target timestamp to sync:', targetTime);
+
+        // Pause old video
+        prevVideo.pause();
+
+        // Sync new video to same timestamp with DETAILED LOGGING + FIX
+        if (newVideo.readyState >= 1) {
+            // Video is ready - instant switch!
+            const adjustedTargetTime = Math.min(targetTime, newVideo.duration || targetTime);
+            
+            console.log('⚡ Video already ready (readyState:', newVideo.readyState, ')');
+            console.log('🎯 Adjusted target time:', adjustedTargetTime, '(capped to duration)');
+            console.log('📍 Setting currentTime from', newVideo.currentTime, 'to', adjustedTargetTime);
+            
+            // FIX: Use 'seeked' event to wait for seek to complete
+            let seekTimeout: NodeJS.Timeout | null = null;
+            
+            const handleSeeked = () => {
+                // Clear timeout if seek completed naturally
+                if (seekTimeout) clearTimeout(seekTimeout);
+                
+                console.log('✅ Seek completed! (seeked event fired)');
+                console.log('📍 New video currentTime AFTER seek:', newVideo.currentTime);
+                console.log('❓ Difference from target:', Math.abs(newVideo.currentTime - adjustedTargetTime).toFixed(3), 'seconds');
+                
+                if (Math.abs(newVideo.currentTime - adjustedTargetTime) > 0.5) {
+                    console.error('🚨 TIMESTAMP SYNC FAILED! Difference > 0.5s');
+                    console.error('   Expected:', adjustedTargetTime);
+                    console.error('   Got:', newVideo.currentTime);
+                    console.error('   Attempting correction...');
+                    
+                    // Try again
+                    newVideo.currentTime = adjustedTargetTime;
+                }
+                
+                // Update parent ref to point to new video
+                // @ts-ignore
+                videoRef.current = newVideo;
+
+                // Resume playback if it was playing
+                if (wasPlaying) {
+                    newVideo.play().then(() => {
+                        setIsPlaying(true);
+                        const switchEndTime = performance.now();
+                        console.log('▶️  Playback resumed');
+                        console.log('⏱️  Total switch time:', (switchEndTime - switchStartTime).toFixed(2), 'ms');
+                        console.log('📍 Final video time after resume:', newVideo.currentTime);
+                        console.log('🎥 [CAMERA SWITCH + TIMESTAMP SYNC DEBUG] ===========================\n');
+                    }).catch(err => {
+                        console.warn('❌ Failed to resume playback:', err);
+                        setIsPlaying(false);
+                    });
+                } else {
+                    setIsPlaying(false);
+                    const switchEndTime = performance.now();
+                    console.log('⏸️  Staying paused');
+                    console.log('⏱️  Total switch time:', (switchEndTime - switchStartTime).toFixed(2), 'ms');
+                    console.log('📍 Final video time (paused):', newVideo.currentTime);
+                    console.log('🎥 [CAMERA SWITCH + TIMESTAMP SYNC DEBUG] ===========================\n');
+                }
+            };
+            
+            // Listen for seeked event (seek completion)
+            newVideo.addEventListener('seeked', handleSeeked, { once: true });
+            
+            // Set the time (will trigger seek)
+            newVideo.currentTime = adjustedTargetTime;
+            
+            // Fallback: if seeked doesn't fire within 500ms, proceed anyway
+            seekTimeout = setTimeout(() => {
+                console.warn('⚠️  Seeked event timeout - proceeding anyway');
+                newVideo.removeEventListener('seeked', handleSeeked);
+                handleSeeked(); // Call it manually
+            }, 500);
+        } else {
+            // Video not ready yet - wait for it
+            console.log('⏳ Video not ready (readyState:', newVideo.readyState, '), waiting for canplay...');
+            setIsSwitchingCamera(true);
+
+            const handleCanPlay = () => {
+                console.log('✅ canplay event fired - video ready now');
+                console.log('📊 New readyState:', newVideo.readyState);
+                
+                const adjustedTargetTime = Math.min(targetTime, newVideo.duration || targetTime);
+                console.log('🎯 Setting currentTime to:', adjustedTargetTime);
+                
+                // FIX: Use seeked event here too
+                let delayedSeekTimeout: NodeJS.Timeout | null = null;
+                
+                const handleDelayedSeeked = () => {
+                    // Clear timeout if seek completed naturally
+                    if (delayedSeekTimeout) clearTimeout(delayedSeekTimeout);
+                    
+                    console.log('✅ Seek completed (delayed path)!');
+                    console.log('📍 New video currentTime AFTER delayed seek:', newVideo.currentTime);
+                    console.log('❓ Difference from target:', Math.abs(newVideo.currentTime - adjustedTargetTime).toFixed(3), 'seconds');
+                    
+                    if (Math.abs(newVideo.currentTime - adjustedTargetTime) > 0.5) {
+                        console.error('🚨 TIMESTAMP SYNC FAILED (delayed path)!');
+                        console.error('   Expected:', adjustedTargetTime);
+                        console.error('   Got:', newVideo.currentTime);
+                        console.error('   Attempting correction...');
+                        newVideo.currentTime = adjustedTargetTime;
+                    }
+                    
+                    // @ts-ignore
+                    videoRef.current = newVideo;
+
+                    if (wasPlaying) {
+                        newVideo.play().then(() => {
+                            setIsPlaying(true);
+                            setIsSwitchingCamera(false);
+                            const switchEndTime = performance.now();
+                            console.log('⏱️  Total switch time (delayed):', (switchEndTime - switchStartTime).toFixed(2), 'ms');
+                            console.log('🎥 [CAMERA SWITCH + TIMESTAMP SYNC DEBUG] ===========================\n');
+                        }).catch(err => {
+                            console.warn('❌ Failed to resume playback:', err);
+                            setIsPlaying(false);
+                            setIsSwitchingCamera(false);
+                        });
+                    } else {
+                        setIsPlaying(false);
+                        setIsSwitchingCamera(false);
+                        const switchEndTime = performance.now();
+                        console.log('⏱️  Total switch time (delayed):', (switchEndTime - switchStartTime).toFixed(2), 'ms');
+                        console.log('🎥 [CAMERA SWITCH + TIMESTAMP SYNC DEBUG] ===========================\n');
+                    }
+                };
+                
+                // Listen for seeked event
+                newVideo.addEventListener('seeked', handleDelayedSeeked, { once: true });
+                
+                // Set the time
+                newVideo.currentTime = adjustedTargetTime;
+                
+                // Fallback timeout
+                delayedSeekTimeout = setTimeout(() => {
+                    console.warn('⚠️  Seeked event timeout (delayed path) - proceeding anyway');
+                    newVideo.removeEventListener('seeked', handleDelayedSeeked);
+                    handleDelayedSeeked();
+                }, 500);
+            };
+
+            newVideo.addEventListener('canplay', handleCanPlay, { once: true });
         }
 
         // Update previous cam ref
         previousCamRef.current = activeCam;
 
-        // Reset zoom/pan (existing behavior)
+        // Reset zoom/pan
         setZoom(1);
         setPan({ x: 0, y: 0 });
-
-        return () => {
-            video.removeEventListener('loadedmetadata', handleLoadedMetadata);
-        };
-    }, [activeCam]);
+    }, [activeCam, videoRef]);
 
     const togglePlay = () => {
         if (videoRef.current) {
@@ -440,36 +687,6 @@ const VideoPlayer = ({ videoRef, activeCam, setActiveCam, videoSources, fps = 30
         setCustomSkipInput(duration.toString());
     };
 
-    // Get current video source based on active camera
-    const getCurrentVideoSrc = (): string | undefined => {
-        if (!videoSources) {
-            console.log('[VIDEO DEBUG] getCurrentVideoSrc: No videoSources available');
-            return undefined;
-        }
-
-        let src: string | undefined;
-        switch (activeCam) {
-            case 'CAM 1':
-                src = videoSources.cam1;
-                break;
-            case 'CAM 2':
-                src = videoSources.cam2;
-                break;
-            case 'CAM 3':
-                src = videoSources.cam3;
-                break;
-            default:
-                src = videoSources.cam1;
-        }
-
-        console.log('[VIDEO DEBUG] getCurrentVideoSrc:', {
-            activeCam,
-            selectedSrc: src ? `${src.substring(0, 100)}...` : 'UNDEFINED'
-        });
-
-        return src;
-    };
-
     // Get available cameras (only those with video sources)
     const availableCameras = React.useMemo(() => {
         if (!videoSources) return [];
@@ -484,8 +701,30 @@ const VideoPlayer = ({ videoRef, activeCam, setActiveCam, videoSources, fps = 30
         return cameras;
     }, [videoSources]);
 
-    const currentVideoSrc = getCurrentVideoSrc();
-    console.log('[VIDEO DEBUG] Final currentVideoSrc to render:', currentVideoSrc ? 'HAS URL' : 'EMPTY');
+    // Helper to get loading state for a camera
+    const getCameraLoadingState = (cam: string): 'loading' | 'ready' | 'error' | 'idle' => {
+        switch (cam) {
+            case 'CAM 1': return videoLoadingState.cam1;
+            case 'CAM 2': return videoLoadingState.cam2;
+            case 'CAM 3': return videoLoadingState.cam3;
+            default: return 'idle';
+        }
+    };
+
+    // Get loading indicator icon
+    const getCameraIcon = (cam: string) => {
+        const state = getCameraLoadingState(cam);
+        switch (state) {
+            case 'loading':
+                return <Loader2 size={12} className="animate-spin text-yellow-500" />;
+            case 'ready':
+                return <div className="w-2 h-2 rounded-full bg-green-500" />;
+            case 'error':
+                return <div className="w-2 h-2 rounded-full bg-red-500" />;
+            default:
+                return <div className="w-2 h-2 rounded-full bg-gray-500" />;
+        }
+    };
 
     return (
         <div className="flex flex-col gap-4">
@@ -498,11 +737,13 @@ const VideoPlayer = ({ videoRef, activeCam, setActiveCam, videoSources, fps = 30
                             <button
                                 key={cam}
                                 onClick={() => setActiveCam(cam)}
-                                className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-colors ${activeCam === cam
+                                disabled={getCameraLoadingState(cam) === 'loading'}
+                                className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-colors flex items-center gap-2 ${activeCam === cam
                                     ? 'bg-surface text-accent-primary border-t border-x border-border'
                                     : 'text-foreground-secondary hover:text-foreground hover:bg-white/5'
-                                    }`}
+                                    } ${getCameraLoadingState(cam) === 'loading' ? 'opacity-50 cursor-not-allowed' : ''}`}
                             >
+                                {getCameraIcon(cam)}
                                 {cam}
                             </button>
                         ))}
@@ -537,24 +778,75 @@ const VideoPlayer = ({ videoRef, activeCam, setActiveCam, videoSources, fps = 30
                 onWheel={handleWheel}
                 onMouseLeave={handleVideoMouseUp}
             >
+                {/* Loading Overlay */}
+                {isSwitchingCamera && (
+                    <div className="absolute inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
+                        <div className="flex flex-col items-center gap-3">
+                            <Loader2 size={40} className="animate-spin text-accent-primary" />
+                            <p className="text-white text-sm font-medium">Loading camera...</p>
+                        </div>
+                    </div>
+                )}
+
                 <div
                     className="w-full h-full overflow-hidden"
                     style={{ cursor: zoom > 1 ? (isPanning ? 'grabbing' : 'grab') : 'default' }}
                 >
-                    <video
-                        ref={videoRef}
-                        src={currentVideoSrc || ''}
-                        className="w-full h-full object-contain"
-                        style={{
-                            transform: `scale(${zoom}) translate(${pan.x / zoom}px, ${pan.y / zoom}px)`,
-                            transition: isPanning ? 'none' : 'transform 0.1s ease-out'
-                        }}
-                        onEnded={() => setIsPlaying(false)}
-                        onClick={handleVideoClick}
-                        onMouseDown={handleVideoMouseDown}
-                        onMouseMove={handleVideoMouseMove}
-                        onMouseUp={handleVideoMouseUp}
-                    />
+                    {/* RENDER ALL VIDEOS - Only show active one */}
+                    {videoSources?.cam1 && (
+                        <video
+                            ref={cam1Ref}
+                            src={videoSources.cam1}
+                            className="w-full h-full object-contain absolute inset-0"
+                            style={{
+                                transform: `scale(${zoom}) translate(${pan.x / zoom}px, ${pan.y / zoom}px)`,
+                                transition: isPanning ? 'none' : 'transform 0.1s ease-out',
+                                display: activeCam === 'CAM 1' ? 'block' : 'none',
+                            }}
+                            preload="auto"
+                            onEnded={() => setIsPlaying(false)}
+                            onClick={handleVideoClick}
+                            onMouseDown={handleVideoMouseDown}
+                            onMouseMove={handleVideoMouseMove}
+                            onMouseUp={handleVideoMouseUp}
+                        />
+                    )}
+                    {videoSources?.cam2 && (
+                        <video
+                            ref={cam2Ref}
+                            src={videoSources.cam2}
+                            className="w-full h-full object-contain absolute inset-0"
+                            style={{
+                                transform: `scale(${zoom}) translate(${pan.x / zoom}px, ${pan.y / zoom}px)`,
+                                transition: isPanning ? 'none' : 'transform 0.1s ease-out',
+                                display: activeCam === 'CAM 2' ? 'block' : 'none',
+                            }}
+                            preload="auto"
+                            onEnded={() => setIsPlaying(false)}
+                            onClick={handleVideoClick}
+                            onMouseDown={handleVideoMouseDown}
+                            onMouseMove={handleVideoMouseMove}
+                            onMouseUp={handleVideoMouseUp}
+                        />
+                    )}
+                    {videoSources?.cam3 && (
+                        <video
+                            ref={cam3Ref}
+                            src={videoSources.cam3}
+                            className="w-full h-full object-contain absolute inset-0"
+                            style={{
+                                transform: `scale(${zoom}) translate(${pan.x / zoom}px, ${pan.y / zoom}px)`,
+                                transition: isPanning ? 'none' : 'transform 0.1s ease-out',
+                                display: activeCam === 'CAM 3' ? 'block' : 'none',
+                            }}
+                            preload="auto"
+                            onEnded={() => setIsPlaying(false)}
+                            onClick={handleVideoClick}
+                            onMouseDown={handleVideoMouseDown}
+                            onMouseMove={handleVideoMouseMove}
+                            onMouseUp={handleVideoMouseUp}
+                        />
+                    )}
                 </div>
 
                 {/* Controls Overlay (Visible on Hover) */}

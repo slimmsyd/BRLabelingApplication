@@ -123,8 +123,13 @@ export async function getExternalAccount(username: string): Promise<PermissionRe
  */
 export async function getExternalAccountByEmail(email: string): Promise<PermissionResponse | null> {
   try {
-    console.log('🔍 Looking up external account by email:', email);
+    console.log('\n🌐 [getExternalAccountByEmail] ========================');
+    console.log('📧 Looking up external account by email:', email);
+    console.log('🔗 API URL:', EXTERNAL_API_URL);
+    console.log('🔑 Has API Key:', EXTERNAL_API_KEY ? 'YES' : 'NO');
+    console.log('📡 Fetching from:', `${EXTERNAL_API_URL}/accounts`);
     
+    const startTime = performance.now();
     const response = await fetch(`${EXTERNAL_API_URL}/accounts`, {
       method: 'GET',
       headers: {
@@ -132,21 +137,36 @@ export async function getExternalAccountByEmail(email: string): Promise<Permissi
         ...(EXTERNAL_API_KEY && { 'Authorization': `Bearer ${EXTERNAL_API_KEY}` }),
       },
     });
+    const endTime = performance.now();
+
+    console.log('⏱️  Fetch took:', (endTime - startTime).toFixed(2), 'ms');
+    console.log('📊 Response status:', response.status, response.statusText);
 
     if (!response.ok) {
-      console.error('⚠️ Failed to fetch accounts from DEV API:', response.status);
+      console.error('❌ Failed to fetch accounts from DEV API:', response.status);
+      const errorText = await response.text();
+      console.error('❌ Error response:', errorText);
+      console.log('🌐 [getExternalAccountByEmail] ========================\n');
       return null;
     }
 
     const data = await response.json();
+    console.log('📦 Raw response data type:', Array.isArray(data) ? 'ARRAY' : typeof data);
+    console.log('📦 Response keys:', typeof data === 'object' ? Object.keys(data).join(', ') : 'N/A');
     
     // The response might be { accounts: [...] } or just an array
     const accounts: PermissionResponse[] = Array.isArray(data) ? data : data.accounts;
     
     if (!accounts || !Array.isArray(accounts)) {
-      console.error('❌ Unexpected response format from /accounts:', data);
+      console.error('❌ Unexpected response format from /accounts');
+      console.error('❌ Data:', JSON.stringify(data, null, 2));
+      console.log('🌐 [getExternalAccountByEmail] ========================\n');
       return null;
     }
+
+    console.log('📊 Total accounts in external system:', accounts.length);
+    console.log('📋 All emails in external system:', accounts.map(a => a.email).join(', '));
+    console.log('🔍 Searching for:', email.toLowerCase());
 
     // Find account by email (case-insensitive)
     const matchedAccount = accounts.find(
@@ -158,14 +178,19 @@ export async function getExternalAccountByEmail(email: string): Promise<Permissi
       console.log('   👤 Username:', matchedAccount.username);
       console.log('   🏷️  Account Type:', matchedAccount.accountType);
       console.log('   🔐 Permissions:', JSON.stringify(matchedAccount.permissions));
+      console.log('🌐 [getExternalAccountByEmail] ========================\n');
       return matchedAccount;
     } else {
       console.log('❌ No external account found for email:', email);
       console.log('   📋 Available emails:', accounts.map(a => a.email).join(', '));
+      console.log('   ⚠️  User needs to be added to external system!');
+      console.log('🌐 [getExternalAccountByEmail] ========================\n');
       return null;
     }
   } catch (error) {
     console.error('❌ Error fetching account by email from DEV API:', error);
+    console.error('❌ Error details:', error instanceof Error ? error.message : String(error));
+    console.log('🌐 [getExternalAccountByEmail] ========================\n');
     return null;
   }
 }

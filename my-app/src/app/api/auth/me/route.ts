@@ -37,34 +37,46 @@ export async function GET() {
         }
 
         // Fetch external account data from /accounts API by EMAIL
+        console.log('\n🔐 [/api/auth/me] ========================================');
+        console.log('👤 Fetching user data for:', user.email);
+        console.log('🔑 User ID:', user.id);
+        console.log('📡 Calling getExternalAccountByEmail...');
+        
         const externalAccount = await getExternalAccountByEmail(user.email);
         
+        console.log('📥 External account fetch result:', externalAccount ? 'SUCCESS' : 'NULL/FAILED');
+        
         // LOG ALL PERMISSIONS FOR DEBUGGING
-        // console.log('\n========================================');
-        // console.log('🔐 USER PERMISSIONS CHECK');
-        // console.log('========================================');
-        // console.log('👤 User:', user.username, `(${user.email})`);
-        // console.log('🏷️  Account Type:', user.accountType);
-        // console.log('\n📦 LOCAL CACHED PERMISSIONS (from Supabase):');
+        console.log('\n========================================');
+        console.log('🔐 USER PERMISSIONS CHECK');
+        console.log('========================================');
+        console.log('👤 User:', user.username, `(${user.email})`);
+        console.log('🏷️  Account Type:', user.accountType);
+        console.log('\n📦 LOCAL CACHED PERMISSIONS (from Supabase):');
         if (user.permissions) {
             const perms = user.permissions as any;
-            // console.log('   • QC:', perms.QC ?? 'not set');
-            // console.log('   • Upload:', perms.Upload ?? 'not set');
-            // console.log('   • ViewAssignments:', perms.ViewAssignments ?? 'not set');
-            // console.log('   Last synced:', user.permissionsUpdatedAt || 'Never');
+            console.log('   • QC:', perms.QC ?? 'not set');
+            console.log('   • Upload:', perms.Upload ?? 'not set');
+            console.log('   • ViewAssignments:', perms.ViewAssignments ?? 'not set');
+            console.log('   Last synced:', user.permissionsUpdatedAt || 'Never');
         } else {
             console.log('   ❌ No cached permissions');
         }
         
         console.log('\n🌐 EXTERNAL PERMISSIONS (from /accounts API):');
         if (externalAccount) {
+            console.log('   ✅ External account found!');
+            console.log('   • Username:', externalAccount.username);
+            console.log('   • Email:', externalAccount.email);
+            console.log('   • Account Type:', externalAccount.accountType);
             console.log('   • QC:', externalAccount.permissions?.QC ?? 'not set');
             console.log('   • Upload:', externalAccount.permissions?.Upload ?? 'not set');
             console.log('   • ViewAssignments:', externalAccount.permissions?.ViewAssignments ?? 'not set');
         } else {
             console.log('   ❌ Not found in external system');
+            console.log('   ⚠️  This user will not have external permissions!');
         }
-        // console.log('========================================\n');
+        console.log('========================================\n');
 
         // Merge local user data with external account data
         const responseData = {
