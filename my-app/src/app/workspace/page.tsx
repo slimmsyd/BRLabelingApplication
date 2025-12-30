@@ -683,6 +683,33 @@ function WorkspacePage() {
             const data = await webhookResponse.json();
             console.log('External webhook success:', data);
 
+            // 3. Update assignment status based on who is submitting
+            if (videoId && assignment?.id) {
+                // Determine new status: QC users mark as REVIEWED, labelers mark as SUBMITTED
+                const newStatus = isQCMode ? 'REVIEWED' : 'SUBMITTED';
+                
+                console.log(`📋 Updating status to: ${newStatus} (isQCMode: ${isQCMode})`);
+                
+                const statusResponse = await fetch(`/api/videos/${videoId}/status`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        status: newStatus,
+                        assignmentId: assignment.id,
+                    }),
+                });
+
+                if (statusResponse.ok) {
+                    const statusData = await statusResponse.json();
+                    console.log(`✅ Status updated to ${newStatus}:`, statusData);
+                    
+                    // Update local assignment state with new status
+                    setAssignment((prev: any) => prev ? { ...prev, status: newStatus } : prev);
+                } else {
+                    console.error('Failed to update status:', await statusResponse.text());
+                }
+            }
+
             setIsSubmitted(true);
             // Note: isSubmitted state is now determined by database assignment status
             // No need to persist to localStorage

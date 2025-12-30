@@ -122,10 +122,14 @@ const WorkspaceHeader = ({ onSave, onSubmit, readOnly = false, isQCMode = false,
                     <button
                         onClick={() => setShowSubmitModal(true)}
                         disabled={readOnly}
-                        className={`flex items-center gap-2 px-4 py-2 bg-green-600/10 border border-green-600/50 text-green-600 text-sm font-medium rounded-lg transition-colors cursor-pointer ${readOnly ? 'opacity-50 cursor-not-allowed' : 'hover:bg-green-600/20 hover:border-green-600'}`}
+                        className={`flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg transition-colors cursor-pointer ${
+                            isQCMode 
+                                ? 'bg-purple-600/10 border border-purple-600/50 text-purple-600 hover:bg-purple-600/20 hover:border-purple-600'
+                                : 'bg-green-600/10 border border-green-600/50 text-green-600 hover:bg-green-600/20 hover:border-green-600'
+                        } ${readOnly ? 'opacity-50 cursor-not-allowed' : ''}`}
                     >
-                        <Send size={16} />
-                        Submit
+                        {isQCMode ? <ShieldCheck size={16} /> : <Send size={16} />}
+                        {isQCMode ? 'Approve QC' : 'Submit'}
                     </button>
                 </div>
             </header>
@@ -135,9 +139,11 @@ const WorkspaceHeader = ({ onSave, onSubmit, readOnly = false, isQCMode = false,
                 <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[100] flex items-center justify-center">
                     <div className="bg-surface border border-border rounded-xl p-6 w-[400px] shadow-2xl">
                         <div className="flex items-center justify-between mb-4">
-                            <div className="flex items-center gap-3 text-amber-500">
-                                <AlertTriangle size={24} />
-                                <h3 className="text-lg font-semibold text-foreground">Confirm Submission</h3>
+                            <div className={`flex items-center gap-3 ${isQCMode ? 'text-purple-500' : 'text-amber-500'}`}>
+                                {isQCMode ? <ShieldCheck size={24} /> : <AlertTriangle size={24} />}
+                                <h3 className="text-lg font-semibold text-foreground">
+                                    {isQCMode ? 'Confirm QC Approval' : 'Confirm Submission'}
+                                </h3>
                             </div>
                             <button
                                 onClick={() => setShowSubmitModal(false)}
@@ -147,9 +153,26 @@ const WorkspaceHeader = ({ onSave, onSubmit, readOnly = false, isQCMode = false,
                             </button>
                         </div>
 
-                        <p className="text-foreground-secondary mb-6">
-                            Are you sure you want to submit? This will finalize your labeling session.
+                        <p className="text-foreground-secondary mb-4">
+                            {isQCMode 
+                                ? 'Are you sure you want to approve this video? This will mark it as QC reviewed.'
+                                : 'Are you sure you want to submit? This will finalize your labeling session.'}
                         </p>
+
+                        {/* Status Change Indicator */}
+                        <div className={`flex items-center gap-3 p-3 rounded-lg mb-6 ${
+                            isQCMode ? 'bg-purple-500/10 border border-purple-500/20' : 'bg-amber-500/10 border border-amber-500/20'
+                        }`}>
+                            <div className="flex items-center gap-2">
+                                <div className={`w-2 h-2 rounded-full ${isQCMode ? 'bg-purple-500' : 'bg-amber-500'}`}></div>
+                                <span className={`text-xs font-medium ${isQCMode ? 'text-purple-500' : 'text-amber-500'}`}>
+                                    Status will change to:
+                                </span>
+                            </div>
+                            <span className={`text-xs font-bold ${isQCMode ? 'text-purple-500' : 'text-amber-500'}`}>
+                                {isQCMode ? 'REVIEWED ✓' : 'SUBMITTED → Awaiting QC'}
+                            </span>
+                        </div>
 
                         <div className="flex gap-3">
                             <button
@@ -160,9 +183,13 @@ const WorkspaceHeader = ({ onSave, onSubmit, readOnly = false, isQCMode = false,
                             </button>
                             <button
                                 onClick={handleConfirmSubmit}
-                                className="flex-1 px-4 py-2 bg-foreground text-black rounded-lg hover:bg-white/90 transition-colors font-bold cursor-pointer"
+                                className={`flex-1 px-4 py-2 rounded-lg transition-colors font-bold cursor-pointer ${
+                                    isQCMode 
+                                        ? 'bg-purple-600 text-white hover:bg-purple-700'
+                                        : 'bg-foreground text-black hover:bg-white/90'
+                                }`}
                             >
-                                Yes, Submit
+                                {isQCMode ? 'Yes, Approve' : 'Yes, Submit'}
                             </button>
                         </div>
                     </div>

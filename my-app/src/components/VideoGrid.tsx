@@ -86,9 +86,16 @@ const VideoGrid = () => {
         }
     };
 
-    // Separate videos into assigned and unassigned
-    const assignedVideos = videos.filter(video => video.assignments && video.assignments.length > 0);
-    const unassignedVideos = videos.filter(video => !video.assignments || video.assignments.length === 0);
+    // Filter out submitted videos (SUBMITTED, REVIEWED, COMPLETED)
+    const submittedStatuses = ['SUBMITTED', 'REVIEWED', 'COMPLETED'];
+    const isVideoSubmitted = (video: Video) => {
+        return video.assignments && video.assignments.some(a => submittedStatuses.includes(a.status));
+    };
+
+    // Separate videos into assigned, unassigned, and filter out submitted
+    const activeVideos = videos.filter(video => !isVideoSubmitted(video));
+    const assignedVideos = activeVideos.filter(video => video.assignments && video.assignments.length > 0);
+    const unassignedVideos = activeVideos.filter(video => !video.assignments || video.assignments.length === 0);
 
     return (
         <div className="w-full max-w-6xl mx-auto">
