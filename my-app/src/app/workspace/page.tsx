@@ -85,6 +85,7 @@ function WorkspacePage() {
     const [showSuccessModal, setShowSuccessModal] = useState(false);
 
     const [isSubmitted, setIsSubmitted] = useState(false);
+    const [isSubmitting, setIsSubmitting] = useState(false);
     const [isQCMode, setIsQCMode] = useState(false);
     const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
     const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
@@ -545,6 +546,12 @@ function WorkspacePage() {
     };
 
     const handleSubmit = async () => {
+        setIsSubmitting(true);
+        
+        // #region agent log
+        fetch('http://127.0.0.1:7243/ingest/09ecdb43-0ca2-4118-9960-4df5bcec107d',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'page.tsx:handleSubmit:START',message:'QC Submit started',data:{isQCMode,videoId,assignmentId:assignment?.id,assignmentStatus:assignment?.status,eventsCount:events.length},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'A,D'})}).catch(()=>{});
+        // #endregion
+        
         // Transform events to external API format
         const transformEventForExternalAPI = (event: EventData) => ({
             eventType: "punch",
@@ -668,6 +675,10 @@ function WorkspacePage() {
             }
 
             // 2. Send to external webhook (huemanAPI) with new format
+            // #region agent log
+            fetch('http://127.0.0.1:7243/ingest/09ecdb43-0ca2-4118-9960-4df5bcec107d',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'page.tsx:handleSubmit:WEBHOOK_START',message:'Calling external webhook',data:{url:'https://www.huemanAPI.com/boxing_fight',payloadRounds:Object.keys(externalPayload.rounds)},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'B'})}).catch(()=>{});
+            // #endregion
+            
             const webhookResponse = await fetch('https://www.huemanAPI.com/boxing_fight', {
                 method: 'POST',
                 headers: {
@@ -675,6 +686,10 @@ function WorkspacePage() {
                 },
                 body: JSON.stringify(externalPayload),
             });
+
+            // #region agent log
+            fetch('http://127.0.0.1:7243/ingest/09ecdb43-0ca2-4118-9960-4df5bcec107d',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'page.tsx:handleSubmit:WEBHOOK_RESPONSE',message:'Webhook response received',data:{ok:webhookResponse.ok,status:webhookResponse.status,statusText:webhookResponse.statusText},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'B'})}).catch(()=>{});
+            // #endregion
 
             if (!webhookResponse.ok) {
                 throw new Error('Network response was not ok');
@@ -688,6 +703,10 @@ function WorkspacePage() {
                 // Determine new status: QC users mark as REVIEWED, labelers mark as SUBMITTED
                 const newStatus = isQCMode ? 'REVIEWED' : 'SUBMITTED';
                 
+                // #region agent log
+                fetch('http://127.0.0.1:7243/ingest/09ecdb43-0ca2-4118-9960-4df5bcec107d',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'page.tsx:handleSubmit:STATUS_UPDATE_START',message:'Updating status',data:{videoId,assignmentId:assignment.id,newStatus,isQCMode},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'A,C'})}).catch(()=>{});
+                // #endregion
+                
                 console.log(`📋 Updating status to: ${newStatus} (isQCMode: ${isQCMode})`);
                 
                 const statusResponse = await fetch(`/api/videos/${videoId}/status`, {
@@ -699,15 +718,32 @@ function WorkspacePage() {
                     }),
                 });
 
+                // #region agent log
+                fetch('http://127.0.0.1:7243/ingest/09ecdb43-0ca2-4118-9960-4df5bcec107d',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'page.tsx:handleSubmit:STATUS_UPDATE_RESPONSE',message:'Status update response',data:{ok:statusResponse.ok,status:statusResponse.status},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'C'})}).catch(()=>{});
+                // #endregion
+
                 if (statusResponse.ok) {
                     const statusData = await statusResponse.json();
                     console.log(`✅ Status updated to ${newStatus}:`, statusData);
                     
+                    // #region agent log
+                    fetch('http://127.0.0.1:7243/ingest/09ecdb43-0ca2-4118-9960-4df5bcec107d',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'page.tsx:handleSubmit:STATUS_UPDATE_SUCCESS',message:'Status updated successfully',data:{newStatus,statusData},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'C'})}).catch(()=>{});
+                    // #endregion
+                    
                     // Update local assignment state with new status
                     setAssignment((prev: any) => prev ? { ...prev, status: newStatus } : prev);
                 } else {
-                    console.error('Failed to update status:', await statusResponse.text());
+                    const errorText = await statusResponse.text();
+                    console.error('Failed to update status:', errorText);
+                    
+                    // #region agent log
+                    fetch('http://127.0.0.1:7243/ingest/09ecdb43-0ca2-4118-9960-4df5bcec107d',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'page.tsx:handleSubmit:STATUS_UPDATE_FAILED',message:'Status update failed',data:{status:statusResponse.status,errorText},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'C'})}).catch(()=>{});
+                    // #endregion
                 }
+            } else {
+                // #region agent log
+                fetch('http://127.0.0.1:7243/ingest/09ecdb43-0ca2-4118-9960-4df5bcec107d',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'page.tsx:handleSubmit:STATUS_UPDATE_SKIPPED',message:'Status update skipped - missing IDs',data:{videoId,assignmentId:assignment?.id},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'D'})}).catch(()=>{});
+                // #endregion
             }
 
             setIsSubmitted(true);
@@ -717,7 +753,18 @@ function WorkspacePage() {
 
         } catch (error) {
             console.error('Error:', error);
+            
+            // #region agent log
+            fetch('http://127.0.0.1:7243/ingest/09ecdb43-0ca2-4118-9960-4df5bcec107d',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'page.tsx:handleSubmit:ERROR',message:'Submit error caught',data:{errorMessage:(error as Error)?.message,errorString:String(error)},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'B,E'})}).catch(()=>{});
+            // #endregion
+            
             alert('Error submitting data. Please try again.');
+        } finally {
+            // #region agent log
+            fetch('http://127.0.0.1:7243/ingest/09ecdb43-0ca2-4118-9960-4df5bcec107d',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'page.tsx:handleSubmit:FINALLY',message:'Submit flow completed',data:{isSubmitted,isQCMode},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'ALL'})}).catch(()=>{});
+            // #endregion
+            
+            setIsSubmitting(false);
         }
     };
 
@@ -930,6 +977,7 @@ function WorkspacePage() {
                 onAssign={handleAssign}
                 currentUser={user}
                 saveStatus={saveStatus}
+                isSubmitting={isSubmitting}
             />
 
             {/* Read-Only Banner - Shows when Labeler is viewing submitted video */}

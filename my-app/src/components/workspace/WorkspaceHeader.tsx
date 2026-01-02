@@ -15,9 +15,10 @@ interface WorkspaceHeaderProps {
     onAssign?: () => void;
     currentUser?: { userId: string; email: string; accountType: string } | null;
     saveStatus?: 'idle' | 'saving' | 'saved' | 'error';
+    isSubmitting?: boolean;
 }
 
-const WorkspaceHeader = ({ onSave, onSubmit, readOnly = false, isQCMode = false, onToggleQCMode, showQCToggle = false, videoTitle, videoMetadata, assignment, onAssign, currentUser, saveStatus = 'idle' }: WorkspaceHeaderProps) => {
+const WorkspaceHeader = ({ onSave, onSubmit, readOnly = false, isQCMode = false, onToggleQCMode, showQCToggle = false, videoTitle, videoMetadata, assignment, onAssign, currentUser, saveStatus = 'idle', isSubmitting = false }: WorkspaceHeaderProps) => {
     const [showSubmitModal, setShowSubmitModal] = useState(false);
     const [showAssignModal, setShowAssignModal] = useState(false);
 
@@ -121,15 +122,23 @@ const WorkspaceHeader = ({ onSave, onSubmit, readOnly = false, isQCMode = false,
                     </button>
                     <button
                         onClick={() => setShowSubmitModal(true)}
-                        disabled={readOnly}
+                        disabled={readOnly || isSubmitting}
                         className={`flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg transition-colors cursor-pointer ${
-                            isQCMode 
-                                ? 'bg-purple-600/10 border border-purple-600/50 text-purple-600 hover:bg-purple-600/20 hover:border-purple-600'
-                                : 'bg-green-600/10 border border-green-600/50 text-green-600 hover:bg-green-600/20 hover:border-green-600'
+                            isSubmitting
+                                ? 'bg-white/10 text-foreground-secondary cursor-wait'
+                                : isQCMode 
+                                    ? 'bg-purple-600/10 border border-purple-600/50 text-purple-600 hover:bg-purple-600/20 hover:border-purple-600'
+                                    : 'bg-green-600/10 border border-green-600/50 text-green-600 hover:bg-green-600/20 hover:border-green-600'
                         } ${readOnly ? 'opacity-50 cursor-not-allowed' : ''}`}
                     >
-                        {isQCMode ? <ShieldCheck size={16} /> : <Send size={16} />}
-                        {isQCMode ? 'Approve QC' : 'Submit'}
+                        {isSubmitting ? (
+                            <Loader2 size={16} className="animate-spin" />
+                        ) : isQCMode ? (
+                            <ShieldCheck size={16} />
+                        ) : (
+                            <Send size={16} />
+                        )}
+                        {isSubmitting ? 'Submitting...' : isQCMode ? 'Approve QC' : 'Submit'}
                     </button>
                 </div>
             </header>
@@ -177,19 +186,24 @@ const WorkspaceHeader = ({ onSave, onSubmit, readOnly = false, isQCMode = false,
                         <div className="flex gap-3">
                             <button
                                 onClick={() => setShowSubmitModal(false)}
-                                className="flex-1 px-4 py-2 border border-border text-foreground rounded-lg hover:bg-white/5 transition-colors font-medium cursor-pointer"
+                                disabled={isSubmitting}
+                                className={`flex-1 px-4 py-2 border border-border text-foreground rounded-lg hover:bg-white/5 transition-colors font-medium cursor-pointer ${isSubmitting ? 'opacity-50 cursor-not-allowed' : ''}`}
                             >
                                 Cancel
                             </button>
                             <button
                                 onClick={handleConfirmSubmit}
-                                className={`flex-1 px-4 py-2 rounded-lg transition-colors font-bold cursor-pointer ${
-                                    isQCMode 
-                                        ? 'bg-purple-600 text-white hover:bg-purple-700'
-                                        : 'bg-foreground text-black hover:bg-white/90'
+                                disabled={isSubmitting}
+                                className={`flex-1 px-4 py-2 rounded-lg transition-colors font-bold cursor-pointer flex items-center justify-center gap-2 ${
+                                    isSubmitting
+                                        ? 'bg-white/20 text-foreground-secondary cursor-wait'
+                                        : isQCMode 
+                                            ? 'bg-purple-600 text-white hover:bg-purple-700'
+                                            : 'bg-foreground text-black hover:bg-white/90'
                                 }`}
                             >
-                                {isQCMode ? 'Yes, Approve' : 'Yes, Submit'}
+                                {isSubmitting && <Loader2 size={16} className="animate-spin" />}
+                                {isSubmitting ? 'Submitting...' : isQCMode ? 'Yes, Approve' : 'Yes, Submit'}
                             </button>
                         </div>
                     </div>
