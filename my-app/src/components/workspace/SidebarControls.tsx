@@ -377,7 +377,7 @@ const SidebarControls = ({
                 <div className="mb-3">
                     <label className="block text-[10px] font-medium text-foreground-secondary mb-1.5">Visibility</label>
                     <div className="flex flex-wrap gap-1.5">
-                        {['Full Body', 'Profile', 'Origin', 'Trajectory', 'Impact'].map((flag) => {
+                        {['Full Body', 'Forward/Profile', 'Origin', 'Trajectory', 'Impact'].map((flag) => {
                             const isSelected = visibilityFlags.includes(flag);
                             return (
                                 <button

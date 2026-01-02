@@ -440,7 +440,7 @@ function WorkspacePage() {
     // Helper function to convert visibility flags to boolean matrix
     const visibilityFlagsToMatrix = (flags: string[]): number[] => {
         // Fixed order: Full Body, Profile, Origin, Trajectory, Impact
-        const flagOrder = ['Full Body', 'Profile', 'Origin', 'Trajectory', 'Impact'];
+        const flagOrder = ['Full Body', 'Forward/Profile', 'Origin', 'Trajectory', 'Impact'];
         return flagOrder.map(flag => flags.includes(flag) ? 1 : 0);
     };
 
