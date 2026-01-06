@@ -451,18 +451,18 @@ function WorkspacePage() {
             try {
                 console.log('\n🔐 [PERMISSIONS DEBUG] ========================');
                 console.log('📡 Fetching user data from /api/auth/me...');
-                
+
                 const res = await fetch('/api/auth/me');
                 if (res.ok) {
                     const data = await res.json();
-                    
+
                     console.log('✅ User data received:');
                     console.log('   👤 User ID:', data.userId);
                     console.log('   📧 Email:', data.email);
                     console.log('   🏷️  Account Type:', data.accountType);
                     console.log('   📦 Local Permissions (cached):', JSON.stringify(data.permissions));
                     console.log('   🌐 External Account Data:', data.externalAccount ? 'PRESENT' : 'MISSING');
-                    
+
                     if (data.externalAccount) {
                         console.log('   🌐 External Account Details:');
                         console.log('      👤 Username:', data.externalAccount.username);
@@ -471,10 +471,10 @@ function WorkspacePage() {
                     } else {
                         console.warn('   ⚠️  NO EXTERNAL ACCOUNT DATA - User may not have proper permissions!');
                     }
-                    
+
                     console.log('   ✅ External Verified:', data.isExternalVerified);
                     console.log('🔐 [PERMISSIONS DEBUG] ========================\n');
-                    
+
                     setUser(data);
                     // Auto-enable QC mode for QC/Admin if submitted
                     if ((data.accountType === 'QUALITY_CONTROL' || data.accountType === 'ADMIN') && isSubmitted) {
@@ -547,11 +547,11 @@ function WorkspacePage() {
 
     const handleSubmit = async () => {
         setIsSubmitting(true);
-        
+
         // #region agent log
-        fetch('http://127.0.0.1:7243/ingest/09ecdb43-0ca2-4118-9960-4df5bcec107d',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'page.tsx:handleSubmit:START',message:'QC Submit started',data:{isQCMode,videoId,assignmentId:assignment?.id,assignmentStatus:assignment?.status,eventsCount:events.length},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'A,D'})}).catch(()=>{});
+        fetch('http://127.0.0.1:7243/ingest/09ecdb43-0ca2-4118-9960-4df5bcec107d', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'page.tsx:handleSubmit:START', message: 'QC Submit started', data: { isQCMode, videoId, assignmentId: assignment?.id, assignmentStatus: assignment?.status, eventsCount: events.length }, timestamp: Date.now(), sessionId: 'debug-session', hypothesisId: 'A,D' }) }).catch(() => { });
         // #endregion
-        
+
         // Transform events to external API format
         const transformEventForExternalAPI = (event: EventData) => ({
             eventType: "punch",
@@ -676,9 +676,9 @@ function WorkspacePage() {
 
             // 2. Send to external webhook (huemanAPI) with new format
             // #region agent log
-            fetch('http://127.0.0.1:7243/ingest/09ecdb43-0ca2-4118-9960-4df5bcec107d',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'page.tsx:handleSubmit:WEBHOOK_START',message:'Calling external webhook',data:{url:'https://www.huemanAPI.com/boxing_fight',payloadRounds:Object.keys(externalPayload.rounds)},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'B'})}).catch(()=>{});
+            fetch('http://127.0.0.1:7243/ingest/09ecdb43-0ca2-4118-9960-4df5bcec107d', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'page.tsx:handleSubmit:WEBHOOK_START', message: 'Calling external webhook', data: { url: 'https://www.huemanAPI.com/boxing_fight', payloadRounds: Object.keys(externalPayload.rounds) }, timestamp: Date.now(), sessionId: 'debug-session', hypothesisId: 'B' }) }).catch(() => { });
             // #endregion
-            
+
             const webhookResponse = await fetch('https://www.huemanAPI.com/boxing_fight', {
                 method: 'POST',
                 headers: {
@@ -688,7 +688,7 @@ function WorkspacePage() {
             });
 
             // #region agent log
-            fetch('http://127.0.0.1:7243/ingest/09ecdb43-0ca2-4118-9960-4df5bcec107d',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'page.tsx:handleSubmit:WEBHOOK_RESPONSE',message:'Webhook response received',data:{ok:webhookResponse.ok,status:webhookResponse.status,statusText:webhookResponse.statusText},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'B'})}).catch(()=>{});
+            fetch('http://127.0.0.1:7243/ingest/09ecdb43-0ca2-4118-9960-4df5bcec107d', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'page.tsx:handleSubmit:WEBHOOK_RESPONSE', message: 'Webhook response received', data: { ok: webhookResponse.ok, status: webhookResponse.status, statusText: webhookResponse.statusText }, timestamp: Date.now(), sessionId: 'debug-session', hypothesisId: 'B' }) }).catch(() => { });
             // #endregion
 
             if (!webhookResponse.ok) {
@@ -702,13 +702,13 @@ function WorkspacePage() {
             if (videoId && assignment?.id) {
                 // Determine new status: QC users mark as REVIEWED, labelers mark as SUBMITTED
                 const newStatus = isQCMode ? 'REVIEWED' : 'SUBMITTED';
-                
+
                 // #region agent log
-                fetch('http://127.0.0.1:7243/ingest/09ecdb43-0ca2-4118-9960-4df5bcec107d',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'page.tsx:handleSubmit:STATUS_UPDATE_START',message:'Updating status',data:{videoId,assignmentId:assignment.id,newStatus,isQCMode},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'A,C'})}).catch(()=>{});
+                fetch('http://127.0.0.1:7243/ingest/09ecdb43-0ca2-4118-9960-4df5bcec107d', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'page.tsx:handleSubmit:STATUS_UPDATE_START', message: 'Updating status', data: { videoId, assignmentId: assignment.id, newStatus, isQCMode }, timestamp: Date.now(), sessionId: 'debug-session', hypothesisId: 'A,C' }) }).catch(() => { });
                 // #endregion
-                
+
                 console.log(`📋 Updating status to: ${newStatus} (isQCMode: ${isQCMode})`);
-                
+
                 const statusResponse = await fetch(`/api/videos/${videoId}/status`, {
                     method: 'PATCH',
                     headers: { 'Content-Type': 'application/json' },
@@ -719,30 +719,30 @@ function WorkspacePage() {
                 });
 
                 // #region agent log
-                fetch('http://127.0.0.1:7243/ingest/09ecdb43-0ca2-4118-9960-4df5bcec107d',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'page.tsx:handleSubmit:STATUS_UPDATE_RESPONSE',message:'Status update response',data:{ok:statusResponse.ok,status:statusResponse.status},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'C'})}).catch(()=>{});
+                fetch('http://127.0.0.1:7243/ingest/09ecdb43-0ca2-4118-9960-4df5bcec107d', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'page.tsx:handleSubmit:STATUS_UPDATE_RESPONSE', message: 'Status update response', data: { ok: statusResponse.ok, status: statusResponse.status }, timestamp: Date.now(), sessionId: 'debug-session', hypothesisId: 'C' }) }).catch(() => { });
                 // #endregion
 
                 if (statusResponse.ok) {
                     const statusData = await statusResponse.json();
                     console.log(`✅ Status updated to ${newStatus}:`, statusData);
-                    
+
                     // #region agent log
-                    fetch('http://127.0.0.1:7243/ingest/09ecdb43-0ca2-4118-9960-4df5bcec107d',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'page.tsx:handleSubmit:STATUS_UPDATE_SUCCESS',message:'Status updated successfully',data:{newStatus,statusData},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'C'})}).catch(()=>{});
+                    fetch('http://127.0.0.1:7243/ingest/09ecdb43-0ca2-4118-9960-4df5bcec107d', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'page.tsx:handleSubmit:STATUS_UPDATE_SUCCESS', message: 'Status updated successfully', data: { newStatus, statusData }, timestamp: Date.now(), sessionId: 'debug-session', hypothesisId: 'C' }) }).catch(() => { });
                     // #endregion
-                    
+
                     // Update local assignment state with new status
                     setAssignment((prev: any) => prev ? { ...prev, status: newStatus } : prev);
                 } else {
                     const errorText = await statusResponse.text();
                     console.error('Failed to update status:', errorText);
-                    
+
                     // #region agent log
-                    fetch('http://127.0.0.1:7243/ingest/09ecdb43-0ca2-4118-9960-4df5bcec107d',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'page.tsx:handleSubmit:STATUS_UPDATE_FAILED',message:'Status update failed',data:{status:statusResponse.status,errorText},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'C'})}).catch(()=>{});
+                    fetch('http://127.0.0.1:7243/ingest/09ecdb43-0ca2-4118-9960-4df5bcec107d', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'page.tsx:handleSubmit:STATUS_UPDATE_FAILED', message: 'Status update failed', data: { status: statusResponse.status, errorText }, timestamp: Date.now(), sessionId: 'debug-session', hypothesisId: 'C' }) }).catch(() => { });
                     // #endregion
                 }
             } else {
                 // #region agent log
-                fetch('http://127.0.0.1:7243/ingest/09ecdb43-0ca2-4118-9960-4df5bcec107d',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'page.tsx:handleSubmit:STATUS_UPDATE_SKIPPED',message:'Status update skipped - missing IDs',data:{videoId,assignmentId:assignment?.id},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'D'})}).catch(()=>{});
+                fetch('http://127.0.0.1:7243/ingest/09ecdb43-0ca2-4118-9960-4df5bcec107d', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'page.tsx:handleSubmit:STATUS_UPDATE_SKIPPED', message: 'Status update skipped - missing IDs', data: { videoId, assignmentId: assignment?.id }, timestamp: Date.now(), sessionId: 'debug-session', hypothesisId: 'D' }) }).catch(() => { });
                 // #endregion
             }
 
@@ -753,17 +753,17 @@ function WorkspacePage() {
 
         } catch (error) {
             console.error('Error:', error);
-            
+
             // #region agent log
-            fetch('http://127.0.0.1:7243/ingest/09ecdb43-0ca2-4118-9960-4df5bcec107d',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'page.tsx:handleSubmit:ERROR',message:'Submit error caught',data:{errorMessage:(error as Error)?.message,errorString:String(error)},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'B,E'})}).catch(()=>{});
+            fetch('http://127.0.0.1:7243/ingest/09ecdb43-0ca2-4118-9960-4df5bcec107d', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'page.tsx:handleSubmit:ERROR', message: 'Submit error caught', data: { errorMessage: (error as Error)?.message, errorString: String(error) }, timestamp: Date.now(), sessionId: 'debug-session', hypothesisId: 'B,E' }) }).catch(() => { });
             // #endregion
-            
+
             alert('Error submitting data. Please try again.');
         } finally {
             // #region agent log
-            fetch('http://127.0.0.1:7243/ingest/09ecdb43-0ca2-4118-9960-4df5bcec107d',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'page.tsx:handleSubmit:FINALLY',message:'Submit flow completed',data:{isSubmitted,isQCMode},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'ALL'})}).catch(()=>{});
+            fetch('http://127.0.0.1:7243/ingest/09ecdb43-0ca2-4118-9960-4df5bcec107d', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'page.tsx:handleSubmit:FINALLY', message: 'Submit flow completed', data: { isSubmitted, isQCMode }, timestamp: Date.now(), sessionId: 'debug-session', hypothesisId: 'ALL' }) }).catch(() => { });
             // #endregion
-            
+
             setIsSubmitting(false);
         }
     };
@@ -776,7 +776,7 @@ function WorkspacePage() {
         console.log('   👤 User:', user?.email);
         console.log('   📝 Video Submitted:', isSubmitted);
         console.log('   🔍 QC Mode Active:', isQCMode);
-        
+
         if (!user) {
             console.log('   ❌ No user - cannot edit');
             return false;
@@ -785,7 +785,7 @@ function WorkspacePage() {
         // If video is NOT submitted - check if user can edit (labeling phase)
         if (!isSubmitted) {
             console.log('   📋 Video NOT submitted - checking assignment...');
-            
+
             // Admins can always edit
             if (user.accountType === 'ADMIN') {
                 console.log('   ✅ User is ADMIN - can edit');
@@ -803,7 +803,7 @@ function WorkspacePage() {
         // If video IS submitted - only allow editing if QC mode is activated
         if (isSubmitted) {
             console.log('   📋 Video IS submitted - checking QC permissions...');
-            
+
             // Must have QC mode ON to edit
             if (!isQCMode) {
                 console.log('   ❌ QC mode not activated - cannot edit');
@@ -813,7 +813,7 @@ function WorkspacePage() {
             console.log('   🔍 QC mode is ON - checking permissions...');
             console.log('   🏷️  Account Type:', user.accountType);
             console.log('   📦 Local permissions:', JSON.stringify(user.permissions));
-            
+
             // Check external account permissions if available
             const externalQC = (user as any).externalAccount?.permissions?.QC;
             console.log('   🌐 External QC permission:', externalQC);
@@ -957,18 +957,18 @@ function WorkspacePage() {
                     if (isQCMode) handleCancelEdit(); // Clear selection when exiting QC mode
                 }}
                 showQCToggle={(() => {
-                    const shouldShow = user?.accountType === 'ADMIN' || 
+                    const shouldShow = user?.accountType === 'ADMIN' ||
                         (isSubmitted && (
-                            user?.accountType === 'QUALITY_CONTROL' || 
+                            user?.accountType === 'QUALITY_CONTROL' ||
                             user?.permissions?.QC === true ||
                             (user as any)?.externalAccount?.permissions?.QC === true
                         ));
-                    
+
                     console.log('🔍 [QC TOGGLE DEBUG] Should show QC toggle:', shouldShow);
                     console.log('   Account Type:', user?.accountType);
                     console.log('   Local QC perm:', user?.permissions?.QC);
                     console.log('   External QC perm:', (user as any)?.externalAccount?.permissions?.QC);
-                    
+
                     return shouldShow;
                 })()}
                 videoTitle={videoData.title}
@@ -1059,6 +1059,7 @@ function WorkspacePage() {
             <SuccessModal
                 isOpen={showSuccessModal}
                 onClose={() => setShowSuccessModal(false)}
+                userName={(user as any)?.externalAccount?.username || user?.email?.split('@')[0]}
             />
         </div>
     );

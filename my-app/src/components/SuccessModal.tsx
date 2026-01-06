@@ -4,9 +4,10 @@ import { CheckCircle, X } from 'lucide-react';
 interface SuccessModalProps {
     isOpen: boolean;
     onClose: () => void;
+    userName?: string;
 }
 
-const SuccessModal = ({ isOpen, onClose }: SuccessModalProps) => {
+const SuccessModal = ({ isOpen, onClose, userName }: SuccessModalProps) => {
     if (!isOpen) return null;
 
     return (
@@ -25,7 +26,13 @@ const SuccessModal = ({ isOpen, onClose }: SuccessModalProps) => {
 
                 <h3 className="text-xl font-bold text-foreground mb-2">Submission Successful!</h3>
                 <p className="text-foreground-secondary mb-8">
-                    Your labeling data has been successfully submitted to the server.
+                    {userName ? (
+                        <>
+                            <span className="font-semibold text-foreground">{userName}</span> has successfully submitted the labeling data to the server.
+                        </>
+                    ) : (
+                        'Your labeling data has been successfully submitted to the server.'
+                    )}
                 </p>
 
                 <button
