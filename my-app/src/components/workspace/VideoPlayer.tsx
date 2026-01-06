@@ -254,7 +254,7 @@ const VideoPlayer = ({ videoRef, activeCam, setActiveCam, videoSources, fps = 30
             video.removeEventListener('suspend', handleSuspend);
             video.removeEventListener('progress', handleProgress);
         };
-    }, [videoRef]);
+    }, [videoRef, activeCam, isDragging]);
 
     // Keyboard shortcuts
     useEffect(() => {
