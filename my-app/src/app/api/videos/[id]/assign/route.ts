@@ -72,6 +72,7 @@ export async function POST(
       data: {
         videoId,
         userId: assigneeUserId,
+        videoTitle: video.title, // Auto-populate from the video
         labelType,
         status: 'ASSIGNED',
       },

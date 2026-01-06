@@ -30,6 +30,9 @@ const VideoPlayer = ({ videoRef, activeCam, setActiveCam, videoSources, fps = 30
     const [isMuted, setIsMuted] = useState(false);
     const [showVolumeSlider, setShowVolumeSlider] = useState(false);
     const [isDragging, setIsDragging] = useState(false);
+    // Separate visual progress for smooth dragging (YouTube-style)
+    const [visualProgress, setVisualProgress] = useState(0);
+    const seekTimeoutRef = useRef<NodeJS.Timeout | null>(null);
     const [playbackRate, setPlaybackRate] = useState(1);
     const [showSpeedMenu, setShowSpeedMenu] = useState(false);
     const [skipDuration, setSkipDuration] = useState(2);
@@ -56,7 +59,7 @@ const VideoPlayer = ({ videoRef, activeCam, setActiveCam, videoSources, fps = 30
     const cam1Ref = useRef<HTMLVideoElement>(null);
     const cam2Ref = useRef<HTMLVideoElement>(null);
     const cam3Ref = useRef<HTMLVideoElement>(null);
-    
+
     // Track loading state for each camera
     const [videoLoadingState, setVideoLoadingState] = useState<VideoLoadingState>({
         cam1: 'idle',
@@ -103,7 +106,7 @@ const VideoPlayer = ({ videoRef, activeCam, setActiveCam, videoSources, fps = 30
         console.log('📹 CAM 3:', videoSources.cam3 ? 'HAS URL' : 'MISSING');
 
         const preloadVideo = (
-            ref: React.RefObject<HTMLVideoElement | null>, 
+            ref: React.RefObject<HTMLVideoElement | null>,
             camName: 'cam1' | 'cam2' | 'cam3',
             url: string | undefined
         ) => {
@@ -167,7 +170,12 @@ const VideoPlayer = ({ videoRef, activeCam, setActiveCam, videoSources, fps = 30
 
         const updateProgress = () => {
             setCurrentTime(video.currentTime);
-            setProgress((video.currentTime / video.duration) * 100 || 0);
+            const newProgress = (video.currentTime / video.duration) * 100 || 0;
+            setProgress(newProgress);
+            // Only update visual progress if not dragging
+            if (!isDragging) {
+                setVisualProgress(newProgress);
+            }
         };
 
         const updateDuration = () => {
@@ -329,32 +337,32 @@ const VideoPlayer = ({ videoRef, activeCam, setActiveCam, videoSources, fps = 30
         if (newVideo.readyState >= 1) {
             // Video is ready - instant switch!
             const adjustedTargetTime = Math.min(targetTime, newVideo.duration || targetTime);
-            
+
             console.log('⚡ Video already ready (readyState:', newVideo.readyState, ')');
             console.log('🎯 Adjusted target time:', adjustedTargetTime, '(capped to duration)');
             console.log('📍 Setting currentTime from', newVideo.currentTime, 'to', adjustedTargetTime);
-            
+
             // FIX: Use 'seeked' event to wait for seek to complete
             let seekTimeout: NodeJS.Timeout | null = null;
-            
+
             const handleSeeked = () => {
                 // Clear timeout if seek completed naturally
                 if (seekTimeout) clearTimeout(seekTimeout);
-                
+
                 console.log('✅ Seek completed! (seeked event fired)');
                 console.log('📍 New video currentTime AFTER seek:', newVideo.currentTime);
                 console.log('❓ Difference from target:', Math.abs(newVideo.currentTime - adjustedTargetTime).toFixed(3), 'seconds');
-                
+
                 if (Math.abs(newVideo.currentTime - adjustedTargetTime) > 0.5) {
                     console.error('🚨 TIMESTAMP SYNC FAILED! Difference > 0.5s');
                     console.error('   Expected:', adjustedTargetTime);
                     console.error('   Got:', newVideo.currentTime);
                     console.error('   Attempting correction...');
-                    
+
                     // Try again
                     newVideo.currentTime = adjustedTargetTime;
                 }
-                
+
                 // Update parent ref to point to new video
                 // @ts-ignore
                 videoRef.current = newVideo;
@@ -381,13 +389,13 @@ const VideoPlayer = ({ videoRef, activeCam, setActiveCam, videoSources, fps = 30
                     console.log('🎥 [CAMERA SWITCH + TIMESTAMP SYNC DEBUG] ===========================\n');
                 }
             };
-            
+
             // Listen for seeked event (seek completion)
             newVideo.addEventListener('seeked', handleSeeked, { once: true });
-            
+
             // Set the time (will trigger seek)
             newVideo.currentTime = adjustedTargetTime;
-            
+
             // Fallback: if seeked doesn't fire within 500ms, proceed anyway
             seekTimeout = setTimeout(() => {
                 console.warn('⚠️  Seeked event timeout - proceeding anyway');
@@ -402,21 +410,21 @@ const VideoPlayer = ({ videoRef, activeCam, setActiveCam, videoSources, fps = 30
             const handleCanPlay = () => {
                 console.log('✅ canplay event fired - video ready now');
                 console.log('📊 New readyState:', newVideo.readyState);
-                
+
                 const adjustedTargetTime = Math.min(targetTime, newVideo.duration || targetTime);
                 console.log('🎯 Setting currentTime to:', adjustedTargetTime);
-                
+
                 // FIX: Use seeked event here too
                 let delayedSeekTimeout: NodeJS.Timeout | null = null;
-                
+
                 const handleDelayedSeeked = () => {
                     // Clear timeout if seek completed naturally
                     if (delayedSeekTimeout) clearTimeout(delayedSeekTimeout);
-                    
+
                     console.log('✅ Seek completed (delayed path)!');
                     console.log('📍 New video currentTime AFTER delayed seek:', newVideo.currentTime);
                     console.log('❓ Difference from target:', Math.abs(newVideo.currentTime - adjustedTargetTime).toFixed(3), 'seconds');
-                    
+
                     if (Math.abs(newVideo.currentTime - adjustedTargetTime) > 0.5) {
                         console.error('🚨 TIMESTAMP SYNC FAILED (delayed path)!');
                         console.error('   Expected:', adjustedTargetTime);
@@ -424,7 +432,7 @@ const VideoPlayer = ({ videoRef, activeCam, setActiveCam, videoSources, fps = 30
                         console.error('   Attempting correction...');
                         newVideo.currentTime = adjustedTargetTime;
                     }
-                    
+
                     // @ts-ignore
                     videoRef.current = newVideo;
 
@@ -448,13 +456,13 @@ const VideoPlayer = ({ videoRef, activeCam, setActiveCam, videoSources, fps = 30
                         console.log('🎥 [CAMERA SWITCH + TIMESTAMP SYNC DEBUG] ===========================\n');
                     }
                 };
-                
+
                 // Listen for seeked event
                 newVideo.addEventListener('seeked', handleDelayedSeeked, { once: true });
-                
+
                 // Set the time
                 newVideo.currentTime = adjustedTargetTime;
-                
+
                 // Fallback timeout
                 delayedSeekTimeout = setTimeout(() => {
                     console.warn('⚠️  Seeked event timeout (delayed path) - proceeding anyway');
@@ -485,15 +493,18 @@ const VideoPlayer = ({ videoRef, activeCam, setActiveCam, videoSources, fps = 30
         }
     };
 
-    // Calculate time from mouse position on progress bar
-    const getTimeFromPosition = (clientX: number, progressBar: HTMLElement): number => {
-        const video = videoRef.current;
-        if (!video) return 0;
-
+    // Calculate percentage from mouse position on progress bar
+    const getProgressFromPosition = (clientX: number, progressBar: HTMLElement): number => {
         const rect = progressBar.getBoundingClientRect();
         const clickX = Math.max(0, Math.min(clientX - rect.left, rect.width));
-        const percentage = clickX / rect.width;
-        return percentage * video.duration;
+        return (clickX / rect.width) * 100;
+    };
+
+    // Calculate time from percentage
+    const getTimeFromProgress = (progressPercent: number): number => {
+        const video = videoRef.current;
+        if (!video || !video.duration) return 0;
+        return (progressPercent / 100) * video.duration;
     };
 
     // Handle mouse down to start dragging (seeking)
@@ -503,23 +514,60 @@ const VideoPlayer = ({ videoRef, activeCam, setActiveCam, videoSources, fps = 30
         if (!video) return;
 
         setIsDragging(true);
-        const newTime = getTimeFromPosition(e.clientX, e.currentTarget);
-        video.currentTime = newTime;
+
+        // Immediately update visual progress for responsiveness
+        const newProgress = getProgressFromPosition(e.clientX, e.currentTarget);
+        setVisualProgress(newProgress);
+
+        // Start debounced seeking
+        if (seekTimeoutRef.current) {
+            clearTimeout(seekTimeoutRef.current);
+        }
+        seekTimeoutRef.current = setTimeout(() => {
+            video.currentTime = getTimeFromProgress(newProgress);
+        }, 50);
     };
 
-    // Handle dragging (seeking)
+    // Handle dragging (seeking) - YouTube-style smooth slider
     useEffect(() => {
         const handleMouseMove = (e: MouseEvent) => {
-            if (!isDragging || !videoRef.current) return;
+            if (!isDragging) return;
 
             const progressBar = document.querySelector('.progress-bar-container') as HTMLElement;
             if (!progressBar) return;
 
-            const newTime = getTimeFromPosition(e.clientX, progressBar);
-            videoRef.current.currentTime = newTime;
+            // Update visual progress immediately (smooth thumb movement)
+            const newProgress = getProgressFromPosition(e.clientX, progressBar);
+            setVisualProgress(newProgress);
+
+            // Debounce actual video seeking to reduce jankiness
+            if (seekTimeoutRef.current) {
+                clearTimeout(seekTimeoutRef.current);
+            }
+            seekTimeoutRef.current = setTimeout(() => {
+                const video = videoRef.current;
+                if (video && video.duration) {
+                    video.currentTime = getTimeFromProgress(newProgress);
+                }
+            }, 50); // 50ms debounce for seeking during drag
         };
 
-        const handleMouseUp = () => {
+        const handleMouseUp = (e: MouseEvent) => {
+            if (!isDragging) return;
+
+            // Clear any pending debounced seek
+            if (seekTimeoutRef.current) {
+                clearTimeout(seekTimeoutRef.current);
+            }
+
+            // Perform final seek immediately on mouse release
+            const progressBar = document.querySelector('.progress-bar-container') as HTMLElement;
+            if (progressBar && videoRef.current) {
+                const finalProgress = getProgressFromPosition(e.clientX, progressBar);
+                setVisualProgress(finalProgress);
+                videoRef.current.currentTime = getTimeFromProgress(finalProgress);
+            }
+
             setIsDragging(false);
         };
 
@@ -533,6 +581,15 @@ const VideoPlayer = ({ videoRef, activeCam, setActiveCam, videoSources, fps = 30
             document.removeEventListener('mouseup', handleMouseUp);
         };
     }, [isDragging, videoRef]);
+
+    // Cleanup seek timeout on unmount
+    useEffect(() => {
+        return () => {
+            if (seekTimeoutRef.current) {
+                clearTimeout(seekTimeoutRef.current);
+            }
+        };
+    }, []);
 
     // Zoom Handlers
     const handleWheel = (e: React.WheelEvent) => {
@@ -857,8 +914,11 @@ const VideoPlayer = ({ videoRef, activeCam, setActiveCam, videoSources, fps = 30
                         onMouseDown={handleSeekMouseDown}
                     >
                         <div
-                            className="h-full bg-accent-primary rounded-full relative transition-all"
-                            style={{ width: `${progress}%` }}
+                            className="h-full bg-accent-primary rounded-full relative"
+                            style={{
+                                width: `${isDragging ? visualProgress : progress}%`,
+                                transition: isDragging ? 'none' : 'width 0.1s ease-out'
+                            }}
                         >
                             <div className={`absolute right-0 top-1/2 -translate-y-1/2 w-3 h-3 bg-white rounded-full shadow-lg transition-transform ${isDragging ? 'scale-125' : 'scale-0 group-hover:scale-100'}`}></div>
                         </div>

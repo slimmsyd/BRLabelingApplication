@@ -107,6 +107,7 @@ model VideoAssignment {
   id            String       @id @default(cuid())
   videoId       String
   userId        String
+  videoTitle    String?      // Cached video title for human-readable display
   labelType     LabelType    // Type of labeling: Offense, Defense, or Footwork
   status        VideoStatus  @default(ASSIGNED)
   
