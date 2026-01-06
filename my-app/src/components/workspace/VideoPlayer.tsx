@@ -96,16 +96,30 @@ const VideoPlayer = ({ videoRef, activeCam, setActiveCam, videoSources, fps = 30
         }
     }, [activeCam, videoRef]);
 
-    // PRELOAD ALL VIDEOS when sources become available
+    // LAZY LOADING: Only fully preload active camera on INITIAL LOAD
+    // Camera switch sync is handled separately - don't interfere with it
+    const initialActiveCamRef = useRef(activeCam);
+
     useEffect(() => {
         if (!videoSources) return;
 
-        console.log('\n🎬 [VIDEO PRELOAD] Starting preload for all cameras...');
+        // Use the initial active camera for first load preload decisions
+        const getActiveCamKey = (cam: string): 'cam1' | 'cam2' | 'cam3' => {
+            switch (cam) {
+                case 'CAM 1': return 'cam1';
+                case 'CAM 2': return 'cam2';
+                case 'CAM 3': return 'cam3';
+                default: return 'cam1';
+            }
+        };
+        const initialActiveCamKey = getActiveCamKey(initialActiveCamRef.current);
+
+        console.log('\n🎬 [VIDEO LAZY LOAD] Initial active camera:', initialActiveCamRef.current);
         console.log('📹 CAM 1:', videoSources.cam1 ? 'HAS URL' : 'MISSING');
         console.log('📹 CAM 2:', videoSources.cam2 ? 'HAS URL' : 'MISSING');
         console.log('📹 CAM 3:', videoSources.cam3 ? 'HAS URL' : 'MISSING');
 
-        const preloadVideo = (
+        const setupVideo = (
             ref: React.RefObject<HTMLVideoElement | null>,
             camName: 'cam1' | 'cam2' | 'cam3',
             url: string | undefined
@@ -113,12 +127,27 @@ const VideoPlayer = ({ videoRef, activeCam, setActiveCam, videoSources, fps = 30
             const video = ref.current;
             if (!video || !url) return;
 
-            console.log(`⏳ [${camName.toUpperCase()}] Starting preload...`);
-            setVideoLoadingState(prev => ({ ...prev, [camName]: 'loading' }));
+            const isInitialActive = camName === initialActiveCamKey;
+
+            // Only mark as loading if it's the initial active camera doing full preload
+            if (isInitialActive) {
+                console.log(`⚡ [${camName.toUpperCase()}] INITIAL ACTIVE - Full preload (auto)`);
+                setVideoLoadingState(prev => ({ ...prev, [camName]: 'loading' }));
+            } else {
+                console.log(`💤 [${camName.toUpperCase()}] INACTIVE - Metadata only`);
+            }
 
             const handleCanPlay = () => {
                 console.log(`✅ [${camName.toUpperCase()}] Ready! Duration: ${video.duration}s`);
                 setVideoLoadingState(prev => ({ ...prev, [camName]: 'ready' }));
+            };
+
+            const handleLoadedMetadata = () => {
+                // For inactive cameras, mark as ready once metadata loads
+                if (!isInitialActive) {
+                    console.log(`📋 [${camName.toUpperCase()}] Metadata loaded. Duration: ${video.duration}s`);
+                    setVideoLoadingState(prev => ({ ...prev, [camName]: 'ready' }));
+                }
             };
 
             const handleError = (e: Event) => {
@@ -127,29 +156,31 @@ const VideoPlayer = ({ videoRef, activeCam, setActiveCam, videoSources, fps = 30
             };
 
             video.addEventListener('canplay', handleCanPlay, { once: true });
+            video.addEventListener('loadedmetadata', handleLoadedMetadata, { once: true });
             video.addEventListener('error', handleError, { once: true });
 
-            // Set preload attribute to force loading
-            video.preload = 'auto';
-            video.load(); // Force load
+            // KEY: Only full preload for initial active camera
+            video.preload = isInitialActive ? 'auto' : 'metadata';
+            video.load();
 
             return () => {
                 video.removeEventListener('canplay', handleCanPlay);
+                video.removeEventListener('loadedmetadata', handleLoadedMetadata);
                 video.removeEventListener('error', handleError);
             };
         };
 
-        // Preload all cameras
-        const cleanup1 = preloadVideo(cam1Ref, 'cam1', videoSources.cam1);
-        const cleanup2 = preloadVideo(cam2Ref, 'cam2', videoSources.cam2);
-        const cleanup3 = preloadVideo(cam3Ref, 'cam3', videoSources.cam3);
+        // Setup all cameras with appropriate preload strategy
+        const cleanup1 = setupVideo(cam1Ref, 'cam1', videoSources.cam1);
+        const cleanup2 = setupVideo(cam2Ref, 'cam2', videoSources.cam2);
+        const cleanup3 = setupVideo(cam3Ref, 'cam3', videoSources.cam3);
 
         return () => {
             cleanup1?.();
             cleanup2?.();
             cleanup3?.();
         };
-    }, [videoSources]);
+    }, [videoSources]); // Only run on initial source load, NOT on camera switch
 
     // Apply volume and playback rate to ALL videos (keep them in sync)
     useEffect(() => {
