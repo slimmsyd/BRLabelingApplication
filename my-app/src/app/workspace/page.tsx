@@ -285,6 +285,8 @@ function WorkspacePage() {
         const newEvent: EventData = {
             ...newEventData,
             id: crypto.randomUUID(),
+            labeledBy: user?.userId,
+            labeledByEmail: user?.email,
         };
 
         setEvents([newEvent, ...events]);
@@ -518,6 +520,8 @@ function WorkspacePage() {
                         landed: event.landed,
                         punchResult: event.punchResult || (event.landed !== false ? 'Landed' : 'Missed'),
                         defenseType: event.punchResult === 'Defended' ? event.defenseType : null,
+                        labeledBy: event.labeledBy || user?.userId,
+                        labeledByEmail: event.labeledByEmail || user?.email,
                     })),
                     saveOnly: true, // Flag to indicate this is a progress save, NOT a submission
                 };
@@ -654,6 +658,8 @@ function WorkspacePage() {
                         landed: event.landed,
                         punchResult: event.punchResult || (event.landed !== false ? 'Landed' : 'Missed'),
                         defenseType: event.punchResult === 'Defended' ? event.defenseType : null,
+                        labeledBy: event.labeledBy || user?.userId,
+                        labeledByEmail: event.labeledByEmail || user?.email,
                     })),
                 };
 

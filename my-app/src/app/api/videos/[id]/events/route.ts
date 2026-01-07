@@ -16,6 +16,8 @@ interface EventInput {
   landed?: boolean;
   punchResult?: string;
   defenseType?: string;
+  labeledBy?: string;
+  labeledByEmail?: string;
 }
 
 interface SaveEventsBody {
@@ -83,6 +85,8 @@ export async function POST(
         landed: event.landed,
         punchResult: event.punchResult,
         defenseType: event.defenseType,
+        labeledBy: event.labeledBy,
+        labeledByEmail: event.labeledByEmail,
       })),
     });
 

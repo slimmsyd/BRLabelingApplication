@@ -111,6 +111,10 @@ model VideoAssignment {
   labelType     LabelType    // Type of labeling: Offense, Defense, or Footwork
   status        VideoStatus  @default(ASSIGNED)
   
+  // Cached user info for admin visibility (avoids joins)
+  userEmail     String?      // Email of assigned user
+  username      String?      // Username of assigned user
+  
   // Tracking timestamps
   assignedAt    DateTime     @default(now())
   pickedUpAt    DateTime?    // When user started working on it
@@ -157,8 +161,13 @@ model Event {
   punchResult     String?
   defenseType     String?
   
+  // Track who labeled this event (maintains attribution even when assignments are re-assigned)
+  labeledBy       String?         // User ID who created this event
+  labeledByEmail  String?         // Email for human-readable reference
+  
   createdAt       DateTime        @default(now())
   updatedAt       DateTime        @updatedAt
 
   @@index([assignmentId])
+  @@index([labeledBy])
 }

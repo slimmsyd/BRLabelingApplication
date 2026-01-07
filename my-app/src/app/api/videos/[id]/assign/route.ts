@@ -67,12 +67,27 @@ export async function POST(
       });
     }
 
+    // Fetch the assignee user to get their email and username
+    const assigneeUser = await prisma.user.findUnique({
+      where: { id: assigneeUserId },
+      select: { email: true, username: true },
+    });
+
+    if (!assigneeUser) {
+      return NextResponse.json(
+        { error: 'Assignee user not found' },
+        { status: 404 }
+      );
+    }
+
     // Create new assignment
     const assignment = await prisma.videoAssignment.create({
       data: {
         videoId,
         userId: assigneeUserId,
         videoTitle: video.title, // Auto-populate from the video
+        userEmail: assigneeUser.email, // Cache user email for admin visibility
+        username: assigneeUser.username, // Cache username for admin visibility
         labelType,
         status: 'ASSIGNED',
       },
