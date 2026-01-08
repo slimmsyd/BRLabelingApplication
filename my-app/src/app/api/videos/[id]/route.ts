@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { cookies } from 'next/headers';
+import { getSession } from '@/lib/session';
 
 /**
  * GET /api/videos/[id]
@@ -65,17 +65,18 @@ export async function DELETE(
   try {
     const { id } = await params;
     
-    // 1. Check authentication
-    const cookieStore = await cookies();
-    const userId = cookieStore.get('userId')?.value;
+    // 1. Check authentication using session
+    const session = await getSession();
     
-    if (!userId) {
-      console.log('🚫 [Video DELETE] No user ID in session');
+    if (!session) {
+      console.log('🚫 [Video DELETE] No active session');
       return NextResponse.json(
         { error: 'Unauthorized' },
         { status: 401 }
       );
     }
+
+    const userId = session.userId;
 
     // 2. Verify admin status
     const user = await prisma.user.findUnique({
