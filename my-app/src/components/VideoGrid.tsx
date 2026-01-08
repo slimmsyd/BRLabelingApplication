@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import VideoCard from './VideoCard';
 import AssignmentModal from './AssignmentModal';
-import { Plus, Loader2, UserPlus } from 'lucide-react';
+import { Plus, Loader2, UserPlus, MoreVertical, Trash2 } from 'lucide-react';
 import Link from 'next/link';
 
 interface Video {
@@ -33,6 +33,9 @@ const VideoGrid = () => {
     const [error, setError] = useState<string | null>(null);
     const [currentUser, setCurrentUser] = useState<{ accountType: string } | null>(null);
     const [assignModalOpen, setAssignModalOpen] = useState(false);
+    const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
+    const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+    const [deleting, setDeleting] = useState(false);
     const [selectedVideoForAssign, setSelectedVideoForAssign] = useState<{ id: string; title: string; currentAssigneeUserId?: string } | null>(null);
 
 
@@ -83,6 +86,35 @@ const VideoGrid = () => {
             }
         } catch (err) {
             console.error('[VideoGrid] Failed to refresh videos:', err);
+        }
+    };
+
+    // Handle video deletion
+    const handleDeleteVideo = async (videoId: string, videoTitle: string) => {
+        setDeleting(true);
+        try {
+            console.log(`🗑️ [VideoGrid] Deleting video: ${videoTitle} (${videoId})`);
+            const response = await fetch(`/api/videos/${videoId}`, {
+                method: 'DELETE',
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.error || 'Failed to delete video');
+            }
+
+            const result = await response.json();
+            console.log('✅ [VideoGrid] Video deleted:', result);
+
+            // Close modals and refresh
+            setDeleteConfirmId(null);
+            setOpenDropdownId(null);
+            await handleRefreshVideos();
+        } catch (err) {
+            console.error('❌ [VideoGrid] Delete error:', err);
+            alert(err instanceof Error ? err.message : 'Failed to delete video');
+        } finally {
+            setDeleting(false);
         }
     };
 
@@ -238,20 +270,55 @@ const VideoGrid = () => {
                                                 </div>
                                             </Link>
 
-                                            {/* Admin Assign Button - Outside Link */}
+                                            {/* Admin Controls - Assign Button & 3-Dot Menu */}
                                             {currentUser?.accountType === 'ADMIN' && (
-                                                <button
-                                                    onClick={(e) => {
-                                                        e.preventDefault();
-                                                        e.stopPropagation();
-                                                        setSelectedVideoForAssign({ id: video.id, title: video.title });
-                                                        setAssignModalOpen(true);
-                                                    }}
-                                                    className="absolute top-2 right-2 px-3 py-1.5 bg-accent-primary hover:bg-accent-primary/90 text-white text-[10px] font-bold rounded-lg flex items-center gap-1.5 transition-all z-10"
-                                                >
-                                                    <UserPlus size={12} />
-                                                    ASSIGN
-                                                </button>
+                                                <>
+                                                    {/* Assign Button */}
+                                                    <button
+                                                        onClick={(e) => {
+                                                            e.preventDefault();
+                                                            e.stopPropagation();
+                                                            setSelectedVideoForAssign({ id: video.id, title: video.title });
+                                                            setAssignModalOpen(true);
+                                                        }}
+                                                        className="absolute top-2 right-10 px-3 py-1.5 bg-accent-primary hover:bg-accent-primary/90 text-white text-[10px] font-bold rounded-lg flex items-center gap-1.5 transition-all z-10"
+                                                    >
+                                                        <UserPlus size={12} />
+                                                        ASSIGN
+                                                    </button>
+
+                                                    {/* 3-Dot Menu */}
+                                                    <div className="absolute top-2 right-2 z-20">
+                                                        <button
+                                                            onClick={(e) => {
+                                                                e.preventDefault();
+                                                                e.stopPropagation();
+                                                                setOpenDropdownId(openDropdownId === video.id ? null : video.id);
+                                                            }}
+                                                            className="w-7 h-7 bg-surface/90 hover:bg-surface border border-border hover:border-foreground-secondary/50 rounded-lg flex items-center justify-center transition-all backdrop-blur-sm"
+                                                        >
+                                                            <MoreVertical size={14} className="text-foreground-secondary" />
+                                                        </button>
+
+                                                        {/* Dropdown Menu */}
+                                                        {openDropdownId === video.id && (
+                                                            <div className="absolute right-0 mt-1 w-40 bg-surface border border-border rounded-lg shadow-xl overflow-hidden">
+                                                                <button
+                                                                    onClick={(e) => {
+                                                                        e.preventDefault();
+                                                                        e.stopPropagation();
+                                                                        setDeleteConfirmId(video.id);
+                                                                        setOpenDropdownId(null);
+                                                                    }}
+                                                                    className="w-full px-3 py-2 text-left text-sm text-red-500 hover:bg-red-500/10 transition-colors flex items-center gap-2"
+                                                                >
+                                                                    <Trash2 size={14} />
+                                                                    Delete Video
+                                                                </button>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                </>
                                             )}
                                         </div>
                                     ))}
@@ -279,6 +346,63 @@ const VideoGrid = () => {
                     currentAssigneeId={selectedVideoForAssign.currentAssigneeUserId}
                     onAssignmentSuccess={handleRefreshVideos}
                 />
+            )}
+
+            {/* Delete Confirmation Dialog */}
+            {deleteConfirmId && (
+                <div
+                    className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50"
+                    onClick={() => !deleting && setDeleteConfirmId(null)}
+                >
+                    <div
+                        className="bg-surface border border-border rounded-2xl p-6 max-w-md w-full mx-4 shadow-2xl"
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <div className="flex items-start gap-4 mb-4">
+                            <div className="w-10 h-10 rounded-full bg-red-500/10 flex items-center justify-center shrink-0">
+                                <Trash2 size={20} className="text-red-500" />
+                            </div>
+                            <div>
+                                <h3 className="text-lg font-semibold text-foreground mb-1">Delete Video?</h3>
+                                <p className="text-sm text-foreground-secondary">
+                                    Are you sure you want to delete <span className="font-medium text-foreground">"{unassignedVideos.find(v => v.id === deleteConfirmId)?.title}"</span>? This action cannot be undone.
+                                </p>
+                            </div>
+                        </div>
+
+                        <div className="flex gap-3 justify-end">
+                            <button
+                                onClick={() => setDeleteConfirmId(null)}
+                                disabled={deleting}
+                                className="px-4 py-2 text-sm font-medium text-foreground-secondary hover:text-foreground bg-transparent hover:bg-surface-hover rounded-lg transition-all disabled:opacity-50"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={() => {
+                                    const video = unassignedVideos.find(v => v.id === deleteConfirmId);
+                                    if (video) {
+                                        handleDeleteVideo(video.id, video.title);
+                                    }
+                                }}
+                                disabled={deleting}
+                                className="px-4 py-2 text-sm font-bold text-white bg-red-500 hover:bg-red-600 rounded-lg transition-all flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                                {deleting ? (
+                                    <>
+                                        <Loader2 size={14} className="animate-spin" />
+                                        Deleting...
+                                    </>
+                                ) : (
+                                    <>
+                                        <Trash2 size={14} />
+                                        Delete
+                                    </>
+                                )}
+                            </button>
+                        </div>
+                    </div>
+                </div>
             )}
         </div>
     );
