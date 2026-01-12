@@ -19,7 +19,7 @@ interface Video {
     assignments?: Array<{
         id: string;
         userId: string;
-        user: {
+        user: { id: string;                         
             username: string | null;
             email: string;
         };
