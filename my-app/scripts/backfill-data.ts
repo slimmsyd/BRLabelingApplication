@@ -41,7 +41,7 @@ interface EventData {
 }
 
 // Transform event for external API format
-function transformEventForExternalAPI(event: EventData) {
+function transformEventForExternalAPI(event: any) {
   // Parse time string to get formatted version
   const formatTime = (timeStr: string) => {
     // Already formatted as MM:SS.ms
@@ -67,6 +67,9 @@ function transformEventForExternalAPI(event: EventData) {
     defenseType: event.punchResult === 'Defended' ? event.defenseType : null,
     labeledBy: event.labeledBy,
     labeledByEmail: event.labeledByEmail,
+    fight_title: event.fightTitle,  // Include fight title on each event
+    createdAt: event.createdAt?.toISOString(),  // When event was created
+    updatedAt: event.updatedAt?.toISOString(),  // When event was last updated
   };
 }
 
