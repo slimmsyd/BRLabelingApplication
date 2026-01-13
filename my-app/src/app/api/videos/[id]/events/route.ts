@@ -18,6 +18,7 @@ interface EventInput {
   defenseType?: string;
   labeledBy?: string;
   labeledByEmail?: string;
+  fightTitle?: string;  // Fight identifier for external API alignment
 }
 
 interface SaveEventsBody {
@@ -47,12 +48,17 @@ export async function POST(
       );
     }
 
-    // Verify the assignment exists and belongs to this video
+    // Verify the assignment exists and belongs to this video, include video for fightTitle
     const assignment = await prisma.videoAssignment.findFirst({
       where: {
         id: assignmentId,
         videoId: videoId,
       },
+      include: {
+        video: {
+          select: { title: true }
+        }
+      }
     });
 
     if (!assignment) {
@@ -62,12 +68,15 @@ export async function POST(
       );
     }
 
+    // Get fight title from video
+    const fightTitle = assignment.video.title;
+
     // Delete existing events for this assignment (replace strategy)
     await prisma.event.deleteMany({
       where: { assignmentId },
     });
 
-    // Create new events
+    // Create new events with fightTitle
     const createdEvents = await prisma.event.createMany({
       data: events.map((event) => ({
         assignmentId,
@@ -87,6 +96,7 @@ export async function POST(
         defenseType: event.defenseType,
         labeledBy: event.labeledBy,
         labeledByEmail: event.labeledByEmail,
+        fightTitle: event.fightTitle || fightTitle,  // Use provided or fetch from video
       })),
     });
 

@@ -78,13 +78,33 @@ export async function PATCH(
       }
     }
 
+    // Build update data with appropriate timestamps based on status
+    const updateData: {
+      status: string;
+      updatedAt: Date;
+      pickedUpAt?: Date;
+      submittedAt?: Date;
+      reviewedAt?: Date;
+    } = {
+      status: status,
+      updatedAt: new Date(),
+    };
+
+    // Set appropriate timestamp based on status transition
+    if (status === 'IN_PROGRESS' && !assignment.pickedUpAt) {
+      updateData.pickedUpAt = new Date();
+    }
+    if (status === 'SUBMITTED') {
+      updateData.submittedAt = new Date();
+    }
+    if (status === 'REVIEWED') {
+      updateData.reviewedAt = new Date();
+    }
+
     // Update the assignment status
     const updatedAssignment = await prisma.videoAssignment.update({
       where: { id: assignment.id },
-      data: {
-        status: status,
-        updatedAt: new Date(),
-      },
+      data: updateData,
       include: {
         video: {
           select: {

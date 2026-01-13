@@ -136,15 +136,19 @@ async function backfillVideo(assignment: any) {
   const rounds: { [key: string]: { [cam: string]: any[] } } = {};
   rounds[roundKey] = groupEventsByCamera(events, numCameras);
 
-  const payload = {
+  // Build payload matching his expected format:
+  // { "fight_title": "...", "RD1": { "Cam1": [...] }, ... }
+  const payload: Record<string, any> = {
     fight_title: video.title || `${video.boxer1} vs ${video.boxer2}`,
+    // Rounds at top level (not nested under "rounds")
+    ...rounds,
+    // Metadata fields
     metadata: {
       venue: video.venue || '',
       date: video.fightDate ? new Date(video.fightDate).toISOString().split('T')[0] : '',
       weight_class: video.weightClass || '',
       num_cameras: numCameras
     },
-    rounds: rounds,
     submittedBy: {
       userId: user?.id || 'unknown',
       email: user?.email || 'unknown',
@@ -171,9 +175,12 @@ async function backfillVideo(assignment: any) {
   }
 
   // Send to external API
+  // Use PUT for QC reviews, POST for new submissions (matching live app behavior)
+  const httpMethod = isQCReview ? 'PUT' : 'POST';
+  
   try {
     const response = await fetch(EXTERNAL_API_URL, {
-      method: 'POST',
+      method: httpMethod,
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
     });

@@ -165,9 +165,13 @@ model Event {
   labeledBy       String?         // User ID who created this event
   labeledByEmail  String?         // Email for human-readable reference
   
+  // Fight identification (denormalized for external API alignment)
+  fightTitle      String?         // e.g., "Abdullah Mason v Sam Noakes - R2"
+  
   createdAt       DateTime        @default(now())
   updatedAt       DateTime        @updatedAt
 
   @@index([assignmentId])
   @@index([labeledBy])
+  @@index([fightTitle])
 }
