@@ -552,6 +552,9 @@ function WorkspacePage() {
     const handleSubmit = async () => {
         setIsSubmitting(true);
 
+        // ✅ LIVE MODE: Send to external API
+        const BLOCK_EXTERNAL_API = false;
+
         // Get fight title for events
         const fightTitle = videoData?.title || `${videoData?.boxer1} vs ${videoData?.boxer2}`;
 
@@ -573,8 +576,9 @@ function WorkspacePage() {
             stance: event.stance || 'Orthodox',
             punchResult: event.punchResult || (event.landed !== false ? 'Landed' : 'Missed'),
             defenseType: event.punchResult === 'Defended' ? event.defenseType : null,
-            labeledBy: event.labeledBy || user?.userId,
-            labeledByEmail: event.labeledByEmail || user?.email,
+            // Use original labeler (from assignment), not current user (QC person)
+            labeledBy: event.labeledBy || assignment?.userId || user?.userId,
+            labeledByEmail: event.labeledByEmail || assignment?.user?.email || user?.email,
             fight_title: fightTitle,  // Include fight_title on each event
         });
 
@@ -633,7 +637,14 @@ function WorkspacePage() {
         fetch('http://127.0.0.1:7243/ingest/09ecdb43-0ca2-4118-9960-4df5bcec107d',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'page.tsx:627',message:'ROUNDS_OBJECT_BEFORE_SPREAD',data:{roundsKeys:Object.keys(rounds),roundKey:roundKey,numCameras:numCameras,sampleCam1Events:rounds[roundKey]?.Cam1?.length||0},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'C'})}).catch(()=>{});
         // #endregion
         // #region agent log
-        if (events.length > 0) { const sampleTransformed = transformEventForExternalAPI(events[0]); fetch('http://127.0.0.1:7243/ingest/09ecdb43-0ca2-4118-9960-4df5bcec107d',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'page.tsx:633',message:'SAMPLE_EVENT_TRANSFORMED',data:{sampleEvent:sampleTransformed},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'D'})}).catch(()=>{}); }
+        if (events.length > 0) { 
+            const sampleTransformed = transformEventForExternalAPI(events[0]); 
+            fetch('http://127.0.0.1:7243/ingest/09ecdb43-0ca2-4118-9960-4df5bcec107d',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'page.tsx:637',message:'SAMPLE_EVENT_TRANSFORMED',data:{sampleEvent:sampleTransformed,eventLabeledBy:events[0].labeledBy,assignmentUserId:assignment?.userId,fallbackUserId:user?.userId},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'D'})}).catch(()=>{}); 
+        }
+        // #endregion
+
+        // #region agent log
+        fetch('http://127.0.0.1:7243/ingest/09ecdb43-0ca2-4118-9960-4df5bcec107d',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'page.tsx:639',message:'ASSIGNMENT_AND_USER_DATA',data:{assignmentUserId:assignment?.userId,assignmentUserEmail:assignment?.user?.email,currentUserId:user?.userId,currentUserEmail:user?.email,isQCMode:isQCMode},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'H1'})}).catch(()=>{});
         // #endregion
 
         // Build payload matching his expected format:
@@ -642,11 +653,11 @@ function WorkspacePage() {
             fight_title: videoData?.title || `${videoData?.boxer1} vs ${videoData?.boxer2}`,
             // Rounds at top level (not nested under "rounds")
             ...rounds,
-            // Who submitted this round
+            // Who submitted this round (SHOULD BE ORIGINAL LABELER, NOT QC PERSON)
             submittedBy: {
-                userId: user?.userId,
-                email: user?.email,
-                timestamp: new Date().toISOString(),
+                userId: assignment?.userId || user?.userId,
+                email: assignment?.user?.email || user?.email,
+                timestamp: assignment?.submittedAt || new Date().toISOString(),
             },
             // Is this a QC review?
             isQCReview: isQCMode,
@@ -728,31 +739,58 @@ function WorkspacePage() {
                 : 'https://www.huemanAPI.com/boxing_fight';
 
             // #region agent log
-            fetch('http://127.0.0.1:7243/ingest/09ecdb43-0ca2-4118-9960-4df5bcec107d',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'page.tsx:727',message:'EXTERNAL_API_REQUEST',data:{httpMethod:httpMethod,url:apiUrl,isQCMode:isQCMode,fight_title:externalPayload.fight_title},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'E'})}).catch(()=>{});
+            fetch('http://127.0.0.1:7243/ingest/09ecdb43-0ca2-4118-9960-4df5bcec107d',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'page.tsx:742',message:'EXTERNAL_API_REQUEST',data:{httpMethod:httpMethod,url:apiUrl,isQCMode:isQCMode,fight_title:externalPayload.fight_title,BLOCKED:BLOCK_EXTERNAL_API},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'E'})}).catch(()=>{});
             // #endregion
 
-            const webhookResponse = await fetch(apiUrl, {
-                method: httpMethod,
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(externalPayload),
-            });
+            let webhookResponse: Response;
+            let data: any;
 
-            // #region agent log
-            const responseText = await webhookResponse.clone().text();
-            fetch('http://127.0.0.1:7243/ingest/09ecdb43-0ca2-4118-9960-4df5bcec107d',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'page.tsx:737',message:'EXTERNAL_API_RESPONSE',data:{httpMethod:httpMethod,status:webhookResponse.status,statusText:webhookResponse.statusText,responseBody:responseText.substring(0,500),isQCMode:isQCMode},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'F'})}).catch(()=>{});
-            // #endregion
+            if (BLOCK_EXTERNAL_API) {
+                // 🚫 BLOCKED: Log what would have been sent, return mock response
+                console.log('🚫 EXTERNAL API BLOCKED (Testing Mode)');
+                console.log(`Would send ${httpMethod} to: ${apiUrl}`);
+                console.log('Payload:', JSON.stringify(externalPayload, null, 2));
+                
+                // #region agent log
+                fetch('http://127.0.0.1:7243/ingest/09ecdb43-0ca2-4118-9960-4df5bcec107d',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'page.tsx:752',message:'EXTERNAL_API_BLOCKED',data:{httpMethod:httpMethod,url:apiUrl,payloadSize:JSON.stringify(externalPayload).length,reason:'BLOCK_EXTERNAL_API flag is true'},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'BLOCKED'})}).catch(()=>{});
+                // #endregion
 
-            console.log(`📡 Response from huemanAPI: ${webhookResponse.status} ${webhookResponse.statusText}`);
+                // Mock successful response
+                webhookResponse = new Response(JSON.stringify({ 
+                    status: 'mocked',
+                    message: 'External API blocked for testing',
+                    would_send: { httpMethod, url: apiUrl }
+                }), { 
+                    status: 200, 
+                    statusText: 'OK (Mocked)',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+                data = { status: 'mocked', message: 'External API blocked for testing' };
+            } else {
+                // ✅ LIVE: Actually send to external API
+                webhookResponse = await fetch(apiUrl, {
+                    method: httpMethod,
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(externalPayload),
+                });
 
-            if (!webhookResponse.ok) {
-                const errorBody = await webhookResponse.text();
-                console.error(`❌ External API error: ${webhookResponse.status}`);
-                console.error(`❌ Error body:`, errorBody);
-                throw new Error(`External API error: ${webhookResponse.status} - ${errorBody.substring(0, 200)}`);
+                // #region agent log
+                const responseText = await webhookResponse.clone().text();
+                fetch('http://127.0.0.1:7243/ingest/09ecdb43-0ca2-4118-9960-4df5bcec107d',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'page.tsx:772',message:'EXTERNAL_API_RESPONSE',data:{httpMethod:httpMethod,status:webhookResponse.status,statusText:webhookResponse.statusText,responseBody:responseText.substring(0,500),isQCMode:isQCMode},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'F'})}).catch(()=>{});
+                // #endregion
+
+                console.log(`📡 Response from huemanAPI: ${webhookResponse.status} ${webhookResponse.statusText}`);
+
+                if (!webhookResponse.ok) {
+                    const errorBody = await webhookResponse.text();
+                    console.error(`❌ External API error: ${webhookResponse.status}`);
+                    console.error(`❌ Error body:`, errorBody);
+                    throw new Error(`External API error: ${webhookResponse.status} - ${errorBody.substring(0, 200)}`);
+                }
+
+                data = await webhookResponse.json();
+                console.log('✅ External webhook success:', data);
             }
-
-            const data = await webhookResponse.json();
-            console.log('✅ External webhook success:', data);
 
             // 3. Update assignment status based on who is submitting
             if (videoId && assignment?.id) {
