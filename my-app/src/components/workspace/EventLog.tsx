@@ -21,6 +21,9 @@ export interface EventData {
     // Track who labeled this event
     labeledBy?: string;
     labeledByEmail?: string;
+    // Timestamps
+    createdAt?: string;  // ISO timestamp when event was created
+    updatedAt?: string;  // ISO timestamp when event was last updated
 }
 
 interface EventLogProps {

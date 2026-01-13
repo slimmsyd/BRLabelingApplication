@@ -577,6 +577,9 @@ function WorkspacePage() {
             labeledBy: event.labeledBy || assignment?.userId || user?.userId,
             labeledByEmail: event.labeledByEmail || assignment?.user?.email || user?.email,
             fight_title: fightTitle,  // Include fight_title on each event
+            // Timestamps from database
+            createdAt: event.createdAt,  // When the event was originally labeled
+            updatedAt: event.updatedAt,  // When the event was last modified
         });
 
         // Group events by camera
