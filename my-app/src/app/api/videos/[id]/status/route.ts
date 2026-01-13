@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getSession } from '@/lib/session';
+import { VideoStatus } from '@prisma/client';
 
 /**
  * PATCH /api/videos/[id]/status
@@ -80,13 +81,13 @@ export async function PATCH(
 
     // Build update data with appropriate timestamps based on status
     const updateData: {
-      status: string;
+      status: VideoStatus;
       updatedAt: Date;
       pickedUpAt?: Date;
       submittedAt?: Date;
       reviewedAt?: Date;
     } = {
-      status: status,
+      status: status as VideoStatus,
       updatedAt: new Date(),
     };
 
