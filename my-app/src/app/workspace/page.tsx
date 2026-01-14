@@ -89,6 +89,7 @@ function WorkspacePage() {
     const [isQCMode, setIsQCMode] = useState(false);
     const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
     const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
+    const [isRecording, setIsRecording] = useState(false);
 
     // Resizable sidebar state
     const [sidebarWidth, setSidebarWidth] = useState(320);
@@ -148,6 +149,12 @@ function WorkspacePage() {
                 punchResult: e.punchResult || (e.landed !== false ? 'Landed' : 'Missed')
             }));
             setEvents(eventsWithIds);
+        }
+
+        // Load recording state from localStorage
+        const savedRecordingState = localStorage.getItem(`workspace_recording_${videoId}`);
+        if (savedRecordingState !== null) {
+            setIsRecording(savedRecordingState === 'true');
         }
         // isSubmitted is NOT loaded from localStorage - it comes from database assignment status
     }, [videoId]);
@@ -275,6 +282,13 @@ function WorkspacePage() {
             localStorage.setItem(`workspace_events_${videoId}`, JSON.stringify(events));
         }
     }, [events, videoId]);
+
+    // Save recording state to localStorage whenever it changes
+    useEffect(() => {
+        if (videoId) {
+            localStorage.setItem(`workspace_recording_${videoId}`, String(isRecording));
+        }
+    }, [isRecording, videoId]);
 
     // Handle boxer change
     const handleBoxerChange = (newBoxer: string) => {
@@ -550,6 +564,10 @@ function WorkspacePage() {
     };
 
     const handleSubmit = async () => {
+        // #region agent log - Hypothesis A: handleSubmit called
+        fetch('http://127.0.0.1:7243/ingest/09ecdb43-0ca2-4118-9960-4df5bcec107d',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'page.tsx:handleSubmit:entry',message:'handleSubmit CALLED',data:{isQCMode,isSubmitted,videoId,hasAssignment:!!assignment,assignmentId:assignment?.id,userEmail:user?.email},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'A'})}).catch(()=>{});
+        // #endregion
+
         setIsSubmitting(true);
 
         // Get fight title for events
@@ -683,11 +701,26 @@ function WorkspacePage() {
                     })),
                 };
 
-                const dbResponse = await fetch(`/api/videos/${videoId}/events`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(dbPayload),
-                });
+                // #region agent log - Hypothesis C: DB save attempt
+                fetch('http://127.0.0.1:7243/ingest/09ecdb43-0ca2-4118-9960-4df5bcec107d',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'page.tsx:handleSubmit:dbSave:attempt',message:'Attempting DB save',data:{videoId,assignmentId:assignment?.id,eventsCount:events.length},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'C'})}).catch(()=>{});
+                // #endregion
+
+                let dbResponse;
+                try {
+                    dbResponse = await fetch(`/api/videos/${videoId}/events`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(dbPayload),
+                    });
+                    // #region agent log - Hypothesis C: DB save response
+                    fetch('http://127.0.0.1:7243/ingest/09ecdb43-0ca2-4118-9960-4df5bcec107d',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'page.tsx:handleSubmit:dbSave:response',message:'DB save response received',data:{status:dbResponse.status,ok:dbResponse.ok},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'C'})}).catch(()=>{});
+                    // #endregion
+                } catch (dbErr: any) {
+                    // #region agent log - Hypothesis C: DB save THREW
+                    fetch('http://127.0.0.1:7243/ingest/09ecdb43-0ca2-4118-9960-4df5bcec107d',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'page.tsx:handleSubmit:dbSave:error',message:'DB save fetch THREW error',data:{error:dbErr?.message || String(dbErr)},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'C'})}).catch(()=>{});
+                    // #endregion
+                    throw dbErr; // This will skip external API call!
+                }
 
                 if (!dbResponse.ok) {
                     const errorData = await dbResponse.json();
@@ -697,14 +730,17 @@ function WorkspacePage() {
                     console.log('Events saved to database successfully');
                 }
             } else {
+                // #region agent log - Hypothesis C: No videoId/assignment
+                fetch('http://127.0.0.1:7243/ingest/09ecdb43-0ca2-4118-9960-4df5bcec107d',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'page.tsx:handleSubmit:dbSave:skipped',message:'Skipping DB save - no videoId or assignment',data:{videoId,hasAssignment:!!assignment},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'C'})}).catch(()=>{});
+                // #endregion
                 console.warn('No videoId or assignment - skipping database save');
             }
 
-            // 2. Send to external webhook (huemanAPI)
+            // 2. Send to external webhook (via server-side proxy to use env variable)
             // Use PUT for QC reviews, POST for new submissions
             const httpMethod = isQCMode ? 'PUT' : 'POST';
             
-            console.log(`📤 Sending ${httpMethod} to huemanAPI.com`);
+            console.log(`📤 Sending ${httpMethod} via server-side proxy`);
             console.log(`📦 Payload preview:`, {
                 fight_title: externalPayload.fight_title,
                 isQCReview: externalPayload.isQCReview,
@@ -713,18 +749,32 @@ function WorkspacePage() {
                 eventsCount: events.length,
             });
 
-            // Determine the correct endpoint based on submission type
-            const apiUrl = isQCMode 
-                ? `https://www.huemanAPI.com/fight/${encodeURIComponent(externalPayload.fight_title)}`
-                : 'https://www.huemanAPI.com/boxing_fight';
+            // Use server-side API proxy instead of calling external API directly from browser
+            // This ensures we use EXTERNAL_API_URL env variable and enables server-side logging
+            const proxyUrl = `/api/external/fights/${encodeURIComponent(externalPayload.fight_title)}`;
 
-            const webhookResponse = await fetch(apiUrl, {
-                method: httpMethod,
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(externalPayload),
-            });
+            // #region agent log - Hypothesis F: Using server-side proxy
+            fetch('http://127.0.0.1:7243/ingest/09ecdb43-0ca2-4118-9960-4df5bcec107d',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'page.tsx:handleSubmit:externalAPI',message:'ATTEMPTING external API via SERVER PROXY',data:{httpMethod,proxyUrl,isQCMode,fightTitle:externalPayload.fight_title,eventsCount:events.length,payloadKeys:Object.keys(externalPayload)},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'F'})}).catch(()=>{});
+            // #endregion
 
-            console.log(`📡 Response from huemanAPI: ${webhookResponse.status} ${webhookResponse.statusText}`);
+            let webhookResponse;
+            try {
+                webhookResponse = await fetch(proxyUrl, {
+                    method: httpMethod,
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(externalPayload),
+                });
+                // #region agent log - Hypothesis F: Server proxy response received
+                fetch('http://127.0.0.1:7243/ingest/09ecdb43-0ca2-4118-9960-4df5bcec107d',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'page.tsx:handleSubmit:externalAPI:response',message:'Server proxy response received',data:{status:webhookResponse.status,statusText:webhookResponse.statusText,ok:webhookResponse.ok},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'F'})}).catch(()=>{});
+                // #endregion
+            } catch (fetchErr: any) {
+                // #region agent log - Hypothesis F: Server proxy fetch THREW
+                fetch('http://127.0.0.1:7243/ingest/09ecdb43-0ca2-4118-9960-4df5bcec107d',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'page.tsx:handleSubmit:externalAPI:error',message:'Server proxy fetch THREW error',data:{error:fetchErr?.message || String(fetchErr),name:fetchErr?.name},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'F'})}).catch(()=>{});
+                // #endregion
+                throw fetchErr;
+            }
+
+            console.log(`📡 Response from server proxy: ${webhookResponse.status} ${webhookResponse.statusText}`);
 
             if (!webhookResponse.ok) {
                 const errorBody = await webhookResponse.text();
@@ -759,11 +809,16 @@ function WorkspacePage() {
             }
 
             setIsSubmitted(true);
+            setIsRecording(false);  // Stop recording after submission
+            localStorage.removeItem(`workspace_recording_${videoId}`);  // Clear from localStorage
             // Note: isSubmitted state is now determined by database assignment status
             // No need to persist to localStorage
             setShowSuccessModal(true);
 
-        } catch (error) {
+        } catch (error: any) {
+            // #region agent log - handleSubmit catch block
+            fetch('http://127.0.0.1:7243/ingest/09ecdb43-0ca2-4118-9960-4df5bcec107d',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'page.tsx:handleSubmit:catch',message:'handleSubmit CAUGHT error',data:{error:error?.message || String(error),name:error?.name},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'ALL'})}).catch(()=>{});
+            // #endregion
             console.error('Error:', error);
             alert('Error submitting data. Please try again.');
         } finally {
@@ -779,6 +834,7 @@ function WorkspacePage() {
         console.log('   👤 User:', user?.email);
         console.log('   📝 Video Submitted:', isSubmitted);
         console.log('   🔍 QC Mode Active:', isQCMode);
+        console.log('   🎙️ Recording Active:', isRecording);
 
         if (!user) {
             console.log('   ❌ No user - cannot edit');
@@ -792,6 +848,11 @@ function WorkspacePage() {
             // Admins can always edit
             if (user.accountType === 'ADMIN') {
                 console.log('   ✅ User is ADMIN - can edit');
+                // Check recording status for admins too
+                if (!isRecording) {
+                    console.log('   ❌ Admin but not recording - cannot edit');
+                    return false;
+                }
                 return true;
             }
 
@@ -800,7 +861,20 @@ function WorkspacePage() {
             console.log('   📌 Assigned to user:', isAssignedToUser);
             console.log('   Assignment user ID:', assignment?.userId);
             console.log('   Current user ID:', user.userId);
-            return isAssignedToUser;
+
+            if (!isAssignedToUser) {
+                console.log('   ❌ Not assigned - cannot edit');
+                return false;
+            }
+
+            // User is assigned - now check if recording is active
+            if (!isRecording) {
+                console.log('   ❌ Assigned but not recording - cannot edit');
+                return false;
+            }
+
+            console.log('   ✅ Assigned and recording - can edit');
+            return true;
         }
 
         // If video IS submitted - only allow editing if QC mode is activated
@@ -829,12 +903,29 @@ function WorkspacePage() {
                 externalQC === true; // NOW CHECKING EXTERNAL PERMISSIONS!
 
             console.log('   ✅ Has QC Permission:', hasQCPermission);
+            // QC mode bypasses recording requirement
             return hasQCPermission;
         }
 
         console.log('   ❌ Default - cannot edit');
         return false;
-    }, [user, isSubmitted, assignment, isQCMode]);
+    }, [user, isSubmitted, assignment, isQCMode, isRecording]);
+
+    // Check if user can control the recording button (separate from canEdit)
+    // User can control recording if they are assigned OR admin (regardless of recording state)
+    const canControlRecording = React.useMemo(() => {
+        if (!user) return false;
+
+        // If submitted and not in QC mode, can't control recording
+        if (isSubmitted && !isQCMode) return false;
+
+        // Admins can always control recording
+        if (user.accountType === 'ADMIN') return true;
+
+        // Check if user is assigned
+        const isAssignedToUser = assignment?.userId === user.userId;
+        return isAssignedToUser;
+    }, [user, assignment, isSubmitted, isQCMode]);
 
     // Read-only state derived from canEdit
     // If canEdit is true, readOnly is false.
@@ -981,6 +1072,9 @@ function WorkspacePage() {
                 currentUser={user}
                 saveStatus={saveStatus}
                 isSubmitting={isSubmitting}
+                isRecording={isRecording}
+                onToggleRecording={() => setIsRecording(!isRecording)}
+                canControlRecording={canControlRecording}
             />
 
             {/* Read-Only Banner - Shows when Labeler is viewing submitted video */}
@@ -989,6 +1083,26 @@ function WorkspacePage() {
                     <div className="w-2 h-2 rounded-full bg-yellow-500 animate-pulse"></div>
                     <p className="text-yellow-500 text-sm font-medium">
                         This video has been submitted and is awaiting QC review. Editing is disabled.
+                    </p>
+                </div>
+            )}
+
+            {/* Recording Active Banner */}
+            {isRecording && !isReadOnly && (
+                <div className="bg-red-500/10 border-b border-red-500/30 px-6 py-3 flex items-center justify-center gap-3">
+                    <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse"></div>
+                    <p className="text-red-500 text-sm font-medium">
+                        Recording in progress - All labeling actions are being tracked
+                    </p>
+                    <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse"></div>
+                </div>
+            )}
+
+            {/* Not Recording Banner */}
+            {!isRecording && !isReadOnly && !isQCMode && (
+                <div className="bg-blue-500/10 border-b border-blue-500/30 px-6 py-3 flex items-center justify-center gap-3">
+                    <p className="text-blue-500 text-sm font-medium">
+                        Click "Start Recording" to begin labeling events
                     </p>
                 </div>
             )}

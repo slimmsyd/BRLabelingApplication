@@ -16,13 +16,19 @@ interface WorkspaceHeaderProps {
     currentUser?: { userId: string; email: string; accountType: string } | null;
     saveStatus?: 'idle' | 'saving' | 'saved' | 'error';
     isSubmitting?: boolean;
+    isRecording?: boolean;
+    onToggleRecording?: () => void;
+    canControlRecording?: boolean;
 }
 
-const WorkspaceHeader = ({ onSave, onSubmit, readOnly = false, isQCMode = false, onToggleQCMode, showQCToggle = false, videoTitle, videoMetadata, assignment, onAssign, currentUser, saveStatus = 'idle', isSubmitting = false }: WorkspaceHeaderProps) => {
+const WorkspaceHeader = ({ onSave, onSubmit, readOnly = false, isQCMode = false, onToggleQCMode, showQCToggle = false, videoTitle, videoMetadata, assignment, onAssign, currentUser, saveStatus = 'idle', isSubmitting = false, isRecording = false, onToggleRecording, canControlRecording = true }: WorkspaceHeaderProps) => {
     const [showSubmitModal, setShowSubmitModal] = useState(false);
     const [showAssignModal, setShowAssignModal] = useState(false);
 
     const handleConfirmSubmit = () => {
+        // #region agent log - Hypothesis A: Confirm button clicked
+        fetch('http://127.0.0.1:7243/ingest/09ecdb43-0ca2-4118-9960-4df5bcec107d',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'WorkspaceHeader.tsx:handleConfirmSubmit',message:'User clicked CONFIRM submit/approve button',data:{isQCMode,hasOnSubmit:!!onSubmit},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'A'})}).catch(()=>{});
+        // #endregion
         if (onSubmit) {
             onSubmit();
         }
@@ -98,6 +104,22 @@ const WorkspaceHeader = ({ onSave, onSubmit, readOnly = false, isQCMode = false,
                             QC Mode: {isQCMode ? 'ON' : 'OFF'}
                         </button>
                     )}
+                    {/* Recording Toggle Button */}
+                    <button
+                        onClick={onToggleRecording}
+                        disabled={!canControlRecording}
+                        className={`flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg transition-all ${
+                            isRecording
+                                ? 'bg-red-600 text-white hover:bg-red-700 animate-pulse-slow'
+                                : 'bg-white/10 text-foreground hover:bg-white/20'
+                        } ${!canControlRecording ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+                    >
+                        {/* Pulsing dot when recording */}
+                        {isRecording && (
+                            <div className="w-2 h-2 rounded-full bg-white animate-pulse"></div>
+                        )}
+                        {isRecording ? 'Stop Recording' : 'Start Recording'}
+                    </button>
                     <button
                         onClick={onSave}
                         disabled={readOnly || saveStatus === 'saving'}
@@ -121,7 +143,12 @@ const WorkspaceHeader = ({ onSave, onSubmit, readOnly = false, isQCMode = false,
                         {saveStatus === 'saving' ? 'Saving...' : saveStatus === 'saved' ? 'Saved!' : saveStatus === 'error' ? 'Error!' : 'Save Progress'}
                     </button>
                     <button
-                        onClick={() => setShowSubmitModal(true)}
+                        onClick={() => {
+                            // #region agent log - Hypothesis A: Submit/Approve button clicked
+                            fetch('http://127.0.0.1:7243/ingest/09ecdb43-0ca2-4118-9960-4df5bcec107d',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'WorkspaceHeader.tsx:submitButtonClick',message:'Submit/Approve button clicked - opening modal',data:{isQCMode,readOnly,isSubmitting},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'A'})}).catch(()=>{});
+                            // #endregion
+                            setShowSubmitModal(true);
+                        }}
                         disabled={readOnly || isSubmitting}
                         className={`flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg transition-colors cursor-pointer ${
                             isSubmitting
