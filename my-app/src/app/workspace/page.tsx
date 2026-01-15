@@ -246,9 +246,6 @@ function WorkspacePage() {
                         // Transform DB events to match EventData interface
                         // CRITICAL: Preserve labeledBy, labeledByEmail, createdAt, updatedAt
                         // to maintain original labeler attribution during QC
-                        // #region agent log - Hypothesis A: Check raw DB events
-                        fetch('http://127.0.0.1:7243/ingest/09ecdb43-0ca2-4118-9960-4df5bcec107d',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'page.tsx:fetchEventsFromDB',message:'Raw events from DB',data:{eventCount:data.events.length,firstEventLabeledBy:data.events[0]?.labeledBy,firstEventLabeledByEmail:data.events[0]?.labeledByEmail},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'A'})}).catch(()=>{});
-                        // #endregion
                         const dbEvents: EventData[] = data.events.map((e: any) => ({
                             id: e.id,
                             details: `${e.punchType} (${e.hand === 'Left' ? 'L' : 'R'}) - ${e.target}`,
@@ -273,9 +270,6 @@ function WorkspacePage() {
                             createdAt: e.createdAt,
                             updatedAt: e.updatedAt,
                         }));
-                        // #region agent log - Hypothesis B: Check mapped events preserve labeledBy
-                        fetch('http://127.0.0.1:7243/ingest/09ecdb43-0ca2-4118-9960-4df5bcec107d',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'page.tsx:fetchEventsFromDB:afterMap',message:'Mapped events with labeledBy',data:{eventCount:dbEvents.length,firstEventLabeledBy:dbEvents[0]?.labeledBy,firstEventLabeledByEmail:dbEvents[0]?.labeledByEmail},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'B'})}).catch(()=>{});
-                        // #endregion
                         setEvents(dbEvents);
                         // Note: Don't set isSubmitted here - that's determined by assignment.status
                         // Having events in DB just means progress was saved, not necessarily submitted
@@ -578,9 +572,6 @@ function WorkspacePage() {
     };
 
     const handleSubmit = async () => {
-        // #region agent log - Hypothesis C: Check events at submit time
-        fetch('http://127.0.0.1:7243/ingest/09ecdb43-0ca2-4118-9960-4df5bcec107d',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'page.tsx:handleSubmit:entry',message:'handleSubmit called - checking events state',data:{isQCMode,userEmail:user?.email,eventsCount:events.length,firstEventLabeledBy:events[0]?.labeledBy,firstEventLabeledByEmail:events[0]?.labeledByEmail,assignmentUserId:assignment?.userId,assignmentUserEmail:assignment?.user?.email},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'C'})}).catch(()=>{});
-        // #endregion
         setIsSubmitting(true);
 
         // Get fight title for events
@@ -714,10 +705,6 @@ function WorkspacePage() {
                     })),
                 };
 
-                // #region agent log - Hypothesis C: Check DB payload labeledBy values
-                fetch('http://127.0.0.1:7243/ingest/09ecdb43-0ca2-4118-9960-4df5bcec107d',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'page.tsx:handleSubmit:dbPayload',message:'DB payload being saved',data:{firstEventLabeledBy:dbPayload.events[0]?.labeledBy,firstEventLabeledByEmail:dbPayload.events[0]?.labeledByEmail,currentUserId:user?.userId,currentUserEmail:user?.email,isQCMode},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'C'})}).catch(()=>{});
-                // #endregion
-
                 let dbResponse;
                 try {
                     dbResponse = await fetch(`/api/videos/${videoId}/events`, {
@@ -756,13 +743,6 @@ function WorkspacePage() {
             // Use server-side API proxy instead of calling external API directly from browser
             // This ensures we use EXTERNAL_API_URL env variable and enables server-side logging
             const proxyUrl = `/api/external/fights/${encodeURIComponent(externalPayload.fight_title)}`;
-
-            // #region agent log - Hypothesis D: Check external API payload
-            const roundKey = Object.keys(externalPayload).find(k => k.startsWith('RD'));
-            const firstCam = roundKey ? Object.keys(externalPayload[roundKey])[0] : null;
-            const firstEvent = (roundKey && firstCam) ? externalPayload[roundKey][firstCam][0] : null;
-            fetch('http://127.0.0.1:7243/ingest/09ecdb43-0ca2-4118-9960-4df5bcec107d',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'page.tsx:handleSubmit:externalPayload',message:'External API payload',data:{submittedByEmail:externalPayload.submittedBy?.email,reviewedByEmail:externalPayload.reviewedBy?.email,firstEventLabeledBy:firstEvent?.labeledBy,firstEventLabeledByEmail:firstEvent?.labeledByEmail,isQCReview:externalPayload.isQCReview,httpMethod},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'D'})}).catch(()=>{});
-            // #endregion
 
             let webhookResponse;
             try {
