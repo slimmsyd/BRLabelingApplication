@@ -1,25 +1,6 @@
 import { NextResponse } from 'next/server';
-import * as fs from 'fs';
 
 const EXTERNAL_API_URL = process.env.EXTERNAL_API_URL || 'https://www.huemanapi.com';
-const DEBUG_LOG_PATH = '/Users/sydneysanders/Desktop/Code_Projects/LabelingApp/.cursor/debug.log';
-
-// Helper to write debug logs (server-side)
-function debugLog(location: string, message: string, data: Record<string, unknown>, hypothesisId: string) {
-  try {
-    const logEntry = JSON.stringify({
-      location,
-      message,
-      data,
-      timestamp: Date.now(),
-      sessionId: 'debug-session',
-      hypothesisId,
-    });
-    fs.appendFileSync(DEBUG_LOG_PATH, logEntry + '\n');
-  } catch (e) {
-    console.error('Failed to write debug log:', e);
-  }
-}
 
 /**
  * GET /api/external/fights/[title]
@@ -78,16 +59,6 @@ export async function PUT(
     
     const targetUrl = `${EXTERNAL_API_URL}/fight/${encodeURIComponent(title)}`;
     
-    // #region agent log - Server-side PUT attempt
-    debugLog('fights/[title]/route.ts:PUT', 'Server-side PUT to external API', {
-      title,
-      targetUrl,
-      EXTERNAL_API_URL,
-      payloadKeys: Object.keys(body),
-      isQCReview: body.isQCReview,
-    }, 'F');
-    // #endregion
-    
     console.log('📤 [SERVER] Proxying PUT /fight/' + title + ' to DEV API...');
     console.log('📤 [SERVER] Target URL:', targetUrl);
     console.log('📤 [SERVER] EXTERNAL_API_URL env:', EXTERNAL_API_URL);
@@ -103,15 +74,6 @@ export async function PUT(
     const responseText = await response.text();
     console.log('📡 [SERVER] Response status:', response.status, response.statusText);
     console.log('📡 [SERVER] Response body:', responseText.substring(0, 500));
-    
-    // #region agent log - Server-side PUT response
-    debugLog('fights/[title]/route.ts:PUT:response', 'External API response received (server-side)', {
-      status: response.status,
-      statusText: response.statusText,
-      ok: response.ok,
-      responsePreview: responseText.substring(0, 200),
-    }, 'F');
-    // #endregion
     
     if (!response.ok) {
       console.error('❌ [SERVER] DEV API Error:', response.status, responseText);
@@ -134,11 +96,6 @@ export async function PUT(
     return NextResponse.json(data);
   } catch (error) {
     console.error('❌ [SERVER] Error proxying PUT to DEV API:', error);
-    // #region agent log - Server-side PUT error
-    debugLog('fights/[title]/route.ts:PUT:error', 'Server-side PUT FAILED', {
-      error: error instanceof Error ? error.message : String(error),
-    }, 'F');
-    // #endregion
     return NextResponse.json(
       { error: 'Failed to connect to DEV API', details: String(error) },
       { status: 500 }
@@ -162,15 +119,6 @@ export async function POST(
     // But we'll keep this endpoint flexible
     const targetUrl = `${EXTERNAL_API_URL}/boxing_fight`;
     
-    // #region agent log - Server-side POST attempt
-    debugLog('fights/[title]/route.ts:POST', 'Server-side POST to external API', {
-      title,
-      targetUrl,
-      EXTERNAL_API_URL,
-      payloadKeys: Object.keys(body),
-    }, 'F');
-    // #endregion
-    
     console.log('📤 [SERVER] Proxying POST to DEV API...');
     console.log('📤 [SERVER] Target URL:', targetUrl);
     
@@ -184,14 +132,6 @@ export async function POST(
 
     const responseText = await response.text();
     console.log('📡 [SERVER] Response status:', response.status, response.statusText);
-    
-    // #region agent log - Server-side POST response
-    debugLog('fights/[title]/route.ts:POST:response', 'External API response received (server-side)', {
-      status: response.status,
-      statusText: response.statusText,
-      ok: response.ok,
-    }, 'F');
-    // #endregion
     
     if (!response.ok) {
       console.error('❌ [SERVER] DEV API Error:', response.status, responseText);

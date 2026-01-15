@@ -26,9 +26,6 @@ const WorkspaceHeader = ({ onSave, onSubmit, readOnly = false, isQCMode = false,
     const [showAssignModal, setShowAssignModal] = useState(false);
 
     const handleConfirmSubmit = () => {
-        // #region agent log - Hypothesis A: Confirm button clicked
-        fetch('http://127.0.0.1:7243/ingest/09ecdb43-0ca2-4118-9960-4df5bcec107d',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'WorkspaceHeader.tsx:handleConfirmSubmit',message:'User clicked CONFIRM submit/approve button',data:{isQCMode,hasOnSubmit:!!onSubmit},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'A'})}).catch(()=>{});
-        // #endregion
         if (onSubmit) {
             onSubmit();
         }
@@ -143,12 +140,7 @@ const WorkspaceHeader = ({ onSave, onSubmit, readOnly = false, isQCMode = false,
                         {saveStatus === 'saving' ? 'Saving...' : saveStatus === 'saved' ? 'Saved!' : saveStatus === 'error' ? 'Error!' : 'Save Progress'}
                     </button>
                     <button
-                        onClick={() => {
-                            // #region agent log - Hypothesis A: Submit/Approve button clicked
-                            fetch('http://127.0.0.1:7243/ingest/09ecdb43-0ca2-4118-9960-4df5bcec107d',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'WorkspaceHeader.tsx:submitButtonClick',message:'Submit/Approve button clicked - opening modal',data:{isQCMode,readOnly,isSubmitting},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'A'})}).catch(()=>{});
-                            // #endregion
-                            setShowSubmitModal(true);
-                        }}
+                        onClick={() => setShowSubmitModal(true)}
                         disabled={readOnly || isSubmitting}
                         className={`flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg transition-colors cursor-pointer ${
                             isSubmitting
