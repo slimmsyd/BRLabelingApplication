@@ -112,7 +112,7 @@ export default function ExportReportsSection() {
             <div className="relative">
               <DatePicker
                 selected={startDate}
-                onChange={(date) => setStartDate(date)}
+                onChange={(date: Date | null) => setStartDate(date)}
                 selectsStart
                 startDate={startDate}
                 endDate={endDate}
@@ -133,7 +133,7 @@ export default function ExportReportsSection() {
             <div className="relative">
               <DatePicker
                 selected={endDate}
-                onChange={(date) => setEndDate(date)}
+                onChange={(date: Date | null) => setEndDate(date)}
                 selectsEnd
                 startDate={startDate}
                 endDate={endDate}
