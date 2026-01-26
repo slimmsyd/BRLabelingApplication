@@ -4,6 +4,7 @@ import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Loader2, ArrowLeft, Shield, User, Mail, Lock } from 'lucide-react';
 import Link from 'next/link';
+import ExportReportsSection from '@/components/ExportReportsSection';
 
 interface UserProfile {
     userId: string;
@@ -135,6 +136,11 @@ export default function SettingsPage() {
                             </button>
                         </div>
                     </div>
+
+                    {/* Export Reports - Admin/QC Only */}
+                    {(user.accountType === 'ADMIN' || user.accountType === 'QUALITY_CONTROL') && (
+                        <ExportReportsSection />
+                    )}
 
                 </div>
             </main>
