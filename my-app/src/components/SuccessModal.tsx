@@ -1,13 +1,14 @@
 import React from 'react';
-import { CheckCircle, X } from 'lucide-react';
+import { CheckCircle, X, AlertTriangle } from 'lucide-react';
 
 interface SuccessModalProps {
     isOpen: boolean;
     onClose: () => void;
     userName?: string;
+    backupFailed?: boolean;
 }
 
-const SuccessModal = ({ isOpen, onClose, userName }: SuccessModalProps) => {
+const SuccessModal = ({ isOpen, onClose, userName, backupFailed }: SuccessModalProps) => {
     if (!isOpen) return null;
 
     return (
@@ -25,7 +26,7 @@ const SuccessModal = ({ isOpen, onClose, userName }: SuccessModalProps) => {
                 </div>
 
                 <h3 className="text-xl font-bold text-foreground mb-2">Submission Successful!</h3>
-                <p className="text-foreground-secondary mb-8">
+                <p className="text-foreground-secondary mb-4">
                     {userName ? (
                         <>
                             <span className="font-semibold text-foreground">{userName}</span> has successfully submitted the labeling data to the server.
@@ -34,6 +35,15 @@ const SuccessModal = ({ isOpen, onClose, userName }: SuccessModalProps) => {
                         'Your labeling data has been successfully submitted to the server.'
                     )}
                 </p>
+
+                {backupFailed && (
+                    <div className="w-full bg-amber-500/10 border border-amber-500/30 rounded-lg p-3 mb-4 flex items-start gap-2">
+                        <AlertTriangle size={18} className="text-amber-500 flex-shrink-0 mt-0.5" />
+                        <p className="text-amber-500 text-sm text-left">
+                            Warning: Submission was not saved to backup server. Please notify an admin.
+                        </p>
+                    </div>
+                )}
 
                 <button
                     onClick={onClose}

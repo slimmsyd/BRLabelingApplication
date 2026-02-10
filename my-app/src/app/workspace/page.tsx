@@ -83,6 +83,7 @@ function WorkspacePage() {
     const [activeTimeMode, setActiveTimeMode] = useState<'start' | 'end'>('start');
     const [activeCam, setActiveCam] = useState('CAM 1');
     const [showSuccessModal, setShowSuccessModal] = useState(false);
+    const [backupWarning, setBackupWarning] = useState(false);
 
     const [isSubmitted, setIsSubmitted] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -761,11 +762,13 @@ function WorkspacePage() {
                 const errorBody = await webhookResponse.text();
                 console.error(`❌ External API error: ${webhookResponse.status}`);
                 console.error(`❌ Error body:`, errorBody);
-                throw new Error(`External API error: ${webhookResponse.status} - ${errorBody.substring(0, 200)}`);
+                // Don't throw - set warning and continue with local submission
+                setBackupWarning(true);
+                console.warn('⚠️ Continuing with local submission despite backup server failure');
+            } else {
+                const data = await webhookResponse.json();
+                console.log('✅ External webhook success:', data);
             }
-
-            const data = await webhookResponse.json();
-            console.log('✅ External webhook success:', data);
 
             // 3. Update assignment status based on who is submitting
             if (videoId && assignment?.id) {
@@ -1153,8 +1156,12 @@ function WorkspacePage() {
             {/* Success Modal */}
             <SuccessModal
                 isOpen={showSuccessModal}
-                onClose={() => setShowSuccessModal(false)}
+                onClose={() => {
+                    setShowSuccessModal(false);
+                    setBackupWarning(false);
+                }}
                 userName={(user as any)?.externalAccount?.username || user?.email?.split('@')[0]}
+                backupFailed={backupWarning}
             />
         </div>
     );
