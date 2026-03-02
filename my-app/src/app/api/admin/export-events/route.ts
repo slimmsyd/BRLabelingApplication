@@ -79,6 +79,8 @@ export async function GET(request: NextRequest) {
     const startDateStr = searchParams.get('startDate');
     const endDateStr = searchParams.get('endDate');
     const timezone = searchParams.get('timezone') || 'UTC';
+    const exportType = searchParams.get('exportType') || 'all'; // 'all' | 'qc'
+    const qcUserEmail = searchParams.get('qcUserEmail') || null; // specific QC user email, or null for all QC users
 
     if (!startDateStr || !endDateStr) {
       return NextResponse.json({ error: 'startDate and endDate are required' }, { status: 400 });
@@ -92,14 +94,21 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid date format' }, { status: 400 });
     }
 
+    // Build where clause based on export type
+    const baseWhere = {
+      createdAt: {
+        gte: startDate,
+        lte: endDate
+      }
+    };
+
+    const whereClause = exportType === 'qc' && qcUserEmail
+      ? { ...baseWhere, labeledByEmail: qcUserEmail }
+      : baseWhere;
+
     // Query events
     const events = await prisma.event.findMany({
-      where: {
-        createdAt: {
-          gte: startDate,
-          lte: endDate
-        }
-      },
+      where: whereClause,
       include: {
         assignment: {
           include: {
@@ -114,8 +123,13 @@ export async function GET(request: NextRequest) {
       ]
     });
 
+    // For QC exports, filter to only events where the reviewer != original labeler
+    const filteredEvents = exportType === 'qc'
+      ? events.filter(e => e.assignment.userEmail !== e.labeledByEmail)
+      : events;
+
     // Build export rows
-    const rows: ExportRow[] = events.map(e => ({
+    const rows: ExportRow[] = filteredEvents.map(e => ({
       id: e.id,
       assignmentId: e.assignmentId,
       startTime: e.startTime,
@@ -147,10 +161,18 @@ export async function GET(request: NextRequest) {
     // Generate CSV
     const csv = generateCSV(rows);
 
-    // Create filename with date range
+    // Create filename based on export type
     const startStr = startDate.toISOString().split('T')[0];
     const endStr = endDate.toISOString().split('T')[0];
-    const filename = `events-export-${startStr}-to-${endStr}.csv`;
+    let filename: string;
+    if (exportType === 'qc') {
+      const userSlug = qcUserEmail
+        ? qcUserEmail.split('@')[0].replace(/[^a-z0-9]/gi, '-')
+        : 'all';
+      filename = `qc-changes-${userSlug}-${startStr}-to-${endStr}.csv`;
+    } else {
+      filename = `events-export-${startStr}-to-${endStr}.csv`;
+    }
 
     // Return CSV as downloadable file
     return new NextResponse(csv, {
