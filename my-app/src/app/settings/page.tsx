@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { Loader2, ArrowLeft, Shield, User, Mail, Lock } from 'lucide-react';
 import Link from 'next/link';
 import ExportReportsSection from '@/components/ExportReportsSection';
+import ClipExportPanel from '@/components/ClipExportPanel';
 
 interface UserProfile {
     userId: string;
@@ -140,6 +141,11 @@ export default function SettingsPage() {
                     {/* Export Reports - Admin/QC Only */}
                     {(user.accountType === 'ADMIN' || user.accountType === 'QUALITY_CONTROL') && (
                         <ExportReportsSection />
+                    )}
+
+                    {/* Training Clip Export - Admin Only */}
+                    {user.accountType === 'ADMIN' && (
+                        <ClipExportPanel />
                     )}
 
                 </div>
