@@ -366,6 +366,21 @@ function WorkspacePage() {
         setDefenseType('Guard');
     };
 
+    const handleUpdateVideo = async (updates: { boxer1: string; boxer2: string; round: number }) => {
+        if (!videoId) return;
+        const res = await fetch(`/api/videos/${videoId}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(updates),
+        });
+        if (!res.ok) {
+            const err = await res.json();
+            throw new Error(err.error || 'Failed to update video');
+        }
+        const { video } = await res.json();
+        setVideoData(prev => prev ? { ...prev, title: video.title, boxer1: video.boxer1, boxer2: video.boxer2, round: video.round } : prev);
+    };
+
     const getCurrentTime = () => {
         if (videoRef.current) {
             const time = videoRef.current.currentTime;
@@ -1048,6 +1063,8 @@ function WorkspacePage() {
                 })()}
                 videoTitle={videoData.title}
                 videoMetadata={`${videoData.boxer1} vs ${videoData.boxer2} - Round ${videoData.round}`}
+                videoData={{ boxer1: videoData.boxer1, boxer2: videoData.boxer2, round: videoData.round }}
+                onUpdateVideo={(user?.accountType === 'ADMIN' || user?.accountType === 'QUALITY_CONTROL') ? handleUpdateVideo : undefined}
                 assignment={assignment}
                 onAssign={handleAssign}
                 currentUser={user}

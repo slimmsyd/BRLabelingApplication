@@ -161,6 +161,15 @@ const SidebarControls = ({
         }
     };
 
+    // Jab is always lead hand, Cross is always rear hand
+    const isHandLocked = punchType === 'Jab' || punchType === 'Cross';
+
+    const getAutoHand = (type: string, currentStance: string): string => {
+        if (type === 'Jab') return currentStance === 'Orthodox' ? 'Left' : 'Right';
+        if (type === 'Cross') return currentStance === 'Orthodox' ? 'Right' : 'Left';
+        return '';
+    };
+
     // Helper to determine if a hand is Lead or Rear based on Stance
     const getHandLabel = (side: 'Left' | 'Right') => {
         if (stance === 'Orthodox') {
@@ -248,14 +257,22 @@ const SidebarControls = ({
                         <label className="block text-[10px] font-medium text-foreground-secondary mb-1">Stance</label>
                         <div className="flex bg-background rounded-lg p-0.5 border border-border">
                             <button
-                                onClick={() => setStance('Orthodox')}
+                                onClick={() => {
+                                    setStance('Orthodox');
+                                    const autoHand = getAutoHand(punchType, 'Orthodox');
+                                    if (autoHand) setHand(autoHand);
+                                }}
                                 disabled={readOnly}
                                 className={`flex-1 py-1.5 text-[10px] font-medium rounded transition-colors cursor-pointer ${stance === 'Orthodox' ? 'bg-white/10 text-foreground' : 'text-foreground-secondary hover:text-foreground'}`}
                             >
                                 Orth
                             </button>
                             <button
-                                onClick={() => setStance('Southpaw')}
+                                onClick={() => {
+                                    setStance('Southpaw');
+                                    const autoHand = getAutoHand(punchType, 'Southpaw');
+                                    if (autoHand) setHand(autoHand);
+                                }}
                                 disabled={readOnly}
                                 className={`flex-1 py-1.5 text-[10px] font-medium rounded transition-colors cursor-pointer ${stance === 'Southpaw' ? 'bg-white/10 text-foreground' : 'text-foreground-secondary hover:text-foreground'}`}
                             >
@@ -305,7 +322,12 @@ const SidebarControls = ({
                         <label className="block text-[10px] font-medium text-foreground-secondary mb-1">Type</label>
                         <select
                             value={punchType}
-                            onChange={(e) => setPunchType(e.target.value)}
+                            onChange={(e) => {
+                                const newType = e.target.value;
+                                setPunchType(newType);
+                                const autoHand = getAutoHand(newType, stance);
+                                if (autoHand) setHand(autoHand);
+                            }}
                             disabled={readOnly}
                             className="w-full bg-background border border-border rounded-lg px-2 py-1.5 text-xs text-foreground focus:outline-none focus:border-accent-primary"
                         >
@@ -333,19 +355,21 @@ const SidebarControls = ({
                 <div className="mb-3">
                     <div className="flex gap-3">
                         <div className="flex-1">
-                            <label className="block text-[10px] font-medium text-foreground-secondary mb-1">Hand</label>
-                            <div className="flex bg-background rounded-lg p-0.5 border border-border">
+                            <label className="block text-[10px] font-medium text-foreground-secondary mb-1">
+                                Hand{isHandLocked && <span className="text-accent-primary ml-1">(auto)</span>}
+                            </label>
+                            <div className={`flex bg-background rounded-lg p-0.5 border border-border ${isHandLocked ? 'opacity-60' : ''}`}>
                                 <button
                                     onClick={() => setHand('Left')}
-                                    disabled={readOnly}
-                                    className={`flex-1 py-1.5 text-[10px] font-medium rounded transition-colors cursor-pointer truncate ${hand === 'Left' ? 'bg-white/10 text-foreground' : 'text-foreground-secondary hover:text-foreground'}`}
+                                    disabled={readOnly || isHandLocked}
+                                    className={`flex-1 py-1.5 text-[10px] font-medium rounded transition-colors truncate ${isHandLocked ? 'cursor-not-allowed' : 'cursor-pointer'} ${hand === 'Left' ? 'bg-white/10 text-foreground' : 'text-foreground-secondary hover:text-foreground'}`}
                                 >
                                     {getHandLabel('Left')}
                                 </button>
                                 <button
                                     onClick={() => setHand('Right')}
-                                    disabled={readOnly}
-                                    className={`flex-1 py-1.5 text-[10px] font-medium rounded transition-colors cursor-pointer truncate ${hand === 'Right' ? 'bg-white/10 text-foreground' : 'text-foreground-secondary hover:text-foreground'}`}
+                                    disabled={readOnly || isHandLocked}
+                                    className={`flex-1 py-1.5 text-[10px] font-medium rounded transition-colors truncate ${isHandLocked ? 'cursor-not-allowed' : 'cursor-pointer'} ${hand === 'Right' ? 'bg-white/10 text-foreground' : 'text-foreground-secondary hover:text-foreground'}`}
                                 >
                                     {getHandLabel('Right')}
                                 </button>

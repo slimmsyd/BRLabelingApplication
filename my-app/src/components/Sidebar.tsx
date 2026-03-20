@@ -14,6 +14,7 @@ interface Assignment {
     };
     status: string;
     updatedAt: string;
+    username?: string;
 }
 
 interface SidebarProps {
@@ -213,7 +214,8 @@ const Sidebar = ({ isOpen, toggle }: SidebarProps) => {
                             const boxer1 = a.video.boxer1.toLowerCase();
                             const boxer2 = a.video.boxer2.toLowerCase();
                             const round = a.video.round.toString();
-                            return title.includes(query) || boxer1.includes(query) || boxer2.includes(query) || round.includes(query);
+                            const username = (a.username || '').toLowerCase();
+                            return title.includes(query) || boxer1.includes(query) || boxer2.includes(query) || round.includes(query) || username.includes(query);
                         });
 
                         return (
@@ -247,10 +249,18 @@ const Sidebar = ({ isOpen, toggle }: SidebarProps) => {
                                                         {assignment.video.title}
                                                     </span>
                                                 </div>
-                                                <div className="flex items-center gap-2 pl-5">
+                                                <div className="flex items-center gap-2 pl-5 flex-wrap">
                                                     <span className="px-1.5 py-0.5 text-[9px] font-bold rounded border uppercase bg-amber-500/10 text-amber-500 border-amber-500/20">
                                                         NEEDS QC
                                                     </span>
+                                                    <span className="px-1.5 py-0.5 text-[9px] font-bold rounded border bg-blue-500/10 text-blue-400 border-blue-500/20">
+                                                        R{assignment.video.round}
+                                                    </span>
+                                                    {assignment.username && (
+                                                        <span className="text-[9px] text-foreground-secondary truncate">
+                                                            {assignment.username}
+                                                        </span>
+                                                    )}
                                                     <span className="text-[9px] text-foreground-tertiary">
                                                         {new Date(assignment.updatedAt).toLocaleDateString()}
                                                     </span>
@@ -277,7 +287,8 @@ const Sidebar = ({ isOpen, toggle }: SidebarProps) => {
                             const boxer1 = a.video.boxer1.toLowerCase();
                             const boxer2 = a.video.boxer2.toLowerCase();
                             const round = a.video.round.toString();
-                            return title.includes(query) || boxer1.includes(query) || boxer2.includes(query) || round.includes(query);
+                            const username = (a.username || '').toLowerCase();
+                            return title.includes(query) || boxer1.includes(query) || boxer2.includes(query) || round.includes(query) || username.includes(query);
                         });
 
                         return (
@@ -313,13 +324,21 @@ const Sidebar = ({ isOpen, toggle }: SidebarProps) => {
                                                             {assignment.video.title}
                                                         </span>
                                                     </div>
-                                                    <div className="flex items-center gap-2 pl-5">
+                                                    <div className="flex items-center gap-2 pl-5 flex-wrap">
                                                         <span className={`px-1.5 py-0.5 text-[9px] font-bold rounded border uppercase ${isCompleted
                                                             ? 'bg-green-500/10 text-green-500 border-green-500/20'
                                                             : 'bg-purple-500/10 text-purple-500 border-purple-500/20'
                                                             }`}>
                                                             {isCompleted ? 'COMPLETED' : 'REVIEWED'}
                                                         </span>
+                                                        <span className="px-1.5 py-0.5 text-[9px] font-bold rounded border bg-blue-500/10 text-blue-400 border-blue-500/20">
+                                                            R{assignment.video.round}
+                                                        </span>
+                                                        {assignment.username && (
+                                                            <span className="text-[9px] text-foreground-secondary truncate">
+                                                                {assignment.username}
+                                                            </span>
+                                                        )}
                                                         <span className="text-[9px] text-foreground-tertiary">
                                                             {new Date(assignment.updatedAt).toLocaleDateString()}
                                                         </span>

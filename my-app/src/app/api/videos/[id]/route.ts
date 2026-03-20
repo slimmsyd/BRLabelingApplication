@@ -147,3 +147,84 @@ export async function DELETE(
     );
   }
 }
+
+/**
+ * PATCH /api/videos/[id]
+ * Updates video metadata (title, boxer names, round)
+ * Admin and QC users only
+ */
+export async function PATCH(
+  request: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { id } = await params;
+
+    const session = await getSession();
+    if (!session) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { id: session.userId },
+      select: { accountType: true, email: true },
+    });
+
+    if (!user) {
+      return NextResponse.json({ error: 'User not found' }, { status: 404 });
+    }
+
+    if (user.accountType !== 'ADMIN' && user.accountType !== 'QUALITY_CONTROL') {
+      return NextResponse.json(
+        { error: 'Forbidden: Admin or QC access required' },
+        { status: 403 }
+      );
+    }
+
+    const body = await request.json();
+    const { boxer1, boxer2, round } = body;
+
+    // Build update data
+    const updateData: Record<string, unknown> = {};
+    if (boxer1 !== undefined) updateData.boxer1 = boxer1;
+    if (boxer2 !== undefined) updateData.boxer2 = boxer2;
+    if (round !== undefined) updateData.round = Number(round);
+
+    // Auto-regenerate title from boxer names + round
+    const video = await prisma.video.findUnique({
+      where: { id },
+      select: { boxer1: true, boxer2: true, round: true },
+    });
+
+    if (!video) {
+      return NextResponse.json({ error: 'Video not found' }, { status: 404 });
+    }
+
+    const finalBoxer1 = (updateData.boxer1 as string) || video.boxer1;
+    const finalBoxer2 = (updateData.boxer2 as string) || video.boxer2;
+    const finalRound = (updateData.round as number) ?? video.round;
+    updateData.title = `${finalBoxer1} v ${finalBoxer2} - R${finalRound}`;
+
+    const updatedVideo = await prisma.video.update({
+      where: { id },
+      data: updateData,
+      select: {
+        id: true,
+        title: true,
+        boxer1: true,
+        boxer2: true,
+        round: true,
+      },
+    });
+
+    console.log(`[Video PATCH] ${user.email} updated video "${updatedVideo.title}" (ID: ${id})`);
+
+    return NextResponse.json({ video: updatedVideo }, { status: 200 });
+  } catch (error) {
+    console.error('[Video PATCH] Error updating video:', error);
+    return NextResponse.json(
+      { error: 'Failed to update video' },
+      { status: 500 }
+    );
+  }
+}

@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(cat /Users/sydneysanders/Desktop/Code_Projects/LabelingApp/my-app/src/app/api/videos/[id]/assign/route.ts)",
+      "Bash(cat /Users/sydneysanders/Desktop/Code_Projects/LabelingApp/my-app/src/app/api/videos/[id]/events/route.ts)"
+    ]
+  }
+}

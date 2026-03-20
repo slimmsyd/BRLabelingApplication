@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ArrowLeft, Save, ShieldCheck, Send, AlertTriangle, X, UserPlus, User, Check, Loader2 } from 'lucide-react';
+import { ArrowLeft, Save, ShieldCheck, Send, AlertTriangle, X, UserPlus, User, Check, Loader2, Pencil } from 'lucide-react';
 import Link from 'next/link';
 
 interface WorkspaceHeaderProps {
@@ -19,11 +19,41 @@ interface WorkspaceHeaderProps {
     isRecording?: boolean;
     onToggleRecording?: () => void;
     canControlRecording?: boolean;
+    videoData?: { boxer1: string; boxer2: string; round: number };
+    onUpdateVideo?: (updates: { boxer1: string; boxer2: string; round: number }) => Promise<void>;
 }
 
-const WorkspaceHeader = ({ onSave, onSubmit, readOnly = false, isQCMode = false, onToggleQCMode, showQCToggle = false, videoTitle, videoMetadata, assignment, onAssign, currentUser, saveStatus = 'idle', isSubmitting = false, isRecording = false, onToggleRecording, canControlRecording = true }: WorkspaceHeaderProps) => {
+const WorkspaceHeader = ({ onSave, onSubmit, readOnly = false, isQCMode = false, onToggleQCMode, showQCToggle = false, videoTitle, videoMetadata, assignment, onAssign, currentUser, saveStatus = 'idle', isSubmitting = false, isRecording = false, onToggleRecording, canControlRecording = true, videoData, onUpdateVideo }: WorkspaceHeaderProps) => {
     const [showSubmitModal, setShowSubmitModal] = useState(false);
     const [showAssignModal, setShowAssignModal] = useState(false);
+    const [isEditingTitle, setIsEditingTitle] = useState(false);
+    const [editBoxer1, setEditBoxer1] = useState('');
+    const [editBoxer2, setEditBoxer2] = useState('');
+    const [editRound, setEditRound] = useState(1);
+    const [isSavingTitle, setIsSavingTitle] = useState(false);
+
+    const canEdit = onUpdateVideo && (currentUser?.accountType === 'ADMIN' || currentUser?.accountType === 'QUALITY_CONTROL');
+
+    const handleStartEdit = () => {
+        if (!videoData) return;
+        setEditBoxer1(videoData.boxer1);
+        setEditBoxer2(videoData.boxer2);
+        setEditRound(videoData.round);
+        setIsEditingTitle(true);
+    };
+
+    const handleSaveEdit = async () => {
+        if (!onUpdateVideo) return;
+        setIsSavingTitle(true);
+        try {
+            await onUpdateVideo({ boxer1: editBoxer1, boxer2: editBoxer2, round: editRound });
+            setIsEditingTitle(false);
+        } catch {
+            // error handled by parent
+        } finally {
+            setIsSavingTitle(false);
+        }
+    };
 
     const handleConfirmSubmit = () => {
         if (onSubmit) {
@@ -51,10 +81,63 @@ const WorkspaceHeader = ({ onSave, onSubmit, readOnly = false, isQCMode = false,
                         <ArrowLeft size={20} />
                     </Link>
                     <div>
-                        <h1 className="text-lg font-semibold text-foreground">
-                            {videoTitle || 'Video Labeling Workspace'}
-                        </h1>
-                        {videoMetadata && (
+                        {isEditingTitle ? (
+                            <div className="flex items-center gap-2">
+                                <input
+                                    value={editBoxer1}
+                                    onChange={(e) => setEditBoxer1(e.target.value)}
+                                    className="bg-background border border-border rounded px-2 py-1 text-sm text-foreground w-36 focus:outline-none focus:border-accent-primary"
+                                    placeholder="Boxer 1"
+                                />
+                                <span className="text-foreground-secondary text-sm">v</span>
+                                <input
+                                    value={editBoxer2}
+                                    onChange={(e) => setEditBoxer2(e.target.value)}
+                                    className="bg-background border border-border rounded px-2 py-1 text-sm text-foreground w-36 focus:outline-none focus:border-accent-primary"
+                                    placeholder="Boxer 2"
+                                />
+                                <span className="text-foreground-secondary text-sm">R</span>
+                                <input
+                                    type="number"
+                                    value={editRound}
+                                    onChange={(e) => setEditRound(Number(e.target.value))}
+                                    min={1}
+                                    max={12}
+                                    className="bg-background border border-border rounded px-2 py-1 text-sm text-foreground w-14 focus:outline-none focus:border-accent-primary"
+                                />
+                                <button
+                                    onClick={handleSaveEdit}
+                                    disabled={isSavingTitle}
+                                    className="px-2 py-1 bg-green-600 text-white text-xs font-medium rounded hover:bg-green-700 transition-colors cursor-pointer flex items-center gap-1"
+                                >
+                                    {isSavingTitle ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} />}
+                                    Save
+                                </button>
+                                <button
+                                    onClick={() => setIsEditingTitle(false)}
+                                    disabled={isSavingTitle}
+                                    className="px-2 py-1 border border-border text-foreground-secondary text-xs rounded hover:bg-white/5 transition-colors cursor-pointer"
+                                >
+                                    Cancel
+                                </button>
+                            </div>
+                        ) : (
+                            <div className="flex items-center gap-2">
+                                <h1 className="text-lg font-semibold text-foreground">
+                                    {videoTitle || 'Video Labeling Workspace'}
+                                </h1>
+                                {canEdit && (
+                                    <button
+                                        onClick={handleStartEdit}
+                                        className="text-foreground-secondary hover:text-foreground transition-colors cursor-pointer p-1 rounded hover:bg-white/5"
+                                        title="Edit fight details"
+                                    >
+                                        <Pencil size={14} />
+                                    </button>
+                                )}
+                            </div>
+                        )}
+                        {!isEditingTitle && videoMetadata && (
                             <p className="text-xs text-foreground-secondary">{videoMetadata}</p>
                         )}
                         <div className="flex items-center gap-2 text-xs text-foreground-secondary">

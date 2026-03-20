@@ -22,6 +22,7 @@ export async function GET() {
         id: true,
         status: true,
         updatedAt: true,
+        username: true,
         video: {
           select: {
             id: true,
