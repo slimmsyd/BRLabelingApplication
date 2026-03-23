@@ -220,7 +220,8 @@ export default function ClipExportPanel() {
                         '-ss', String(startSec),
                         '-i', inputFilename,
                         '-t', String(duration),
-                        '-c', 'copy',
+                        '-c:v', 'libx264',
+                        '-c:a', 'aac',
                         '-avoid_negative_ts', 'make_zero',
                         outputFilename,
                     ]);
