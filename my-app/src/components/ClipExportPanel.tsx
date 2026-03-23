@@ -193,15 +193,22 @@ export default function ClipExportPanel() {
 
             setStatusMessage(`Processing ${events.length} clips...`);
 
+            let completed = 0;
+            let skipped = 0;
+
             for (let i = 0; i < events.length; i++) {
                 const event = events[i];
-                setStatusMessage(`Clipping ${i + 1} of ${events.length}: ${event.punchType} (${event.hand}) — ${event.fightTitle ?? event.videoTitle}`);
+                const clipLabel = `${event.punchType} (${event.hand})`;
+                const fightLabel = event.fightTitle ?? event.videoTitle;
+
+                // Sub-step 1: Downloading
+                setStatusMessage(`Clip ${i + 1}/${events.length} — Downloading: ${clipLabel} — ${fightLabel}`);
                 setProgress(Math.round(((i) / events.length) * 90));
 
                 // Use first source URL (cam1 by default unless cam is specified)
                 const camIndex = event.cam === 'CAM 2' ? 1 : event.cam === 'CAM 3' ? 2 : 0;
                 const sourceUrl = event.sourceUrls[camIndex] ?? event.sourceUrls[0];
-                if (!sourceUrl) continue;
+                if (!sourceUrl) { skipped++; continue; }
 
                 try {
                     const startSec = timestampToSeconds(event.startTime);
@@ -214,6 +221,10 @@ export default function ClipExportPanel() {
                     // Load video chunk into FFmpeg virtual filesystem via native fetch
                     const inputData = await urlToUint8Array(sourceUrl);
                     await ffmpeg.writeFile(inputFilename, inputData);
+
+                    // Sub-step 2: Encoding
+                    setStatusMessage(`Clip ${i + 1}/${events.length} — Encoding: ${clipLabel} (${duration.toFixed(2)}s)`);
+                    setProgress(Math.round(((i + 0.5) / events.length) * 90));
 
                     // Trim the clip
                     await ffmpeg.exec([
@@ -241,11 +252,15 @@ export default function ClipExportPanel() {
                     // Clean up FFmpeg virtual FS
                     await ffmpeg.deleteFile(inputFilename);
                     await ffmpeg.deleteFile(outputFilename);
+                    completed++;
                 } catch (clipErr) {
                     console.warn(`Skipped clip ${i + 1} (${event.eventId}):`, clipErr);
+                    skipped++;
                     // Skip and continue — don't fail whole export for one bad clip
                 }
             }
+
+            setStatusMessage(`Zipping ${completed} clips${skipped > 0 ? ` (${skipped} skipped)` : ''}...`);
 
             // Step 3: Zip and download
             setStatusMessage('Zipping clips...');
@@ -451,10 +466,6 @@ export default function ClipExportPanel() {
                         </>
                     )}
                 </button>
-
-                <p className="text-xs text-foreground-tertiary text-center">
-                    Clips are processed locally in your browser via WebAssembly — no server costs, no timeouts.
-                </p>
             </div>
         </div>
     );
