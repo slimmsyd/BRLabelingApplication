@@ -47,6 +47,7 @@ interface ExportEvent {
     target: string;
     stance: string | null;
     landed: boolean | null;
+    punchResult: string | null;
     cam: string | null;
     fightTitle: string | null;
     videoId: string;
@@ -243,9 +244,10 @@ export default function ClipExportPanel() {
                     const blob = new Blob([data], { type: 'video/mp4' });
 
                     // Build a descriptive filename
-                    const landedStr = event.landed === true ? 'landed' : event.landed === false ? 'missed' : 'unknown';
+                    const resultStr = (event.punchResult || (event.landed === true ? 'landed' : 'missed')).toLowerCase();
+                    const boxerStr = event.boxer || 'unknown';
                     const name = toSafeFilename(
-                        `${event.punchType}_${event.hand}_${event.target}_${landedStr}_${event.eventId.slice(-6)}`
+                        `${boxerStr}_${event.punchType}_${event.hand}_${event.target}_${resultStr}_${event.eventId.slice(-6)}`
                     );
                     clipsFolder.file(`${name}.mp4`, blob);
 

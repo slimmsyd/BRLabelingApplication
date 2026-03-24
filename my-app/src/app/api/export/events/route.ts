@@ -80,6 +80,7 @@ export async function GET(request: Request) {
       target: e.target,
       stance: e.stance,
       landed: e.landed,
+      punchResult: e.punchResult,
       cam: e.cam,
       fightTitle: e.fightTitle,
       videoId: e.assignment.video.id,
