@@ -143,8 +143,8 @@ export default function SettingsPage() {
                         <ExportReportsSection />
                     )}
 
-                    {/* Training Clip Export - Admin Only */}
-                    {user.accountType === 'ADMIN' && (
+                    {/* Training Clip Export - All Roles */}
+                    {(user.accountType === 'ADMIN' || user.accountType === 'QUALITY_CONTROL' || user.accountType === 'LABELER') && (
                         <ClipExportPanel />
                     )}
 

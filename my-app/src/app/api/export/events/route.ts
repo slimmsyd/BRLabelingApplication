@@ -22,8 +22,8 @@ export async function GET(request: Request) {
       select: { accountType: true },
     });
 
-    if (!user || user.accountType !== 'ADMIN') {
-      return NextResponse.json({ error: 'Forbidden: Admin access required' }, { status: 403 });
+    if (!user) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
     // 2. Parse filter query params
