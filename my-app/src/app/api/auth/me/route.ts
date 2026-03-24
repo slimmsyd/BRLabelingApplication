@@ -78,13 +78,28 @@ export async function GET() {
         }
         console.log('========================================\n');
 
+        // Sync accountType from external API if it differs
+        let effectiveAccountType = user.accountType;
+        if (externalAccount?.accountType && externalAccount.accountType !== user.accountType) {
+            console.log(`🔄 [Role Sync] Updating ${user.email} from ${user.accountType} → ${externalAccount.accountType}`);
+            await prisma.user.update({
+                where: { id: user.id },
+                data: {
+                    accountType: externalAccount.accountType,
+                    permissions: externalAccount.permissions ?? undefined,
+                    permissionsUpdatedAt: new Date(),
+                },
+            });
+            effectiveAccountType = externalAccount.accountType;
+        }
+
         // Merge local user data with external account data
         const responseData = {
             // Local Prisma user data
             userId: user.id,
             email: user.email,
             username: user.username,
-            accountType: user.accountType,
+            accountType: effectiveAccountType,
             permissions: user.permissions,
             permissionsUpdatedAt: user.permissionsUpdatedAt,
             createdAt: user.createdAt,
