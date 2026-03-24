@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getSession } from '@/lib/session';
 import { prisma } from '@/lib/prisma';
-import { getExternalAccountByEmail } from '@/lib/external-api';
+import { getExternalAccountByEmail, normalizeAccountType } from '@/lib/external-api';
 
 export async function GET() {
     try {
@@ -79,18 +79,22 @@ export async function GET() {
         console.log('========================================\n');
 
         // Sync accountType from external API if it differs
+        // External API is source of truth for ADMIN and QC roles; everything else defaults to LABELER
         let effectiveAccountType = user.accountType;
-        if (externalAccount?.accountType && externalAccount.accountType !== user.accountType) {
-            console.log(`🔄 [Role Sync] Updating ${user.email} from ${user.accountType} → ${externalAccount.accountType}`);
-            await prisma.user.update({
-                where: { id: user.id },
-                data: {
-                    accountType: externalAccount.accountType,
-                    permissions: externalAccount.permissions ?? undefined,
-                    permissionsUpdatedAt: new Date(),
-                },
-            });
-            effectiveAccountType = externalAccount.accountType;
+        if (externalAccount?.accountType) {
+            const normalizedType = normalizeAccountType(externalAccount.accountType);
+            if (normalizedType !== user.accountType) {
+                console.log(`🔄 [Role Sync] Updating ${user.email} from ${user.accountType} → ${normalizedType}`);
+                await prisma.user.update({
+                    where: { id: user.id },
+                    data: {
+                        accountType: normalizedType,
+                        permissions: externalAccount.permissions ?? undefined,
+                        permissionsUpdatedAt: new Date(),
+                    },
+                });
+                effectiveAccountType = normalizedType;
+            }
         }
 
         // Merge local user data with external account data
