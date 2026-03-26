@@ -52,6 +52,8 @@ interface ExportEvent {
     fightTitle: string | null;
     videoId: string;
     videoTitle: string;
+    boxer1: string;
+    boxer2: string;
     sourceUrls: string[];
     fps: number;
 }
@@ -247,7 +249,10 @@ export default function ClipExportPanel() {
 
                     // Build a descriptive filename
                     const resultStr = (event.punchResult || (event.landed === true ? 'landed' : 'missed')).toLowerCase();
-                    const boxerStr = event.boxer || 'unknown';
+                    // Resolve "Boxer A"/"Boxer B" to real names using video data
+                    let boxerStr = event.boxer || 'unknown';
+                    if (boxerStr === 'Boxer A' && event.boxer1) boxerStr = event.boxer1;
+                    if (boxerStr === 'Boxer B' && event.boxer2) boxerStr = event.boxer2;
                     const name = toSafeFilename(
                         `${boxerStr}_${event.punchType}_${event.hand}_${event.target}_${resultStr}_${event.eventId.slice(-6)}`
                     );

@@ -62,6 +62,8 @@ export async function GET(request: Request) {
               select: {
                 id: true,
                 title: true,
+                boxer1: true,
+                boxer2: true,
                 sourceUrls: true,
                 fps: true,
               },
@@ -87,6 +89,8 @@ export async function GET(request: Request) {
       fightTitle: e.fightTitle,
       videoId: e.assignment.video.id,
       videoTitle: e.assignment.video.title,
+      boxer1: e.assignment.video.boxer1,
+      boxer2: e.assignment.video.boxer2,
       // Source URLs are already public Supabase/S3 URLs
       sourceUrls: e.assignment.video.sourceUrls as string[],
       fps: e.assignment.video.fps,

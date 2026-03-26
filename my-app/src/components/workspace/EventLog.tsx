@@ -281,8 +281,8 @@ const EventLog = ({ events, onStartPunch, onEndPunch, onDeleteEvent, readOnly = 
 
     // Memoize the events split and sorted to avoid re-calculation on every render
     const filteredAndSortedEvents = useMemo(() => {
-        const boxerA = events.filter(e => e.boxer === 'Boxer A');
-        const boxerB = events.filter(e => e.boxer === 'Boxer B');
+        const boxerA = events.filter(e => e.boxer === boxerAName || e.boxer === 'Boxer A');
+        const boxerB = events.filter(e => e.boxer === boxerBName || e.boxer === 'Boxer B');
 
         const sortModeToDescending = sortMode === 'recent';
 
