@@ -54,6 +54,7 @@ interface ExportEvent {
     videoTitle: string;
     boxer1: string;
     boxer2: string;
+    round: number;
     sourceUrls: string[];
     fps: number;
 }
@@ -253,8 +254,9 @@ export default function ClipExportPanel() {
                     let boxerStr = event.boxer || 'unknown';
                     if (boxerStr === 'Boxer A' && event.boxer1) boxerStr = event.boxer1;
                     if (boxerStr === 'Boxer B' && event.boxer2) boxerStr = event.boxer2;
+                    const roundStr = event.round ? `R${event.round}` : '';
                     const name = toSafeFilename(
-                        `${boxerStr}_${event.punchType}_${event.hand}_${event.target}_${resultStr}_${event.eventId.slice(-6)}`
+                        `${roundStr}_${boxerStr}_${event.punchType}_${event.hand}_${event.target}_${resultStr}_${event.eventId.slice(-6)}`
                     );
                     clipsFolder.file(`${name}.mp4`, blob);
 
