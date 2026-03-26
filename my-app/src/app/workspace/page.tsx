@@ -334,9 +334,7 @@ function WorkspacePage() {
         setSelectedEventId(null);
         setStartTime('');
         setEndTime('');
-        // Reset other form fields to defaults or keep them?
-        // Usually better to reset to "ready for next log" state
-        setBoxer('Boxer A');
+        // Don't reset boxer — keep last selected fighter
         setPunchType('Jab');
         setHand('Left');
         setTarget('Head');
@@ -353,7 +351,7 @@ function WorkspacePage() {
         setSelectedEventId(null);
         setStartTime('');
         setEndTime('');
-        setBoxer('Boxer A');
+        // Don't reset boxer — keep last selected fighter
         setPunchType('Jab');
         setHand('Left');
         setTarget('Head');
@@ -596,7 +594,7 @@ function WorkspacePage() {
         // Transform events to external API format
         const transformEventForExternalAPI = (event: EventData) => ({
             eventType: "punch",
-            fighter: event.boxer === 'Boxer A' ? 'boxer1' : 'boxer2',
+            fighter: event.boxer === (videoData?.boxer1 || 'Boxer A') ? 'boxer1' : 'boxer2',
             startTime: parseTimeToSeconds(event.startTime),
             endTime: parseTimeToSeconds(event.endTime),
             startTimeFormatted: event.startTime,
@@ -983,6 +981,13 @@ function WorkspacePage() {
 
         return undefined;
     }, [videoData]);
+
+    // Set initial boxer to real name when video loads
+    useEffect(() => {
+        if (boxerNames && !boxer) {
+            setBoxer(boxerNames.boxerA);
+        }
+    }, [boxerNames]);
 
     // Show loading state
     if (videoLoading) {

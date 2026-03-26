@@ -100,6 +100,7 @@ export default function ClipExportPanel() {
     const [target, setTarget] = useState('Any');
     const [stance, setStance] = useState('Any');
     const [landed, setLanded] = useState('any');
+    const [boxerFilter, setBoxerFilter] = useState('');
     const [fightTitle, setFightTitle] = useState('');
     const [availableTitles, setAvailableTitles] = useState<string[]>([]);
     const [limit, setLimit] = useState(50);
@@ -169,6 +170,7 @@ export default function ClipExportPanel() {
             if (stance !== 'Any') params.set('stance', stance);
             if (landed !== 'any') params.set('landed', landed);
             if (fightTitle.trim()) params.set('fightTitle', fightTitle.trim());
+            if (boxerFilter.trim()) params.set('boxer', boxerFilter.trim());
 
             const res = await fetch(`/api/export/events?${params}`);
             if (!res.ok) {
@@ -391,6 +393,20 @@ export default function ClipExportPanel() {
                             className="w-full bg-surface/50 border border-border/50 rounded-lg p-3 text-foreground focus:outline-none focus:border-accent-primary/50 text-sm"
                         />
                     </div>
+                </div>
+
+                {/* Boxer Filter */}
+                <div>
+                    <label className="block text-xs font-semibold uppercase tracking-wider text-foreground-secondary mb-2">
+                        Fighter Name (optional search)
+                    </label>
+                    <input
+                        type="text"
+                        value={boxerFilter}
+                        onChange={(e) => setBoxerFilter(e.target.value)}
+                        placeholder='e.g. "Mason" or "Noakes"'
+                        className="w-full bg-surface/50 border border-border/50 rounded-lg p-3 text-foreground placeholder-foreground-tertiary focus:outline-none focus:border-accent-primary/50 text-sm"
+                    />
                 </div>
 
                 {/* Fight Title Filter */}

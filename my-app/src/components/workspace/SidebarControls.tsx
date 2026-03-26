@@ -141,7 +141,7 @@ const SidebarControls = ({
 
     const handleCancel = () => {
         if (readOnly) return;
-        setBoxer('Boxer A');
+        // Don't reset boxer — keep last selected fighter
         setStartTime('');
         setEndTime('');
         setPunchType('Jab');
@@ -236,17 +236,17 @@ const SidebarControls = ({
                         <label className="block text-[10px] font-medium text-foreground-secondary mb-1">Boxer</label>
                         <div className="flex bg-background rounded-lg p-0.5 border border-border">
                             <button
-                                onClick={() => setBoxer('Boxer A')}
+                                onClick={() => setBoxer(boxerAName)}
                                 disabled={readOnly}
-                                className={`flex-1 py-1.5 text-[10px] font-medium rounded transition-colors cursor-pointer truncate px-1 ${boxer === 'Boxer A' ? 'bg-white/10 text-foreground' : 'text-foreground-secondary hover:text-foreground'}`}
+                                className={`flex-1 py-1.5 text-[10px] font-medium rounded transition-colors cursor-pointer truncate px-1 ${boxer === boxerAName ? 'bg-white/10 text-foreground' : 'text-foreground-secondary hover:text-foreground'}`}
                                 title={boxerAName}
                             >
                                 {boxerAName}
                             </button>
                             <button
-                                onClick={() => setBoxer('Boxer B')}
+                                onClick={() => setBoxer(boxerBName)}
                                 disabled={readOnly}
-                                className={`flex-1 py-1.5 text-[10px] font-medium rounded transition-colors cursor-pointer truncate px-1 ${boxer === 'Boxer B' ? 'bg-white/10 text-foreground' : 'text-foreground-secondary hover:text-foreground'}`}
+                                className={`flex-1 py-1.5 text-[10px] font-medium rounded transition-colors cursor-pointer truncate px-1 ${boxer === boxerBName ? 'bg-white/10 text-foreground' : 'text-foreground-secondary hover:text-foreground'}`}
                                 title={boxerBName}
                             >
                                 {boxerBName}

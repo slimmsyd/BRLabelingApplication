@@ -47,6 +47,8 @@ export async function GET(request: Request) {
     if (landed === 'true') where.landed = true;
     if (landed === 'false') where.landed = false;
     if (fightTitle) where.fightTitle = { contains: fightTitle, mode: 'insensitive' };
+    const boxer = searchParams.get('boxer');
+    if (boxer) where.boxer = { contains: boxer, mode: 'insensitive' };
 
     // 4. Query events with associated video URLs
     const events = await prisma.event.findMany({
