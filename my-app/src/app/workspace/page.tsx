@@ -987,7 +987,7 @@ function WorkspacePage() {
         if (boxerNames && !boxer) {
             setBoxer(boxerNames.boxerA);
         }
-    }, [boxerNames]);
+    }, [boxerNames, boxer]);
 
     // Show loading state
     if (videoLoading) {

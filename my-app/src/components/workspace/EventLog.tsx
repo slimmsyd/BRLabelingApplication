@@ -290,7 +290,7 @@ const EventLog = ({ events, onStartPunch, onEndPunch, onDeleteEvent, readOnly = 
             boxerA: sortEventsByTimestamp(boxerA, sortModeToDescending),
             boxerB: sortEventsByTimestamp(boxerB, sortModeToDescending)
         };
-    }, [events, sortMode]);
+    }, [events, sortMode, boxerAName, boxerBName]);
 
     return (
         <div className="space-y-4">
