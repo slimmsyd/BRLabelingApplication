@@ -162,7 +162,8 @@ const SidebarControls = ({
     };
 
     // Jab is always lead hand, Cross is always rear hand
-    const isHandLocked = punchType === 'Jab' || punchType === 'Cross';
+    // Allow override when editing (QC corrections)
+    const isHandLocked = !isEditing && (punchType === 'Jab' || punchType === 'Cross');
 
     const getAutoHand = (type: string, currentStance: string): string => {
         if (type === 'Jab') return currentStance === 'Orthodox' ? 'Left' : 'Right';
