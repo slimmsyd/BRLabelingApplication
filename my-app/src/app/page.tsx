@@ -81,8 +81,7 @@ export default function Home() {
           const data = await response.json();
           console.log('✅ DEBUG: Fights from DEV API:', data);
         } else {
-          const errorData = await response.json();
-          console.error('❌ DEBUG: Failed to fetch fights:', response.status, errorData);
+          console.error('❌ DEBUG: Failed to fetch fights:', response.status);
         }
       } catch (error) {
         console.error('❌ DEBUG: Error fetching fights:', error);

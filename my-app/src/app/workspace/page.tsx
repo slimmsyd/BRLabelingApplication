@@ -8,6 +8,7 @@ import EventLog, { EventData } from '@/components/workspace/EventLog';
 import SidebarControls from '@/components/workspace/SidebarControls';
 import SuccessModal from '@/components/SuccessModal';
 import { Loader2 } from 'lucide-react';
+import { generateId, safeGetItem, safeSetItem, safeRemoveItem, safeJsonParse, safeResponseJson } from '@/lib/client-utils';
 
 interface VideoData {
     id: string;
@@ -137,27 +138,25 @@ function WorkspacePage() {
     useEffect(() => {
         if (!videoId) return;
 
-        const savedEvents = localStorage.getItem(`workspace_events_${videoId}`);
+        const savedEvents = safeGetItem(`workspace_events_${videoId}`);
 
         if (savedEvents) {
-            const parsedEvents: EventData[] = JSON.parse(savedEvents);
-            // Backfill IDs and landed field if missing
-            const eventsWithIds = parsedEvents.map(e => ({
-                ...e,
-                id: e.id || crypto.randomUUID(),
-                landed: e.landed !== undefined ? e.landed : true,
-                // Backfill punchResult based on landed if missing
-                punchResult: e.punchResult || (e.landed !== false ? 'Landed' : 'Missed')
-            }));
-            setEvents(eventsWithIds);
+            const parsedEvents = safeJsonParse<EventData[]>(savedEvents);
+            if (parsedEvents && Array.isArray(parsedEvents)) {
+                const eventsWithIds = parsedEvents.map(e => ({
+                    ...e,
+                    id: e.id || generateId(),
+                    landed: e.landed !== undefined ? e.landed : true,
+                    punchResult: e.punchResult || (e.landed !== false ? 'Landed' : 'Missed')
+                }));
+                setEvents(eventsWithIds);
+            }
         }
 
-        // Load recording state from localStorage
-        const savedRecordingState = localStorage.getItem(`workspace_recording_${videoId}`);
+        const savedRecordingState = safeGetItem(`workspace_recording_${videoId}`);
         if (savedRecordingState !== null) {
             setIsRecording(savedRecordingState === 'true');
         }
-        // isSubmitted is NOT loaded from localStorage - it comes from database assignment status
     }, [videoId]);
 
     // Fetch video data when videoId is available
@@ -288,14 +287,14 @@ function WorkspacePage() {
     // Save events to localStorage whenever they change (video-specific)
     useEffect(() => {
         if (videoId && events.length > 0) {
-            localStorage.setItem(`workspace_events_${videoId}`, JSON.stringify(events));
+            safeSetItem(`workspace_events_${videoId}`, JSON.stringify(events));
         }
     }, [events, videoId]);
 
     // Save recording state to localStorage whenever it changes
     useEffect(() => {
         if (videoId) {
-            localStorage.setItem(`workspace_recording_${videoId}`, String(isRecording));
+            safeSetItem(`workspace_recording_${videoId}`, String(isRecording));
         }
     }, [isRecording, videoId]);
 
@@ -307,7 +306,7 @@ function WorkspacePage() {
     const handleLogEvent = (newEventData: Omit<EventData, 'id'>) => {
         const newEvent: EventData = {
             ...newEventData,
-            id: crypto.randomUUID(),
+            id: generateId(),
             labeledBy: user?.userId,
             labeledByEmail: user?.email,
         };
@@ -372,11 +371,13 @@ function WorkspacePage() {
             body: JSON.stringify(updates),
         });
         if (!res.ok) {
-            const err = await res.json();
-            throw new Error(err.error || 'Failed to update video');
+            const err = await safeResponseJson<{ error?: string }>(res);
+            throw new Error(err?.error || 'Failed to update video');
         }
-        const { video } = await res.json();
-        setVideoData(prev => prev ? { ...prev, title: video.title, boxer1: video.boxer1, boxer2: video.boxer2, round: video.round } : prev);
+        const data = await safeResponseJson<{ video: VideoData }>(res);
+        if (data?.video) {
+            setVideoData(prev => prev ? { ...prev, title: data.video.title, boxer1: data.video.boxer1, boxer2: data.video.boxer2, round: data.video.round } : prev);
+        }
     };
 
     const getCurrentTime = () => {
@@ -534,7 +535,7 @@ function WorkspacePage() {
         try {
             // Save to localStorage (video-specific)
             if (videoId) {
-                localStorage.setItem(`workspace_events_${videoId}`, JSON.stringify(events));
+                safeSetItem(`workspace_events_${videoId}`, JSON.stringify(events));
             }
 
             // Save to database so admins can see progress (but NOT submit/finalize)
@@ -731,7 +732,7 @@ function WorkspacePage() {
                 }
 
                 if (!dbResponse.ok) {
-                    const errorData = await dbResponse.json();
+                    const errorData = await safeResponseJson(dbResponse);
                     console.error('Failed to save events to database:', errorData);
                     // Continue to external webhook even if local save fails
                 } else {
@@ -806,8 +807,8 @@ function WorkspacePage() {
             }
 
             setIsSubmitted(true);
-            setIsRecording(false);  // Stop recording after submission
-            localStorage.removeItem(`workspace_recording_${videoId}`);  // Clear from localStorage
+            setIsRecording(false);
+            safeRemoveItem(`workspace_recording_${videoId}`);
             // Note: isSubmitted state is now determined by database assignment status
             // No need to persist to localStorage
             setShowSuccessModal(true);

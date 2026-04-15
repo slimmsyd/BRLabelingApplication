@@ -28,10 +28,13 @@ export const LoginForm: React.FC<LoginFormProps> = ({ onToggleMode }) => {
                 body: JSON.stringify({ email, password }),
             });
 
-            const data = await res.json();
-
             if (!res.ok) {
-                throw new Error(data.message || 'Something went wrong');
+                let message = 'Something went wrong';
+                try {
+                    const data = await res.json();
+                    message = data.message || message;
+                } catch { /* non-JSON error body */ }
+                throw new Error(message);
             }
 
             router.push('/');

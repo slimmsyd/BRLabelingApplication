@@ -37,13 +37,15 @@ export const SignupForm: React.FC<SignupFormProps> = ({ onToggleMode }) => {
                 body: JSON.stringify({ email, username, password }),
             });
 
-            const data = await res.json();
-
             if (!res.ok) {
-                throw new Error(data.message || 'Something went wrong');
+                let message = 'Something went wrong';
+                try {
+                    const data = await res.json();
+                    message = data.message || message;
+                } catch { /* non-JSON error body */ }
+                throw new Error(message);
             }
 
-            // Redirect to home page after successful signup
             router.push('/');
         } catch (err: any) {
             setError(err.message);
