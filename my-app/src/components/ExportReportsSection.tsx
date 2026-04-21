@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import DatePicker from 'react-datepicker';
-import { FileDown, Loader2, Calendar, ShieldCheck } from 'lucide-react';
+import { FileDown, Loader2, Calendar, ShieldCheck, ListOrdered } from 'lucide-react';
 import 'react-datepicker/dist/react-datepicker.css';
 
 const TIMEZONES = [
@@ -21,11 +21,21 @@ interface QCUser {
   accountType: string;
 }
 
+interface VideoOption {
+  id: string;
+  title: string;
+  round: number;
+  boxer1: string;
+  boxer2: string;
+  fightDate?: string;
+}
+
 async function triggerDownload(
+  path: string,
   params: URLSearchParams,
   fallbackFilename: string
 ) {
-  const response = await fetch(`/api/admin/export-events?${params}`);
+  const response = await fetch(`${path}?${params}`);
   if (!response.ok) {
     const data = await response.json();
     throw new Error(data.error || 'Failed to export events');
@@ -65,6 +75,13 @@ export default function ExportReportsSection() {
   const [qcUsers, setQcUsers] = useState<QCUser[]>([]);
   const [qcUsersLoading, setQcUsersLoading] = useState(true);
 
+  // Round export state
+  const [videoOptions, setVideoOptions] = useState<VideoOption[]>([]);
+  const [videosLoading, setVideosLoading] = useState(true);
+  const [selectedVideoId, setSelectedVideoId] = useState<string>('');
+  const [roundLoading, setRoundLoading] = useState(false);
+  const [roundError, setRoundError] = useState<string | null>(null);
+
   useEffect(() => {
     async function fetchQCUsers() {
       try {
@@ -79,6 +96,30 @@ export default function ExportReportsSection() {
       }
     }
     fetchQCUsers();
+  }, []);
+
+  useEffect(() => {
+    async function fetchVideos() {
+      try {
+        const res = await fetch('/api/videos');
+        if (!res.ok) return;
+        const data = await res.json();
+        const options: VideoOption[] = (data.videos ?? []).map((v: VideoOption) => ({
+          id: v.id,
+          title: v.title,
+          round: v.round,
+          boxer1: v.boxer1,
+          boxer2: v.boxer2,
+          fightDate: v.fightDate,
+        }));
+        setVideoOptions(options);
+      } catch {
+        // silently fail — picker will be empty
+      } finally {
+        setVideosLoading(false);
+      }
+    }
+    fetchVideos();
   }, []);
 
   const handleExport = async () => {
@@ -101,11 +142,28 @@ export default function ExportReportsSection() {
         timezone,
         exportType: 'all',
       });
-      await triggerDownload(params, `events-export-${new Date().toISOString().split('T')[0]}.csv`);
+      await triggerDownload('/api/admin/export-events', params, `events-export-${new Date().toISOString().split('T')[0]}.csv`);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Export failed');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleRoundExport = async () => {
+    if (!selectedVideoId) {
+      setRoundError('Please select a round');
+      return;
+    }
+    setRoundError(null);
+    setRoundLoading(true);
+    try {
+      const params = new URLSearchParams({ videoId: selectedVideoId });
+      await triggerDownload('/api/admin/export-events/round', params, 'round-export.csv');
+    } catch (err) {
+      setRoundError(err instanceof Error ? err.message : 'Export failed');
+    } finally {
+      setRoundLoading(false);
     }
   };
 
@@ -132,7 +190,7 @@ export default function ExportReportsSection() {
       if (qcUserEmail !== 'all') {
         params.set('qcUserEmail', qcUserEmail);
       }
-      await triggerDownload(params, `qc-changes-${new Date().toISOString().split('T')[0]}.csv`);
+      await triggerDownload('/api/admin/export-events', params, `qc-changes-${new Date().toISOString().split('T')[0]}.csv`);
     } catch (err) {
       setQcError(err instanceof Error ? err.message : 'Export failed');
     } finally {
@@ -229,7 +287,7 @@ export default function ExportReportsSection() {
         <button
           onClick={handleExport}
           disabled={loading || !startDate || !endDate}
-          className="px-6 py-3 bg-accent-primary hover:bg-accent-primary/80 disabled:bg-accent-primary/30 disabled:cursor-not-allowed text-white font-medium rounded-lg transition-colors flex items-center gap-2"
+          className="px-6 py-3 bg-accent-primary hover:bg-accent-primary/80 disabled:bg-accent-primary/30 cursor-pointer disabled:cursor-not-allowed text-white font-medium rounded-lg transition-colors flex items-center gap-2"
         >
           {loading ? (
             <><Loader2 size={18} className="animate-spin" />Exporting...</>
@@ -339,12 +397,64 @@ export default function ExportReportsSection() {
         <button
           onClick={handleQCExport}
           disabled={qcLoading || !qcStartDate || !qcEndDate}
-          className="px-6 py-3 bg-amber-500 hover:bg-amber-500/80 disabled:bg-amber-500/30 disabled:cursor-not-allowed text-white font-medium rounded-lg transition-colors flex items-center gap-2"
+          className="px-6 py-3 bg-amber-500 hover:bg-amber-500/80 disabled:bg-amber-500/30 cursor-pointer disabled:cursor-not-allowed text-white font-medium rounded-lg transition-colors flex items-center gap-2"
         >
           {qcLoading ? (
             <><Loader2 size={18} className="animate-spin" />Exporting...</>
           ) : (
             <><ShieldCheck size={18} />Export QC CSV</>
+          )}
+        </button>
+      </div>
+
+      {/* Round Export */}
+      <div className="bg-surface/30 border border-border/50 rounded-xl p-6">
+        <div className="flex items-start gap-4 mb-6">
+          <div className="p-2 bg-emerald-500/10 rounded-lg mt-1">
+            <ListOrdered size={20} className="text-emerald-500" />
+          </div>
+          <div>
+            <h4 className="font-medium text-foreground">Export Round </h4>
+            <p className="text-sm text-foreground-tertiary">
+              Export every event for a single round.All labelers merged, sorted chronologically.
+            </p>
+          </div>
+        </div>
+
+        <div className="mb-6">
+          <label className="block text-xs font-semibold uppercase tracking-wider text-foreground-secondary mb-2">
+            Round
+          </label>
+          <select
+            value={selectedVideoId}
+            onChange={(e) => setSelectedVideoId(e.target.value)}
+            disabled={videosLoading}
+            className="w-full bg-surface/50 border border-border/50 rounded-lg p-3 text-foreground focus:outline-none focus:border-accent-primary/50 appearance-none cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <option value="">{videosLoading ? 'Loading rounds...' : 'Select a round'}</option>
+            {videoOptions.map((v) => (
+              <option key={v.id} value={v.id}>
+                {v.title}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        {roundError && (
+          <div className="mb-4 p-3 bg-red-500/10 border border-red-500/30 rounded-lg text-red-400 text-sm">
+            {roundError}
+          </div>
+        )}
+
+        <button
+          onClick={handleRoundExport}
+          disabled={roundLoading || !selectedVideoId}
+          className="px-6 py-3 bg-emerald-500 hover:bg-emerald-500/80 disabled:bg-emerald-500/30 cursor-pointer disabled:cursor-not-allowed text-white font-medium rounded-lg transition-colors flex items-center gap-2"
+        >
+          {roundLoading ? (
+            <><Loader2 size={18} className="animate-spin" />Exporting...</>
+          ) : (
+            <><ListOrdered size={18} />Export Round CSV</>
           )}
         </button>
       </div>

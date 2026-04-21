@@ -139,18 +139,55 @@ export async function getExternalAccountByEmail(email: string): Promise<Permissi
     });
     const endTime = performance.now();
 
+    const contentType = response.headers.get('content-type') ?? '';
+    const contentLength = response.headers.get('content-length') ?? 'unknown';
     console.log('⏱️  Fetch took:', (endTime - startTime).toFixed(2), 'ms');
-    console.log('📊 Response status:', response.status, response.statusText);
+    console.log('🔍 Upstream response:', {
+      finalUrl: response.url,
+      status: response.status,
+      statusText: response.statusText,
+      contentType,
+      contentLength,
+    });
+
+    const bodyText = await response.text();
+    const looksLikeHtml = /^\s*<(!doctype|html)/i.test(bodyText);
 
     if (!response.ok) {
-      console.error('❌ Failed to fetch accounts from DEV API:', response.status);
-      const errorText = await response.text();
-      console.error('❌ Error response:', errorText);
+      console.error('❌ Failed to fetch accounts from DEV API:', {
+        status: response.status,
+        statusText: response.statusText,
+        contentType,
+        looksLikeHtml,
+        bodySnippet: bodyText.slice(0, 500),
+      });
       console.log('🌐 [getExternalAccountByEmail] ========================\n');
       return null;
     }
 
-    const data = await response.json();
+    if (looksLikeHtml || !contentType.includes('application/json')) {
+      console.error('❌ Upstream returned non-JSON / error response:', {
+        finalUrl: response.url,
+        status: response.status,
+        contentType,
+        looksLikeHtml,
+        bodySnippet: bodyText.slice(0, 500),
+      });
+      console.log('🌐 [getExternalAccountByEmail] ========================\n');
+      return null;
+    }
+
+    let data;
+    try {
+      data = JSON.parse(bodyText);
+    } catch (err) {
+      console.error('❌ JSON parse failed despite JSON content-type:', {
+        error: String(err),
+        bodySnippet: bodyText.slice(0, 500),
+      });
+      console.log('🌐 [getExternalAccountByEmail] ========================\n');
+      return null;
+    }
     console.log('📦 Raw response data type:', Array.isArray(data) ? 'ARRAY' : typeof data);
     console.log('📦 Response keys:', typeof data === 'object' ? Object.keys(data).join(', ') : 'N/A');
     

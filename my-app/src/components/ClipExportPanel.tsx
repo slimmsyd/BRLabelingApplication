@@ -477,7 +477,7 @@ export default function ClipExportPanel() {
                 <button
                     onClick={handleGenerate}
                     disabled={isLoading || !ffmpegReady}
-                    className="w-full px-6 py-3 bg-purple-600 hover:bg-purple-500 disabled:bg-purple-600/30 disabled:cursor-not-allowed text-white font-semibold rounded-lg transition-colors flex items-center justify-center gap-2 text-sm"
+                    className="w-full px-6 py-3 bg-purple-600 hover:bg-purple-500 disabled:bg-purple-600/30 cursor-pointer disabled:cursor-not-allowed text-white font-semibold rounded-lg transition-colors flex items-center justify-center gap-2 text-sm"
                 >
                     {isLoading ? (
                         <>

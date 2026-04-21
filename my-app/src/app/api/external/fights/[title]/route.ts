@@ -12,32 +12,75 @@ export async function GET(
 ) {
   try {
     const { title } = await params;
-    console.log('🔍 Proxying GET /fight/' + title + ' to DEV API...');
-    
-    const response = await fetch(`${EXTERNAL_API_URL}/fight/${title}`, {
+    const targetUrl = `${EXTERNAL_API_URL}/fight/${title}`;
+    console.log('🔍 Proxying GET to:', targetUrl);
+
+    const response = await fetch(targetUrl, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
       },
     });
 
-    console.log('🔍 Response status:', response.status);
-    
+    const contentType = response.headers.get('content-type') ?? '';
+    const contentLength = response.headers.get('content-length') ?? 'unknown';
+    console.log('🔍 Upstream response:', {
+      finalUrl: response.url,
+      status: response.status,
+      statusText: response.statusText,
+      contentType,
+      contentLength,
+    });
+
+    const bodyText = await response.text();
+    const looksLikeHtml = /^\s*<(!doctype|html)/i.test(bodyText);
+
     if (!response.ok) {
-      const errorText = await response.text();
-      console.error('❌ DEV API Error:', response.status, errorText);
+      console.error('❌ DEV API Error:', {
+        status: response.status,
+        statusText: response.statusText,
+        contentType,
+        looksLikeHtml,
+        bodySnippet: bodyText.slice(0, 500),
+      });
       return NextResponse.json(
         { error: `Fight '${title}' not found`, status: response.status },
         { status: response.status }
       );
     }
 
-    const data = await response.json();
+    if (looksLikeHtml || !contentType.includes('application/json')) {
+      console.error('❌ Upstream returned non-JSON / error response:', {
+        finalUrl: response.url,
+        status: response.status,
+        contentType,
+        looksLikeHtml,
+        bodySnippet: bodyText.slice(0, 500),
+      });
+      return NextResponse.json(
+        { error: 'Failed to connect to DEV API', details: 'Upstream returned non-JSON response' },
+        { status: 500 }
+      );
+    }
+
+    let data;
+    try {
+      data = JSON.parse(bodyText);
+    } catch (err) {
+      console.error('❌ JSON parse failed despite JSON content-type:', {
+        error: String(err),
+        bodySnippet: bodyText.slice(0, 500),
+      });
+      return NextResponse.json(
+        { error: 'Failed to connect to DEV API', details: String(err) },
+        { status: 500 }
+      );
+    }
+
     console.log('✅ Fight data from DEV API:', title);
-    
     return NextResponse.json(data);
   } catch (error) {
-    console.error('❌ Error proxying to DEV API:', error);
+    console.error('❌ Error proxying to DEV API:', String(error));
     return NextResponse.json(
       { error: 'Failed to connect to DEV API', details: String(error) },
       { status: 500 }

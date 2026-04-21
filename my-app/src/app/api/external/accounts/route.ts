@@ -29,33 +29,73 @@ export async function GET(request: Request) {
       },
     });
 
-    console.log('📊 Response status:', response.status);
-    
+    const contentType = response.headers.get('content-type') ?? '';
+    const contentLength = response.headers.get('content-length') ?? 'unknown';
+    console.log('🔍 Upstream response:', {
+      finalUrl: response.url,
+      status: response.status,
+      statusText: response.statusText,
+      contentType,
+      contentLength,
+    });
+
+    const bodyText = await response.text();
+    const looksLikeHtml = /^\s*<(!doctype|html)/i.test(bodyText);
+
     if (!response.ok) {
-      const errorText = await response.text();
       console.error('\n❌❌❌ EXTERNAL API ERROR ❌❌❌');
       console.error('🌐 URL Attempted:', `${EXTERNAL_API_URL}/accounts`);
+      console.error('🌐 Final URL (after redirects):', response.url);
       console.error('📊 Status Code:', response.status);
       console.error('📊 Status Text:', response.statusText);
       console.error('📄 Response Headers:', Object.fromEntries(response.headers.entries()));
-      console.error('📄 Error Body:', errorText.substring(0, 500));
+      console.error('📄 Looks like HTML:', looksLikeHtml);
+      console.error('📄 Error Body:', bodyText.substring(0, 500));
       console.error('❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌\n');
       console.log('🔐 [ACCOUNTS API DEBUG] ===========================\n');
-      
+
       return NextResponse.json(
-        { 
+        {
           error: 'Failed to fetch from DEV API',
           status: response.status,
           statusText: response.statusText,
           url: `${EXTERNAL_API_URL}/accounts`,
-          details: errorText.substring(0, 500),
+          details: bodyText.substring(0, 500),
           suggestion: 'The external API endpoint may not be available. Please check EXTERNAL_API_URL environment variable.'
         },
         { status: response.status }
       );
     }
 
-    const data = await response.json();
+    if (looksLikeHtml || !contentType.includes('application/json')) {
+      console.error('❌ Upstream returned non-JSON / error response:', {
+        finalUrl: response.url,
+        status: response.status,
+        contentType,
+        looksLikeHtml,
+        bodySnippet: bodyText.slice(0, 500),
+      });
+      console.log('🔐 [ACCOUNTS API DEBUG] ===========================\n');
+      return NextResponse.json(
+        { error: 'Failed to connect to DEV API', details: 'Upstream returned non-JSON response' },
+        { status: 500 }
+      );
+    }
+
+    let data;
+    try {
+      data = JSON.parse(bodyText);
+    } catch (err) {
+      console.error('❌ JSON parse failed despite JSON content-type:', {
+        error: String(err),
+        bodySnippet: bodyText.slice(0, 500),
+      });
+      console.log('🔐 [ACCOUNTS API DEBUG] ===========================\n');
+      return NextResponse.json(
+        { error: 'Failed to connect to DEV API', details: String(err) },
+        { status: 500 }
+      );
+    }
     console.log('✅ Successfully fetched accounts from DEV API');
     
     // Parse accounts array

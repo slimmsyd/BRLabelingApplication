@@ -12,6 +12,15 @@ interface UserProfile {
     email: string;
     username: string;
     accountType: string;
+    permissions?: Record<string, boolean>;
+    permissionsUpdatedAt?: string;
+    externalAccount?: {
+        username: string;
+        email: string;
+        accountType: string;
+        permissions?: Record<string, boolean>;
+    } | null;
+    isExternalVerified?: boolean;
 }
 
 export default function SettingsPage() {
@@ -25,6 +34,12 @@ export default function SettingsPage() {
                 const response = await fetch('/api/auth/me');
                 if (response.ok) {
                     const data = await response.json();
+                    console.log('[Settings] External API Status:', data.isExternalVerified ? 'CONNECTED' : 'NOT CONNECTED');
+                    console.log('[Settings] Local Role (Supabase):', data.accountType);
+                    console.log('[Settings] External Role (API):', data.externalAccount?.accountType || 'Not found');
+                    console.log('[Settings] Local Permissions:', data.permissions || 'None cached');
+                    console.log('[Settings] External Permissions:', data.externalAccount?.permissions || 'API unreachable');
+                    console.log('[Settings] Last Synced:', data.permissionsUpdatedAt || 'Never');
                     setUser(data);
                 } else {
                     router.push('/login');
