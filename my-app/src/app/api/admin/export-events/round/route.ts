@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getSession } from '@/lib/session';
 
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 const COLUMNS = [
   'id',
   'assignmentId',
@@ -96,19 +99,25 @@ export async function GET(request: NextRequest) {
     }
 
     const videoId = request.nextUrl.searchParams.get('videoId');
+    const reqId = Math.random().toString(36).slice(2, 8);
+    console.log(`[ROUND-EXPORT ${reqId}] IN  url=${request.url} videoId=${videoId}`);
     if (!videoId) {
+      console.log(`[ROUND-EXPORT ${reqId}] REJECT missing videoId`);
       return NextResponse.json({ error: 'videoId is required' }, { status: 400 });
     }
 
     const video = await prisma.video.findUnique({ where: { id: videoId } });
     if (!video) {
+      console.log(`[ROUND-EXPORT ${reqId}] REJECT video not found for id=${videoId}`);
       return NextResponse.json({ error: 'Video not found' }, { status: 404 });
     }
+    console.log(`[ROUND-EXPORT ${reqId}] LOOKUP video.id=${video.id} title="${video.title}" round=${video.round} boxer1="${video.boxer1}" boxer2="${video.boxer2}"`);
 
     const events = await prisma.event.findMany({
       where: { assignment: { videoId } },
       include: { assignment: { include: { video: true } } },
     });
+    console.log(`[ROUND-EXPORT ${reqId}] EVENTS count=${events.length}`);
 
     const sorted = [...events].sort(
       (a, b) => parseTimeToSeconds(a.startTime) - parseTimeToSeconds(b.startTime)
@@ -150,12 +159,14 @@ export async function GET(request: NextRequest) {
 
     const csv = generateCSV(rows);
     const filename = `round-${slugify(video.title)}-${video.id}.csv`;
+    console.log(`[ROUND-EXPORT ${reqId}] OUT filename="${filename}" rows=${rows.length} bytes=${csv.length}`);
 
     return new NextResponse(csv, {
       status: 200,
       headers: {
         'Content-Type': 'text/csv',
         'Content-Disposition': `attachment; filename="${filename}"`,
+        'Cache-Control': 'no-store, must-revalidate',
       },
     });
   } catch (error) {
