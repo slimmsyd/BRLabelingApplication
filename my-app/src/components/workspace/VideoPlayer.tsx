@@ -891,7 +891,7 @@ const VideoPlayer = ({ videoRef, activeCam, setActiveCam, videoSources, fps = 30
                                 transition: isPanning ? 'none' : 'transform 0.1s ease-out',
                                 display: activeCam === 'CAM 1' ? 'block' : 'none',
                             }}
-                            preload="auto"
+                            preload={activeCam === 'CAM 1' ? 'auto' : 'metadata'}
                             onEnded={() => setIsPlaying(false)}
                             onClick={handleVideoClick}
                             onMouseDown={handleVideoMouseDown}
@@ -909,7 +909,7 @@ const VideoPlayer = ({ videoRef, activeCam, setActiveCam, videoSources, fps = 30
                                 transition: isPanning ? 'none' : 'transform 0.1s ease-out',
                                 display: activeCam === 'CAM 2' ? 'block' : 'none',
                             }}
-                            preload="auto"
+                            preload={activeCam === 'CAM 2' ? 'auto' : 'metadata'}
                             onEnded={() => setIsPlaying(false)}
                             onClick={handleVideoClick}
                             onMouseDown={handleVideoMouseDown}
@@ -927,7 +927,7 @@ const VideoPlayer = ({ videoRef, activeCam, setActiveCam, videoSources, fps = 30
                                 transition: isPanning ? 'none' : 'transform 0.1s ease-out',
                                 display: activeCam === 'CAM 3' ? 'block' : 'none',
                             }}
-                            preload="auto"
+                            preload={activeCam === 'CAM 3' ? 'auto' : 'metadata'}
                             onEnded={() => setIsPlaying(false)}
                             onClick={handleVideoClick}
                             onMouseDown={handleVideoMouseDown}

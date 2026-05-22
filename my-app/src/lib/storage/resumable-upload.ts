@@ -99,7 +99,8 @@ export async function uploadFileResumable(
         bucketName: BUCKET_NAME,
         objectName: storagePath,
         contentType: file.type || 'video/mp4',
-        cacheControl: '3600',
+        // 30 days. Matches supabase-provider.ts — long TTL is safe for immutable video files.
+        cacheControl: '2592000',
       },
       onError: (error) => {
         console.error('[Resumable Upload] Error:', error);
