@@ -43,7 +43,19 @@ export async function GET(
       );
     }
 
-    return NextResponse.json({ video }, { status: 200 });
+    return NextResponse.json(
+      { video },
+      {
+        status: 200,
+        headers: {
+          // Cache the video metadata + sourceUrls in the browser for 5 minutes,
+          // and let it serve a stale copy for up to a day while revalidating.
+          // Avoids re-hitting the DB (and re-issuing Supabase Storage URLs) on
+          // every workspace re-mount or tab focus.
+          'Cache-Control': 'private, max-age=300, stale-while-revalidate=86400',
+        },
+      }
+    );
   } catch (error) {
     console.error('[Video API] Error fetching video:', error);
     return NextResponse.json(

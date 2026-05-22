@@ -27,7 +27,9 @@ export class SupabaseStorageProvider implements StorageProvider {
     const { data, error } = await this.client.storage
       .from(this.bucketName)
       .upload(path, file, {
-        cacheControl: '3600',
+        // 30 days. Videos are immutable once uploaded, so a long TTL is safe
+        // and cuts repeat-egress dramatically (was '3600' = 1h, causing hourly re-downloads).
+        cacheControl: '2592000',
         upsert: false, // Prevent overwriting existing files
       });
     
