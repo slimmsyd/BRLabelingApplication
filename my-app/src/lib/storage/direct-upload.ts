@@ -106,6 +106,9 @@ export function uploadFileDirect(
     console.log(`[Direct Upload] Signed URL (first 100 chars): ${signedUrl.substring(0, 100)}...`);
     console.log(`[Direct Upload] Sending PUT request...`);
     xhr.setRequestHeader('Content-Type', contentType);
+    // 30 days. Without this Supabase defaults the stored cacheControl to 'no-cache',
+    // which forces revalidation on every video request and burns cached-egress quota.
+    xhr.setRequestHeader('Cache-Control', 'max-age=2592000');
     xhr.send(file);
   });
 }
