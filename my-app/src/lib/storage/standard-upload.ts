@@ -107,6 +107,9 @@ export async function uploadFileStandard(
     xhr.setRequestHeader('Authorization', `Bearer ${token}`);
     xhr.setRequestHeader('Content-Type', file.type || 'video/mp4');
     xhr.setRequestHeader('x-upsert', 'true'); // Allow overwriting
+    // 30 days. Without this Supabase defaults the stored cacheControl to 'no-cache',
+    // which forces revalidation on every video request and burns cached-egress quota.
+    xhr.setRequestHeader('Cache-Control', 'max-age=2592000');
     xhr.send(file);
   });
 }

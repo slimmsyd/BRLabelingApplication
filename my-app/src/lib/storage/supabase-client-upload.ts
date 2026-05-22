@@ -96,7 +96,8 @@ export async function uploadFileWithClient(
     const { data, error } = await supabase.storage
       .from(BUCKET_NAME)
       .upload(storagePath, file, {
-        cacheControl: '3600',
+        // 30 days. Matches the rest of the upload paths — videos are immutable.
+        cacheControl: '2592000',
         upsert: true, // Allow overwriting
         contentType: file.type || 'video/mp4',
       });
