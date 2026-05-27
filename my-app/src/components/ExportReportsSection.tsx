@@ -443,7 +443,11 @@ async function triggerDownload(
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
-  window.URL.revokeObjectURL(url);
+  // Delayed revoke: Safari/WebKit downloads the blob asynchronously after click().
+  // Synchronous revokeObjectURL kills the blob before the save completes, producing
+  // "WebKitBlobResource error 1". Chrome/Firefox are unaffected. The 1s delay lets
+  // every browser finish initiating the download safely.
+  setTimeout(() => window.URL.revokeObjectURL(url), 1000);
 }
 
 export default function ExportReportsSection() {
