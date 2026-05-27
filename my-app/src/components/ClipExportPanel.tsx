@@ -285,7 +285,8 @@ export default function ClipExportPanel() {
             document.body.appendChild(a);
             a.click();
             document.body.removeChild(a);
-            URL.revokeObjectURL(url);
+            // Delayed revoke for Safari/WebKit (see note in ExportReportsSection.tsx).
+            setTimeout(() => URL.revokeObjectURL(url), 1000);
 
             setProgress(100);
             setStatusMessage(`Done! Downloaded ${events.length} clips.`);
