@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { computeEventRowsWithPreservedTimestamps } from '@/lib/event-helpers';
 
 interface EventInput {
   startTime: string;
@@ -71,34 +72,31 @@ export async function POST(
     // Get fight title from video
     const fightTitle = assignment.video.title;
 
-    // Delete existing events for this assignment (replace strategy)
-    await prisma.event.deleteMany({
+    // Read existing events to capture their original createdAt before the
+    // replace-strategy delete + recreate below. Without this, Prisma's
+    // @default(now()) would stamp a fresh createdAt on every QC re-save,
+    // which leaks old rounds into the current week's productivity report.
+    // See: my-app/src/lib/event-helpers.ts and the test script
+    //      my-app/scripts/test-preserve-event-createdat.ts
+    const existingEvents = await prisma.event.findMany({
       where: { assignmentId },
+      select: { startTime: true, createdAt: true },
     });
 
-    // Create new events with fightTitle
-    const createdEvents = await prisma.event.createMany({
-      data: events.map((event) => ({
-        assignmentId,
-        startTime: event.startTime,
-        endTime: event.endTime,
-        boxer: event.boxer,
-        punchType: event.punchType,
-        hand: event.hand,
-        target: event.target,
-        visibilityFlags: event.visibilityFlags,
-        knockdown: event.knockdown,
-        punchQuality: event.punchQuality,
-        cam: event.cam,
-        stance: event.stance,
-        landed: event.landed,
-        punchResult: event.punchResult,
-        defenseType: event.defenseType,
-        labeledBy: event.labeledBy,
-        labeledByEmail: event.labeledByEmail,
-        fightTitle: event.fightTitle || fightTitle,  // Use provided or fetch from video
-      })),
-    });
+    const rowsToCreate = computeEventRowsWithPreservedTimestamps(
+      existingEvents,
+      events,
+      assignmentId,
+      new Date(),
+      fightTitle,
+    );
+
+    // Atomic delete + recreate so the assignment is never in a zero-event
+    // state mid-flight if createMany were to fail.
+    const [, createdEvents] = await prisma.$transaction([
+      prisma.event.deleteMany({ where: { assignmentId } }),
+      prisma.event.createMany({ data: rowsToCreate }),
+    ]);
 
     // Only update assignment status to SUBMITTED if NOT a saveOnly request
     if (!saveOnly) {
