@@ -139,17 +139,6 @@ function RowContent({
       </div>
       <div className="flex flex-col items-end gap-1 shrink-0">
         <StatusBadge statusKey={statusKey} />
-        <span className="text-xs tabular-nums text-foreground-secondary">
-          {count === null ? (
-            <span className="text-foreground-tertiary">…</span>
-          ) : count === 0 ? (
-            <span className="text-zinc-500 italic">no events</span>
-          ) : (
-            <>
-              {count} {count === 1 ? 'event' : 'events'}
-            </>
-          )}
-        </span>
       </div>
     </div>
   );
@@ -372,7 +361,10 @@ function RoundPicker({
                     }}
                     className={[
                       'w-full text-left px-3 py-2.5 cursor-pointer transition-colors flex items-center gap-3',
-                      isHi ? 'bg-surface/80' : 'hover:bg-surface/60',
+                      // Hue-tinted hover (mouse + keyboard nav both set isHi via onMouseEnter / arrow keys).
+                      // Uses accent-primary so users see a distinct "about-to-click" hue, separate from the
+                      // emerald "currently-selected" border below. Pure background-color change — no layout shift.
+                      isHi ? 'bg-accent-primary/15' : 'hover:bg-accent-primary/10',
                       isSel
                         ? 'border-l-2 border-emerald-500'
                         : 'border-l-2 border-transparent',
@@ -680,10 +672,7 @@ export default function ExportReportsSection() {
     }
   };
 
-  const exportButtonLabel =
-    selectedCount && selectedCount > 0
-      ? `Export ${selectedCount} ${selectedCount === 1 ? 'event' : 'events'}`
-      : 'Export Round CSV';
+  const exportButtonLabel = 'Export Events';
 
   return (
     <div className="space-y-6 pt-6 border-t border-border/50">
