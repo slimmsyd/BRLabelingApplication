@@ -1,9 +1,13 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { getSession } from '@/lib/session';
+import { canAssignRounds } from '@/lib/permissions';
 
 /**
  * POST /api/videos/[id]/assign
- * Assigns the current user to a video
+ * Self-pickup: any logged-in user can assign an unassigned round to themselves.
+ * Assigning to ANOTHER user (re-assign) requires being in the ROUND_ASSIGNERS
+ * allowlist (see src/lib/permissions.ts).
  */
 export async function POST(
   request: Request,
@@ -12,26 +16,30 @@ export async function POST(
   try {
     const { id: videoId } = await params;
     const body = await request.json();
-    const { userId, email, labelType = 'OFFENSE', targetUserId } = body;
+    const { labelType = 'OFFENSE', targetUserId } = body;
+
+    // Identity comes from the signed session cookie — never trust the body for auth.
+    const session = await getSession();
+    if (!session) {
+      return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
+    }
+
+    // targetUserId = assigning to someone else; otherwise self-pickup.
+    const assigneeUserId = targetUserId || session.userId;
 
     console.log('[Assign API] Received assignment request:', {
       videoId,
-      requestingUserId: userId,
-      targetUserId,
-      labelType
+      requesterId: session.userId,
+      assigneeUserId,
+      labelType,
     });
 
-    // If targetUserId is provided (admin assigning to another user), use that
-    // Otherwise, use the current user's userId (self-assignment)
-    const assigneeUserId = targetUserId || userId;
-    
-    console.log('[Assign API] Assigning to user:', assigneeUserId);
-    
-    // We still need userId and email for auth purposes
-    if (!userId || !email) {
+    // Assigning to another user requires the round-assign permission.
+    if (assigneeUserId !== session.userId && !canAssignRounds(session.email)) {
+      console.warn('[Assign API] Forbidden: %s tried to assign to %s', session.email, assigneeUserId);
       return NextResponse.json(
-        { error: 'User ID and email are required' },
-        { status: 400 }
+        { error: 'You do not have permission to assign rounds to other users' },
+        { status: 403 }
       );
     }
 

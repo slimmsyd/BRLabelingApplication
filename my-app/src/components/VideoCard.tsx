@@ -17,13 +17,13 @@ interface VideoCardProps {
         status: string;
     };
     thumbnailUrl?: string;
-    isAdmin?: boolean;
+    canAssign?: boolean;
     assignmentId?: string;
     onAssignmentChange?: () => void;
     onAssignClick?: () => void;
 }
 
-const VideoCard = ({ id, title, boxer1, boxer2, round, fightDate, numCameraViews, createdAt, assignee, thumbnailUrl, isAdmin = false, assignmentId, onAssignmentChange, onAssignClick }: VideoCardProps) => {
+const VideoCard = ({ id, title, boxer1, boxer2, round, fightDate, numCameraViews, createdAt, assignee, thumbnailUrl, canAssign = false, assignmentId, onAssignmentChange, onAssignClick }: VideoCardProps) => {
     const [showMenu, setShowMenu] = useState(false);
     const [removing, setRemoving] = useState(false);
 
@@ -89,8 +89,8 @@ const VideoCard = ({ id, title, boxer1, boxer2, round, fightDate, numCameraViews
                             <div className="absolute inset-0 bg-gradient-to-br from-gray-800 to-gray-900 group-hover:scale-105 transition-transform duration-500" />
                         )}
 
-                        {/* Admin Menu - Top Left */}
-                        {isAdmin && (
+                        {/* Assignment Menu - Top Left (only for round-assigners) */}
+                        {canAssign && (
                             <div className="absolute top-2 left-2 z-20">
                                 <button
                                     onClick={(e) => {

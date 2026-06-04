@@ -5,6 +5,7 @@ import VideoCard from './VideoCard';
 import AssignmentModal from './AssignmentModal';
 import { Plus, Loader2, UserPlus, MoreVertical, Trash2 } from 'lucide-react';
 import Link from 'next/link';
+import { canAssignRounds } from '@/lib/permissions';
 
 interface Video {
     id: string;
@@ -31,7 +32,7 @@ const VideoGrid = () => {
     const [videos, setVideos] = useState<Video[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
-    const [currentUser, setCurrentUser] = useState<{ accountType: string } | null>(null);
+    const [currentUser, setCurrentUser] = useState<{ accountType: string; email?: string } | null>(null);
     const [assignModalOpen, setAssignModalOpen] = useState(false);
     const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
     const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
@@ -170,7 +171,7 @@ const VideoGrid = () => {
                                         status: video.assignments[0].status
                                     } : undefined}
                                     thumbnailUrl={video.sourceUrls?.[0]}
-                                    isAdmin={currentUser?.accountType === 'ADMIN'}
+                                    canAssign={canAssignRounds(currentUser?.email)}
                                     assignmentId={video.assignments?.[0]?.id}
                                     onAssignmentChange={handleRefreshVideos}
                                     onAssignClick={() => {
@@ -270,24 +271,24 @@ const VideoGrid = () => {
                                                 </div>
                                             </Link>
 
-                                            {/* Admin Controls - Assign Button & 3-Dot Menu */}
-                                            {currentUser?.accountType === 'ADMIN' && (
-                                                <>
-                                                    {/* Assign Button */}
-                                                    <button
-                                                        onClick={(e) => {
-                                                            e.preventDefault();
-                                                            e.stopPropagation();
-                                                            setSelectedVideoForAssign({ id: video.id, title: video.title });
-                                                            setAssignModalOpen(true);
-                                                        }}
-                                                        className="absolute top-2 right-10 px-3 py-1.5 bg-accent-primary hover:bg-accent-primary/90 text-white text-[10px] font-bold rounded-lg flex items-center gap-1.5 transition-all z-10"
-                                                    >
-                                                        <UserPlus size={12} />
-                                                        ASSIGN
-                                                    </button>
+                                            {/* Assign Button — only round-assigners (see ROUND_ASSIGNERS) */}
+                                            {canAssignRounds(currentUser?.email) && (
+                                                <button
+                                                    onClick={(e) => {
+                                                        e.preventDefault();
+                                                        e.stopPropagation();
+                                                        setSelectedVideoForAssign({ id: video.id, title: video.title });
+                                                        setAssignModalOpen(true);
+                                                    }}
+                                                    className="absolute top-2 right-10 px-3 py-1.5 bg-accent-primary hover:bg-accent-primary/90 text-white text-[10px] font-bold rounded-lg flex items-center gap-1.5 transition-all z-10"
+                                                >
+                                                    <UserPlus size={12} />
+                                                    ASSIGN
+                                                </button>
+                                            )}
 
-                                                    {/* 3-Dot Menu */}
+                                            {/* 3-Dot Menu — Delete Video (admins keep this) */}
+                                            {currentUser?.accountType === 'ADMIN' && (
                                                     <div className="absolute top-2 right-2 z-20">
                                                         <button
                                                             onClick={(e) => {
@@ -318,7 +319,6 @@ const VideoGrid = () => {
                                                             </div>
                                                         )}
                                                     </div>
-                                                </>
                                             )}
                                         </div>
                                     ))}
