@@ -1,7 +1,10 @@
+'use client';
+
 import React from 'react';
 import { Settings, Search, ChevronDown, Video, Box, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'motion/react';
 import { useCurrentUser } from '@/lib/hooks/useCurrentUser';
 
 interface Assignment {
@@ -136,40 +139,66 @@ const Sidebar = ({ isOpen, toggle }: SidebarProps) => {
             `}</style>
             <aside
                 style={{ width: isOpen ? `${sidebarWidth}px` : '80px' }}
-                className={`h-screen bg-sidebar-bg border-r border-border flex flex-col fixed left-0 top-0 z-50 transition-all duration-300 ease-in-out ${isResizing ? 'select-none' : ''}`}
+                className={`h-screen bg-sidebar-bg border-r border-border flex flex-col fixed left-0 top-0 z-50 transition-[width] duration-300 ease-in-out ${isResizing ? 'select-none' : ''}`}
             >
                 {/* Header / Logo Area */}
                 <div className={`h-16 flex items-center px-4 gap-3 ${!isOpen && 'justify-center'}`}>
                     <button
                         onClick={toggle}
-                        className="p-2 hover:bg-white/5 rounded-md transition-colors text-foreground-secondary hover:text-foreground cursor-pointer"
+                        aria-label={isOpen ? 'Collapse sidebar' : 'Expand sidebar'}
+                        aria-expanded={isOpen}
+                        className="w-10 h-10 flex items-center justify-center shrink-0 hover:bg-white/5 rounded-lg transition-colors text-foreground-secondary hover:text-foreground cursor-pointer"
                     >
-                        <div className="space-y-1">
-                            <div className="w-4 h-0.5 bg-current"></div>
-                            <div className="w-4 h-0.5 bg-current"></div>
-                            <div className="w-4 h-0.5 bg-current"></div>
+                        {/* Hamburger that morphs into an X when the sidebar is open */}
+                        <div className="relative w-4 h-3.5">
+                            <motion.span
+                                className="absolute left-0 top-0 block w-4 h-0.5 bg-current rounded-full"
+                                animate={isOpen ? { y: 6, rotate: 45 } : { y: 0, rotate: 0 }}
+                                transition={{ duration: 0.25, ease: 'easeInOut' }}
+                            />
+                            <motion.span
+                                className="absolute left-0 top-1.5 block w-4 h-0.5 bg-current rounded-full"
+                                animate={isOpen ? { opacity: 0, x: -6 } : { opacity: 1, x: 0 }}
+                                transition={{ duration: 0.2, ease: 'easeInOut' }}
+                            />
+                            <motion.span
+                                className="absolute left-0 top-3 block w-4 h-0.5 bg-current rounded-full"
+                                animate={isOpen ? { y: -6, rotate: -45 } : { y: 0, rotate: 0 }}
+                                transition={{ duration: 0.25, ease: 'easeInOut' }}
+                            />
                         </div>
                     </button>
 
-                    <div className={`flex-1 relative transition-opacity duration-200 ${!isOpen ? 'opacity-0 w-0 overflow-hidden' : 'opacity-100'}`}>
-                        <div className="flex items-center gap-2 bg-surface hover:bg-surface-hover transition-colors px-3 py-1.5 rounded-full border border-border group">
-                            <Search size={14} className="text-foreground-secondary group-hover:text-foreground transition-colors" />
-                            <input
-                                type="text"
-                                value={searchQuery}
-                                onChange={(e) => setSearchQuery(e.target.value)}
-                                placeholder="Search projects..."
-                                className="bg-transparent text-sm text-foreground placeholder:text-foreground-secondary outline-none w-full"
-                            />
-                        </div>
-                    </div>
+                    <AnimatePresence initial={false}>
+                        {isOpen && (
+                            <motion.div
+                                key="sidebar-search"
+                                className="flex-1 min-w-0 relative overflow-hidden"
+                                initial={{ opacity: 0 }}
+                                animate={{ opacity: 1 }}
+                                exit={{ opacity: 0 }}
+                                transition={{ duration: 0.25, ease: 'easeInOut' }}
+                            >
+                                <div className="flex items-center gap-2 bg-surface hover:bg-surface-hover transition-colors px-3 py-1.5 rounded-full border border-border group">
+                                    <Search size={14} className="text-foreground-secondary group-hover:text-foreground transition-colors shrink-0" />
+                                    <input
+                                        type="text"
+                                        value={searchQuery}
+                                        onChange={(e) => setSearchQuery(e.target.value)}
+                                        placeholder="Search projects..."
+                                        className="bg-transparent text-sm text-foreground placeholder:text-foreground-secondary outline-none w-full"
+                                    />
+                                </div>
+                            </motion.div>
+                        )}
+                    </AnimatePresence>
                 </div>
 
                 {/* Main Navigation
                     CHANGED: nav is now a flex column that owns the full remaining height.
                     `min-h-0` lets children shrink so their inner lists can scroll.
                     The nav itself no longer scrolls — each list scrolls inside its own region. */}
-                <nav className="flex-1 min-h-0 px-4 py-6 flex flex-col gap-6 overflow-x-hidden">
+                <nav className="flex-1 min-h-0 px-4 py-3 flex flex-col gap-4 overflow-x-hidden">
 
                     {/* Assigned to You */}
                     {(() => {
@@ -232,7 +261,7 @@ const Sidebar = ({ isOpen, toggle }: SidebarProps) => {
                         });
 
                         return (
-                            <div className={`space-y-2 ${isOpen ? 'flex-1 min-h-0 flex flex-col pt-6 border-t border-border' : ''}`}>
+                            <div className={`space-y-2 ${isOpen ? 'flex-1 min-h-0 flex flex-col pt-4 border-t border-border' : ''}`}>
                                 <div className={`px-2 flex items-center gap-2 transition-opacity duration-200 ${!isOpen ? 'opacity-0 hidden' : 'opacity-100'}`}>
                                     <span className="text-xs font-semibold text-foreground-tertiary uppercase tracking-wider">
                                         Awaiting QC
@@ -305,7 +334,7 @@ const Sidebar = ({ isOpen, toggle }: SidebarProps) => {
                         });
 
                         return (
-                            <div className={`space-y-2 ${isOpen ? 'flex-1 min-h-0 flex flex-col pt-6 border-t border-border' : ''}`}>
+                            <div className={`space-y-2 ${isOpen ? 'flex-1 min-h-0 flex flex-col pt-4 border-t border-border' : ''}`}>
                                 <div className={`px-2 flex items-center gap-2 transition-opacity duration-200 ${!isOpen ? 'opacity-0 hidden' : 'opacity-100'}`}>
                                     <span className="text-xs font-semibold text-foreground-tertiary uppercase tracking-wider">
                                         QC Complete
