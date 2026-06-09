@@ -175,3 +175,15 @@ model Event {
   @@index([labeledBy])
   @@index([fightTitle])
 }
+
+model Feedback {
+  id        String   @id @default(cuid())
+  category  String   // 'general' | 'bug' | 'idea' | 'friction'
+  rating    Int?     // 1-5, nullable
+  comment   String?  @db.Text
+  path      String?  // page it was sent from, e.g. "/" or "/workspace"
+  createdAt DateTime @default(now())
+
+  @@index([category])
+  @@index([createdAt])
+}

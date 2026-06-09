@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import VideoCard from './VideoCard';
 import AssignmentModal from './AssignmentModal';
+import FeedbackWidget from './FeedbackWidget';
 import { Plus, Loader2, UserPlus, MoreVertical, Trash2, SlidersHorizontal, ChevronDown, ChevronRight, Layers } from 'lucide-react';
 import Link from 'next/link';
 import { canAssignRounds } from '@/lib/permissions';
@@ -456,6 +457,9 @@ const VideoGrid = () => {
                                 Videos waiting to be picked up by team members
                             </p>
                         </div>
+
+                        {/* Anonymous feedback widget fills the rail whitespace */}
+                        <FeedbackWidget />
                     </div>
                 </div>
             )}
