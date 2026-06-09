@@ -2,7 +2,9 @@
 
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { mutate } from 'swr';
 import { Mail, Lock, Loader2, Eye, EyeOff } from 'lucide-react';
+import { AUTH_ME_KEY } from '@/lib/hooks/useCurrentUser';
 
 interface SignupFormProps {
     onToggleMode: () => void;
@@ -46,6 +48,9 @@ export const SignupForm: React.FC<SignupFormProps> = ({ onToggleMode }) => {
                 throw new Error(message);
             }
 
+            // Same as LoginForm: drop the cached 401 for /api/auth/me so the
+            // dashboard refetches with the new session instead of rendering blank.
+            await mutate(AUTH_ME_KEY, undefined, { revalidate: true });
             router.push('/');
         } catch (err: any) {
             setError(err.message);
