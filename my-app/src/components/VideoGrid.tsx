@@ -196,7 +196,7 @@ const VideoGrid = () => {
                         setSelectedVideoForAssign({ id: video.id, title: video.title });
                         setAssignModalOpen(true);
                     }}
-                    className="absolute top-2 right-10 px-3 py-1.5 bg-accent-primary hover:bg-accent-primary/90 text-white text-[10px] font-bold rounded-lg flex items-center gap-1.5 transition-all z-10"
+                    className="absolute top-2 right-10 px-3 py-1.5 bg-accent-primary hover:bg-accent-primary/90 text-white text-[10px] font-bold rounded-lg flex items-center gap-1.5 transition-all z-10 cursor-pointer"
                 >
                     <UserPlus size={12} />
                     ASSIGN
@@ -212,7 +212,7 @@ const VideoGrid = () => {
                             e.stopPropagation();
                             setOpenDropdownId(openDropdownId === video.id ? null : video.id);
                         }}
-                        className="w-7 h-7 bg-surface/90 hover:bg-surface border border-border hover:border-foreground-secondary/50 rounded-lg flex items-center justify-center transition-all backdrop-blur-sm"
+                        className="w-7 h-7 bg-surface/90 hover:bg-surface border border-border hover:border-foreground-secondary/50 rounded-lg flex items-center justify-center transition-all backdrop-blur-sm cursor-pointer"
                     >
                         <MoreVertical size={14} className="text-foreground-secondary" />
                     </button>
@@ -225,7 +225,7 @@ const VideoGrid = () => {
                                     setDeleteConfirmId(video.id);
                                     setOpenDropdownId(null);
                                 }}
-                                className="w-full px-3 py-2 text-left text-sm text-red-500 hover:bg-red-500/10 transition-colors flex items-center gap-2"
+                                className="w-full px-3 py-2 text-left text-sm text-red-500 hover:bg-red-500/10 transition-colors flex items-center gap-2 cursor-pointer"
                             >
                                 <Trash2 size={14} />
                                 Delete Video
@@ -398,7 +398,7 @@ const VideoGrid = () => {
                                             <div key={event} className="bg-surface/50 border border-border rounded-xl overflow-hidden">
                                                 <button
                                                     onClick={() => setExpandedGroups(s => ({ ...s, [event]: !s[event] }))}
-                                                    className="w-full flex items-center gap-2.5 p-3 text-left hover:bg-surface-hover/40 transition-colors"
+                                                    className="w-full flex items-center gap-2.5 p-3 text-left hover:bg-surface-hover/40 transition-colors cursor-pointer"
                                                 >
                                                     <span className="text-foreground-tertiary">
                                                         {collapsed ? <ChevronRight size={16} /> : <ChevronDown size={16} />}
@@ -434,7 +434,7 @@ const VideoGrid = () => {
                                                                     setSelectedVideoForAssign({ id: list[0].id, title: event });
                                                                     setAssignModalOpen(true);
                                                                 }}
-                                                                className="w-full py-2 text-[11px] font-bold rounded-lg bg-accent-primary/10 text-accent-primary border border-accent-primary/20 hover:bg-accent-primary/20 transition-colors flex items-center justify-center gap-1.5"
+                                                                className="w-full py-2 text-[11px] font-bold rounded-lg bg-accent-primary/10 text-accent-primary border border-accent-primary/20 hover:bg-accent-primary/20 transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
                                                             >
                                                                 <UserPlus size={13} />
                                                                 Assign all {list.length} rounds
