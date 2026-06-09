@@ -67,7 +67,7 @@ const VideoCard = ({ id, title, boxer1, boxer2, round, fightDate, numCameraViews
         <Link href={`/workspace?videoId=${id}`}>
             <div className="group bg-surface hover:bg-surface-hover rounded-xl overflow-hidden border border-transparent hover:border-border transition-all duration-300 cursor-pointer flex flex-col h-full relative">
 
-                <div className="relative aspect-[4/3] bg-black/40 overflow-hidden p-4">
+                <div className="relative aspect-[4/3] bg-black/40 overflow-hidden p-2 lg:p-4">
                     <div className="w-full h-full rounded-lg overflow-hidden relative">
                         {thumbnailUrl ? (
                             <video
@@ -131,10 +131,10 @@ const VideoCard = ({ id, title, boxer1, boxer2, round, fightDate, numCameraViews
                 </div>
 
                 {/* Content */}
-                <div className="px-5 pb-5 pt-2 flex flex-col flex-1">
+                <div className="px-3 pb-3 pt-2 lg:px-5 lg:pb-5 flex flex-col flex-1">
                     {/* CHANGED: title only — the redundant "{boxer1} vs {boxer2}" subtitle is removed,
                         because the title already reads e.g. "Isaac Cruz v Giovanni Cabrera - R11". */}
-                    <h3 className="font-semibold text-foreground text-base mb-1 group-hover:text-accent-primary transition-colors line-clamp-1">
+                    <h3 className="font-semibold text-foreground text-sm lg:text-base mb-1 group-hover:text-accent-primary transition-colors line-clamp-2 lg:line-clamp-1">
                         {title}
                     </h3>
 

@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { Settings, Search, ChevronDown, Video, Box, Loader2 } from 'lucide-react';
+import { Settings, Search, ChevronDown, Video, Box, Loader2, X } from 'lucide-react';
 import Link from 'next/link';
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
@@ -24,9 +24,14 @@ interface Assignment {
 interface SidebarProps {
     isOpen: boolean;
     toggle: () => void;
+    mobileOpen?: boolean;       // drawer open on < lg
+    onMobileClose?: () => void; // close the drawer
 }
 
-const Sidebar = ({ isOpen, toggle }: SidebarProps) => {
+const Sidebar = ({ isOpen, toggle, mobileOpen = false, onMobileClose }: SidebarProps) => {
+    // On mobile the drawer is full-width, so content always renders expanded
+    // even if the user collapsed the sidebar on desktop first.
+    const expanded = mobileOpen || isOpen;
 
     const { user } = useCurrentUser();
     const [assignments, setAssignments] = useState<Assignment[]>([]);
@@ -139,15 +144,16 @@ const Sidebar = ({ isOpen, toggle }: SidebarProps) => {
             `}</style>
             <aside
                 style={{ width: isOpen ? `${sidebarWidth}px` : '80px' }}
-                className={`h-screen bg-sidebar-bg border-r border-border flex flex-col fixed left-0 top-0 z-50 transition-[width] duration-300 ease-in-out ${isResizing ? 'select-none' : ''}`}
+                className={`h-screen bg-sidebar-bg border-r border-border flex flex-col fixed left-0 top-0 z-50 transition-[width,transform] duration-300 ease-in-out max-lg:!w-[86vw] max-lg:!max-w-[330px] max-lg:shadow-2xl max-lg:shadow-black/50 lg:translate-x-0 ${mobileOpen ? 'max-lg:translate-x-0' : 'max-lg:-translate-x-full'} ${isResizing ? 'select-none' : ''}`}
             >
                 {/* Header / Logo Area */}
-                <div className={`h-16 flex items-center px-4 gap-3 ${!isOpen && 'justify-center'}`}>
+                <div className={`h-16 flex items-center px-4 gap-3 ${!expanded && 'justify-center'}`}>
+                    {/* Desktop collapse toggle — the drawer has its own X on mobile */}
                     <button
                         onClick={toggle}
                         aria-label={isOpen ? 'Collapse sidebar' : 'Expand sidebar'}
                         aria-expanded={isOpen}
-                        className="w-10 h-10 flex items-center justify-center shrink-0 hover:bg-white/5 rounded-lg transition-colors text-foreground-secondary hover:text-foreground cursor-pointer"
+                        className="max-lg:hidden w-10 h-10 flex items-center justify-center shrink-0 hover:bg-white/5 rounded-lg transition-colors text-foreground-secondary hover:text-foreground cursor-pointer"
                     >
                         {/* Hamburger that morphs into an X when the sidebar is open */}
                         <div className="relative w-4 h-3.5">
@@ -170,7 +176,7 @@ const Sidebar = ({ isOpen, toggle }: SidebarProps) => {
                     </button>
 
                     <AnimatePresence initial={false}>
-                        {isOpen && (
+                        {expanded && (
                             <motion.div
                                 key="sidebar-search"
                                 className="flex-1 min-w-0 relative overflow-hidden"
@@ -192,6 +198,15 @@ const Sidebar = ({ isOpen, toggle }: SidebarProps) => {
                             </motion.div>
                         )}
                     </AnimatePresence>
+
+                    {/* Mobile drawer close — desktop has the collapse toggle instead */}
+                    <button
+                        onClick={onMobileClose}
+                        aria-label="Close menu"
+                        className="lg:hidden w-10 h-10 flex items-center justify-center shrink-0 rounded-lg text-foreground-secondary hover:text-foreground hover:bg-white/5 transition-colors cursor-pointer"
+                    >
+                        <X size={20} />
+                    </button>
                 </div>
 
                 {/* Main Navigation
@@ -214,30 +229,30 @@ const Sidebar = ({ isOpen, toggle }: SidebarProps) => {
 
                         return (
                             <div className="space-y-2 shrink-0">
-                                <div className={`px-2 text-xs font-semibold text-foreground-tertiary uppercase tracking-wider transition-opacity duration-200 ${!isOpen ? 'opacity-0 hidden' : 'opacity-100'}`}>
+                                <div className={`px-2 text-xs font-semibold text-foreground-tertiary uppercase tracking-wider transition-opacity duration-200 ${!expanded ? 'opacity-0 hidden' : 'opacity-100'}`}>
                                     Assigned to You
                                 </div>
                                 <div className="space-y-0.5">
                                     {loading ? (
                                         <div className="px-3 py-2 text-foreground-secondary text-sm flex items-center gap-2">
                                             <Loader2 size={14} className="animate-spin" />
-                                            <span className={`${!isOpen && 'hidden'}`}>Loading...</span>
+                                            <span className={`${!expanded && 'hidden'}`}>Loading...</span>
                                         </div>
                                     ) : filteredAssignments.length > 0 ? (
                                         filteredAssignments.map((assignment) => (
                                             <Link
                                                 key={assignment.id}
                                                 href={`/workspace?videoId=${assignment.video.id}`}
-                                                className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-foreground hover:bg-white/5 transition-colors cursor-pointer ${!isOpen && 'justify-center px-0'}`}
+                                                className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-foreground hover:bg-white/5 transition-colors cursor-pointer ${!expanded && 'justify-center px-0'}`}
                                             >
                                                 <Video size={16} className="text-accent-primary shrink-0" />
-                                                <span className={`transition-opacity duration-200 whitespace-nowrap truncate ${!isOpen ? 'opacity-0 w-0 hidden' : 'opacity-100'}`}>
+                                                <span className={`transition-opacity duration-200 whitespace-nowrap truncate ${!expanded ? 'opacity-0 w-0 hidden' : 'opacity-100'}`}>
                                                     {assignment.video.title}
                                                 </span>
                                             </Link>
                                         ))
                                     ) : (
-                                        <div className={`text-xs text-foreground-secondary px-3 py-2 italic ${!isOpen && 'hidden'}`}>
+                                        <div className={`text-xs text-foreground-secondary px-3 py-2 italic ${!expanded && 'hidden'}`}>
                                             {searchQuery.trim() ? 'No matching assignments' : 'No active assignments'}
                                         </div>
                                     )}
@@ -261,8 +276,8 @@ const Sidebar = ({ isOpen, toggle }: SidebarProps) => {
                         });
 
                         return (
-                            <div className={`space-y-2 ${isOpen ? 'flex-1 min-h-0 flex flex-col pt-4 border-t border-border' : ''}`}>
-                                <div className={`px-2 flex items-center gap-2 transition-opacity duration-200 ${!isOpen ? 'opacity-0 hidden' : 'opacity-100'}`}>
+                            <div className={`space-y-2 ${expanded ? 'flex-1 min-h-0 flex flex-col pt-4 border-t border-border' : ''}`}>
+                                <div className={`px-2 flex items-center gap-2 transition-opacity duration-200 ${!expanded ? 'opacity-0 hidden' : 'opacity-100'}`}>
                                     <span className="text-xs font-semibold text-foreground-tertiary uppercase tracking-wider">
                                         Awaiting QC
                                     </span>
@@ -276,14 +291,14 @@ const Sidebar = ({ isOpen, toggle }: SidebarProps) => {
                                     {submittedLoading ? (
                                         <div className="px-3 py-2 text-foreground-secondary text-sm flex items-center gap-2">
                                             <Loader2 size={14} className="animate-spin" />
-                                            <span className={`${!isOpen && 'hidden'}`}>Loading...</span>
+                                            <span className={`${!expanded && 'hidden'}`}>Loading...</span>
                                         </div>
                                     ) : filteredAwaitingQC.length > 0 ? (
                                         filteredAwaitingQC.map((assignment) => (
                                             <Link
                                                 key={assignment.id}
                                                 href={`/workspace?videoId=${assignment.video.id}`}
-                                                className={`w-full flex flex-col gap-1.5 px-3 py-2 rounded-lg text-sm hover:bg-white/5 transition-colors cursor-pointer ${!isOpen && 'hidden'}`}
+                                                className={`w-full flex flex-col gap-1.5 px-3 py-2 rounded-lg text-sm hover:bg-white/5 transition-colors cursor-pointer ${!expanded && 'hidden'}`}
                                             >
                                                 <div className="flex items-center gap-2">
                                                     <Video size={14} className="text-amber-500 shrink-0" />
@@ -310,7 +325,7 @@ const Sidebar = ({ isOpen, toggle }: SidebarProps) => {
                                             </Link>
                                         ))
                                     ) : (
-                                        <div className={`text-xs text-foreground-secondary px-3 py-2 italic ${!isOpen && 'hidden'}`}>
+                                        <div className={`text-xs text-foreground-secondary px-3 py-2 italic ${!expanded && 'hidden'}`}>
                                             {searchQuery.trim() ? 'No matching videos' : 'No videos awaiting QC'}
                                         </div>
                                     )}
@@ -334,8 +349,8 @@ const Sidebar = ({ isOpen, toggle }: SidebarProps) => {
                         });
 
                         return (
-                            <div className={`space-y-2 ${isOpen ? 'flex-1 min-h-0 flex flex-col pt-4 border-t border-border' : ''}`}>
-                                <div className={`px-2 flex items-center gap-2 transition-opacity duration-200 ${!isOpen ? 'opacity-0 hidden' : 'opacity-100'}`}>
+                            <div className={`space-y-2 ${expanded ? 'flex-1 min-h-0 flex flex-col pt-4 border-t border-border' : ''}`}>
+                                <div className={`px-2 flex items-center gap-2 transition-opacity duration-200 ${!expanded ? 'opacity-0 hidden' : 'opacity-100'}`}>
                                     <span className="text-xs font-semibold text-foreground-tertiary uppercase tracking-wider">
                                         QC Complete
                                     </span>
@@ -349,7 +364,7 @@ const Sidebar = ({ isOpen, toggle }: SidebarProps) => {
                                     {submittedLoading ? (
                                         <div className="px-3 py-2 text-foreground-secondary text-sm flex items-center gap-2">
                                             <Loader2 size={14} className="animate-spin" />
-                                            <span className={`${!isOpen && 'hidden'}`}>Loading...</span>
+                                            <span className={`${!expanded && 'hidden'}`}>Loading...</span>
                                         </div>
                                     ) : filteredQCComplete.length > 0 ? (
                                         filteredQCComplete.map((assignment) => {
@@ -358,7 +373,7 @@ const Sidebar = ({ isOpen, toggle }: SidebarProps) => {
                                                 <Link
                                                     key={assignment.id}
                                                     href={`/workspace?videoId=${assignment.video.id}`}
-                                                    className={`w-full flex flex-col gap-1.5 px-3 py-2 rounded-lg text-sm hover:bg-white/5 transition-colors cursor-pointer ${!isOpen && 'hidden'}`}
+                                                    className={`w-full flex flex-col gap-1.5 px-3 py-2 rounded-lg text-sm hover:bg-white/5 transition-colors cursor-pointer ${!expanded && 'hidden'}`}
                                                 >
                                                     <div className="flex items-center gap-2">
                                                         <Video size={14} className={isCompleted ? "text-green-500" : "text-purple-500"} />
@@ -389,7 +404,7 @@ const Sidebar = ({ isOpen, toggle }: SidebarProps) => {
                                             );
                                         })
                                     ) : (
-                                        <div className={`text-xs text-foreground-secondary px-3 py-2 italic ${!isOpen && 'hidden'}`}>
+                                        <div className={`text-xs text-foreground-secondary px-3 py-2 italic ${!expanded && 'hidden'}`}>
                                             {searchQuery.trim() ? 'No matching videos' : 'No QC completed videos'}
                                         </div>
                                     )}
@@ -404,13 +419,13 @@ const Sidebar = ({ isOpen, toggle }: SidebarProps) => {
                 <div className="p-4 space-y-1 border-t border-transparent">
                     <Link
                         href="/settings"
-                        className={`w-full flex items-center ${isOpen ? 'justify-between' : 'justify-center'} px-2 py-2 text-xs text-foreground-secondary hover:text-foreground transition-colors rounded-lg hover:bg-white/5 cursor-pointer`}
+                        className={`w-full flex items-center ${expanded ? 'justify-between' : 'justify-center'} px-2 py-2 text-xs text-foreground-secondary hover:text-foreground transition-colors rounded-lg hover:bg-white/5 cursor-pointer`}
                     >
-                        <span className={`transition-opacity duration-200 ${!isOpen ? 'opacity-0 w-0 hidden' : 'opacity-100'}`}>Settings</span>
+                        <span className={`transition-opacity duration-200 ${!expanded ? 'opacity-0 w-0 hidden' : 'opacity-100'}`}>Settings</span>
                         <Settings size={14} className="shrink-0" />
                     </Link>
 
-                    <div className={`pt-4 mt-2 border-t border-border/40 ${!isOpen && 'hidden'}`}>
+                    <div className={`pt-4 mt-2 border-t border-border/40 ${!expanded && 'hidden'}`}>
                         <div className="w-full flex items-center justify-center px-2 py-1 text-xs text-foreground-tertiary font-medium tracking-wider uppercase whitespace-nowrap">
                             Box RAW Labs
                         </div>
@@ -420,7 +435,7 @@ const Sidebar = ({ isOpen, toggle }: SidebarProps) => {
                 {/* Resize Handle */}
                 {isOpen && (
                     <div
-                        className="resize-handle"
+                        className="resize-handle max-lg:hidden"
                         onMouseDown={() => setIsResizing(true)}
                     />
                 )}
