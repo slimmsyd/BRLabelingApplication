@@ -9,6 +9,7 @@ import SidebarControls from '@/components/workspace/SidebarControls';
 import SuccessModal from '@/components/SuccessModal';
 import { Loader2 } from 'lucide-react';
 import { generateId, safeGetItem, safeSetItem, safeRemoveItem, safeJsonParse, safeResponseJson } from '@/lib/client-utils';
+import { useCurrentUser } from '@/lib/hooks/useCurrentUser';
 
 interface VideoData {
     id: string;
@@ -62,7 +63,7 @@ function WorkspacePage() {
     const [videoLoading, setVideoLoading] = useState(true);
     const [videoError, setVideoError] = useState<string | null>(null);
     const [assignment, setAssignment] = useState<any>(null);
-    const [user, setUser] = useState<{ userId: string; email: string; accountType: string; permissions?: { QC?: boolean; Upload?: boolean; ViewAssignments?: boolean } } | null>(null);
+    const { user } = useCurrentUser();
 
     const [events, setEvents] = useState<EventData[]>([]);
     const videoRef = useRef<HTMLVideoElement>(null);
@@ -484,50 +485,14 @@ function WorkspacePage() {
         return flagOrder.map(flag => flags.includes(flag) ? 1 : 0);
     };
 
-    // Fetch user on mount
+    // Auto-enable QC mode for QC/Admin once the (shared) user resolves and the
+    // video is submitted. Keyed on both so it engages whichever resolves last.
     useEffect(() => {
-        const fetchUser = async () => {
-            try {
-                console.log('\n🔐 [PERMISSIONS DEBUG] ========================');
-                console.log('📡 Fetching user data from /api/auth/me...');
-
-                const res = await fetch('/api/auth/me');
-                if (res.ok) {
-                    const data = await res.json();
-
-                    console.log('✅ User data received:');
-                    console.log('   👤 User ID:', data.userId);
-                    console.log('   📧 Email:', data.email);
-                    console.log('   🏷️  Account Type:', data.accountType);
-                    console.log('   📦 Local Permissions (cached):', JSON.stringify(data.permissions));
-                    console.log('   🌐 External Account Data:', data.externalAccount ? 'PRESENT' : 'MISSING');
-
-                    if (data.externalAccount) {
-                        console.log('   🌐 External Account Details:');
-                        console.log('      👤 Username:', data.externalAccount.username);
-                        console.log('      🏷️  Account Type:', data.externalAccount.accountType);
-                        console.log('      🔐 Permissions:', JSON.stringify(data.externalAccount.permissions));
-                    } else {
-                        console.warn('   ⚠️  NO EXTERNAL ACCOUNT DATA - User may not have proper permissions!');
-                    }
-
-                    console.log('   ✅ External Verified:', data.isExternalVerified);
-                    console.log('🔐 [PERMISSIONS DEBUG] ========================\n');
-
-                    setUser(data);
-                    // Auto-enable QC mode for QC/Admin if submitted
-                    if ((data.accountType === 'QUALITY_CONTROL' || data.accountType === 'ADMIN') && isSubmitted) {
-                        setIsQCMode(true);
-                    }
-                } else {
-                    console.error('❌ Failed to fetch user:', res.status, res.statusText);
-                }
-            } catch (error) {
-                console.error('❌ Failed to fetch user:', error);
-            }
-        };
-        fetchUser();
-    }, [isSubmitted]);
+        if (!user) return;
+        if ((user.accountType === 'QUALITY_CONTROL' || user.accountType === 'ADMIN') && isSubmitted) {
+            setIsQCMode(true);
+        }
+    }, [user, isSubmitted]);
 
     const handleSaveProgress = async () => {
         setSaveStatus('saving');

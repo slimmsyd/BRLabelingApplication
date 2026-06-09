@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { X, Loader2, UserPlus } from 'lucide-react';
+import { useCurrentUser } from '@/lib/hooks/useCurrentUser';
 
 interface User {
     id: string;
@@ -26,23 +27,7 @@ const AssignmentModal = ({ isOpen, onClose, videoId, videoTitle, onAssignmentSuc
     const [loading, setLoading] = useState(false);
     const [fetchingUsers, setFetchingUsers] = useState(false);
     const [error, setError] = useState<string | null>(null);
-    const [currentUser, setCurrentUser] = useState<{ userId: string; email: string } | null>(null);
-
-    // Fetch current user
-    useEffect(() => {
-        const fetchCurrentUser = async () => {
-            try {
-                const res = await fetch('/api/auth/me');
-                if (res.ok) {
-                    const data = await res.json();
-                    setCurrentUser({ userId: data.userId, email: data.email });
-                }
-            } catch (err) {
-                console.error('Failed to fetch current user:', err);
-            }
-        };
-        fetchCurrentUser();
-    }, []);
+    const { user: currentUser } = useCurrentUser();
 
     // Pre-select current assignee when modal opens
     useEffect(() => {

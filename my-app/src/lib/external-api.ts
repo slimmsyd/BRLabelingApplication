@@ -3,7 +3,7 @@
  * Handles communication with the dev's backend for user permissions and account management
  */
 
-interface PermissionResponse {
+export interface PermissionResponse {
   username: string;
   email: string;
   accountType: string;

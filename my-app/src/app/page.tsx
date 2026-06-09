@@ -6,64 +6,17 @@ import Sidebar from '@/components/Sidebar';
 import HeroSection from '@/components/HeroSection';
 import VideoGrid from '@/components/VideoGrid';
 import { Loader2 } from 'lucide-react';
-
-// Type for user data from /api/auth/me
-interface UserData {
-  userId: string;
-  email: string;
-  username: string;
-  accountType: string;
-  permissions: Record<string, unknown> | null;
-  permissionsUpdatedAt: string | null;
-  createdAt: string;
-  updatedAt: string;
-  externalAccount: {
-    username: string;
-    email: string;
-    accountType: string;
-    permissions: {
-      QC?: boolean;
-      Upload?: boolean;
-      ViewAssignments?: boolean;
-    };
-  } | null;
-  isExternalVerified: boolean;
-}
+import { useCurrentUser } from '@/lib/hooks/useCurrentUser';
 
 export default function Home() {
   const router = useRouter();
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
-  const [user, setUser] = useState<UserData | null>(null);
-  const [loading, setLoading] = useState(true);
+  const { user, isLoading: loading, error } = useCurrentUser();
 
-  // Check authentication on mount
+  // Not authenticated -> redirect to login
   useEffect(() => {
-    const checkAuth = async () => {
-      try {
-        console.log('🔐 Checking authentication...');
-        const response = await fetch('/api/auth/me');
-
-        if (!response.ok) {
-          // Not authenticated - redirect to login
-          console.log('❌ Not authenticated, redirecting to login...');
-          router.push('/login');
-          return;
-        }
-
-        const userData = await response.json();
-        console.log('✅ Authenticated user:', userData);
-        console.log('📦 External account data:', userData.externalAccount);
-        setUser(userData);
-      } catch (error) {
-        console.error('❌ Auth check error:', error);
-        router.push('/login');
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    checkAuth();
-  }, [router]);
+    if (error) router.push('/login');
+  }, [error, router]);
 
   // DEBUG: Fetch and log FIGHTS from DEV API on dashboard load (testing proxy)
   useEffect(() => {
@@ -109,7 +62,7 @@ export default function Home() {
 
   // If not authenticated (user is null after loading), don't render anything
   // The useEffect will have already triggered the redirect
-  if (!user) {
+  if (error || !user) {
     return null;
   }
 

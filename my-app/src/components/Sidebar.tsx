@@ -2,6 +2,7 @@ import React from 'react';
 import { Settings, Search, ChevronDown, Video, Box, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import { useState, useEffect } from 'react';
+import { useCurrentUser } from '@/lib/hooks/useCurrentUser';
 
 interface Assignment {
     id: string;
@@ -24,50 +25,59 @@ interface SidebarProps {
 
 const Sidebar = ({ isOpen, toggle }: SidebarProps) => {
 
-    const [user, setUser] = useState<{ userId: string } | null>(null);
+    const { user } = useCurrentUser();
     const [assignments, setAssignments] = useState<Assignment[]>([]);
     const [submittedVideos, setSubmittedVideos] = useState<Assignment[]>([]);
+    const [submittedCounts, setSubmittedCounts] = useState<{ awaiting: number; complete: number } | null>(null);
     const [loading, setLoading] = useState(false);
     const [submittedLoading, setSubmittedLoading] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
     const [sidebarWidth, setSidebarWidth] = useState(256); // 256px = w-64
     const [isResizing, setIsResizing] = useState(false);
 
+    // Assignments (active work) — depends on the user id, so re-runs once the
+    // shared user resolves.
     useEffect(() => {
-        const fetchUserAndAssignments = async () => {
+        if (!user?.userId) return;
+        let cancelled = false;
+        const fetchAssignments = async () => {
+            setLoading(true);
             try {
-                // 1. Fetch User
-                const userRes = await fetch('/api/auth/me');
-                if (!userRes.ok) return;
-                const userData = await userRes.json();
-                setUser(userData);
-
-                // 2. Fetch Assignments (active work)
-                if (userData.userId) {
-                    setLoading(true);
-                    const assignRes = await fetch(`/api/videos/assigned?userId=${userData.userId}`);
-                    if (assignRes.ok) {
-                        const assignData = await assignRes.json();
-                        setAssignments(assignData.assignments);
-                    }
-                }
-
-                // 3. Fetch Submitted Videos (all users - public)
-                setSubmittedLoading(true);
-                const submittedRes = await fetch('/api/videos/submitted');
-                if (submittedRes.ok) {
-                    const submittedData = await submittedRes.json();
-                    setSubmittedVideos(submittedData.assignments);
+                const assignRes = await fetch(`/api/videos/assigned?userId=${user.userId}`);
+                if (assignRes.ok && !cancelled) {
+                    const assignData = await assignRes.json();
+                    setAssignments(assignData.assignments);
                 }
             } catch (error) {
-                console.error('Sidebar data fetch error:', error);
+                console.error('Sidebar assignments fetch error:', error);
             } finally {
-                setLoading(false);
-                setSubmittedLoading(false);
+                if (!cancelled) setLoading(false);
             }
         };
+        fetchAssignments();
+        return () => { cancelled = true; };
+    }, [user?.userId]);
 
-        fetchUserAndAssignments();
+    // Submitted videos (public) — independent of the user, fetch on mount.
+    useEffect(() => {
+        let cancelled = false;
+        const fetchSubmitted = async () => {
+            setSubmittedLoading(true);
+            try {
+                const submittedRes = await fetch('/api/videos/submitted');
+                if (submittedRes.ok && !cancelled) {
+                    const submittedData = await submittedRes.json();
+                    setSubmittedVideos(submittedData.assignments);
+                    if (submittedData.counts) setSubmittedCounts(submittedData.counts);
+                }
+            } catch (error) {
+                console.error('Sidebar submitted fetch error:', error);
+            } finally {
+                if (!cancelled) setSubmittedLoading(false);
+            }
+        };
+        fetchSubmitted();
+        return () => { cancelled = true; };
     }, []);
 
     // Handle sidebar resizing
@@ -229,7 +239,7 @@ const Sidebar = ({ isOpen, toggle }: SidebarProps) => {
                                     </span>
                                     {filteredAwaitingQC.length > 0 && (
                                         <span className="px-1.5 py-0.5 text-[9px] font-bold bg-amber-500/10 text-amber-500 rounded border border-amber-500/20">
-                                            {filteredAwaitingQC.length}
+                                            {searchQuery.trim() ? filteredAwaitingQC.length : (submittedCounts?.awaiting ?? filteredAwaitingQC.length)}
                                         </span>
                                     )}
                                 </div>
@@ -302,7 +312,7 @@ const Sidebar = ({ isOpen, toggle }: SidebarProps) => {
                                     </span>
                                     {filteredQCComplete.length > 0 && (
                                         <span className="px-1.5 py-0.5 text-[9px] font-bold bg-green-500/10 text-green-500 rounded border border-green-500/20">
-                                            {filteredQCComplete.length}
+                                            {searchQuery.trim() ? filteredQCComplete.length : (submittedCounts?.complete ?? filteredQCComplete.length)}
                                         </span>
                                     )}
                                 </div>

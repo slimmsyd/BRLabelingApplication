@@ -6,6 +6,7 @@ import AssignmentModal from './AssignmentModal';
 import { Plus, Loader2, UserPlus, MoreVertical, Trash2 } from 'lucide-react';
 import Link from 'next/link';
 import { canAssignRounds } from '@/lib/permissions';
+import { useCurrentUser } from '@/lib/hooks/useCurrentUser';
 
 interface Video {
     id: string;
@@ -32,7 +33,7 @@ const VideoGrid = () => {
     const [videos, setVideos] = useState<Video[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
-    const [currentUser, setCurrentUser] = useState<{ accountType: string; email?: string } | null>(null);
+    const { user: currentUser } = useCurrentUser();
     const [assignModalOpen, setAssignModalOpen] = useState(false);
     const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
     const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
@@ -58,22 +59,6 @@ const VideoGrid = () => {
         };
 
         fetchVideos();
-    }, []);
-
-    // Fetch current user to check if admin
-    useEffect(() => {
-        const fetchUser = async () => {
-            try {
-                const response = await fetch('/api/auth/me');
-                if (response.ok) {
-                    const data = await response.json();
-                    setCurrentUser(data);
-                }
-            } catch (err) {
-                console.error('Failed to fetch user:', err);
-            }
-        };
-        fetchUser();
     }, []);
 
     const handleRefreshVideos = async () => {
