@@ -47,7 +47,8 @@ const VideoGrid = () => {
     const [assigneeMenuOpen, setAssigneeMenuOpen] = useState(false);
     // ── ADDED: queue grouping state (right "In Queue" rail) ──────────────────
     const [groupQueue, setGroupQueue] = useState(true); // group by event (matchup)
-    const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>({});
+    // Groups start collapsed (chip strip); a click expands to the full rows.
+    const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({});
 
     useEffect(() => {
         const fetchVideos = async () => {
@@ -391,11 +392,11 @@ const VideoGrid = () => {
                                 /* ── ADDED: grouped-by-event view ── */
                                 <div className="space-y-2.5">
                                     {queueGroups.map(([event, list]) => {
-                                        const collapsed = collapsedGroups[event];
+                                        const collapsed = !expandedGroups[event];
                                         return (
                                             <div key={event} className="bg-surface/50 border border-border rounded-xl overflow-hidden">
                                                 <button
-                                                    onClick={() => setCollapsedGroups(s => ({ ...s, [event]: !s[event] }))}
+                                                    onClick={() => setExpandedGroups(s => ({ ...s, [event]: !s[event] }))}
                                                     className="w-full flex items-center gap-2.5 p-3 text-left hover:bg-surface-hover/40 transition-colors"
                                                 >
                                                     <span className="text-foreground-tertiary">
