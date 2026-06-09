@@ -1,58 +1,21 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Loader2, ArrowLeft, Shield, User, Mail, Lock } from 'lucide-react';
 import Link from 'next/link';
 import ExportReportsSection from '@/components/ExportReportsSection';
 import ClipExportPanel from '@/components/ClipExportPanel';
-
-interface UserProfile {
-    userId: string;
-    email: string;
-    username: string;
-    accountType: string;
-    permissions?: Record<string, boolean>;
-    permissionsUpdatedAt?: string;
-    externalAccount?: {
-        username: string;
-        email: string;
-        accountType: string;
-        permissions?: Record<string, boolean>;
-    } | null;
-    isExternalVerified?: boolean;
-}
+import { useCurrentUser } from '@/lib/hooks/useCurrentUser';
 
 export default function SettingsPage() {
     const router = useRouter();
-    const [user, setUser] = useState<UserProfile | null>(null);
-    const [loading, setLoading] = useState(true);
+    const { user, isLoading: loading, error } = useCurrentUser();
 
+    // Not authenticated -> redirect to login
     useEffect(() => {
-        const fetchUser = async () => {
-            try {
-                const response = await fetch('/api/auth/me');
-                if (response.ok) {
-                    const data = await response.json();
-                    console.log('[Settings] External API Status:', data.isExternalVerified ? 'CONNECTED' : 'NOT CONNECTED');
-                    console.log('[Settings] Local Role (Supabase):', data.accountType);
-                    console.log('[Settings] External Role (API):', data.externalAccount?.accountType || 'Not found');
-                    console.log('[Settings] Local Permissions:', data.permissions || 'None cached');
-                    console.log('[Settings] External Permissions:', data.externalAccount?.permissions || 'API unreachable');
-                    console.log('[Settings] Last Synced:', data.permissionsUpdatedAt || 'Never');
-                    setUser(data);
-                } else {
-                    router.push('/login');
-                }
-            } catch (error) {
-                console.error('Failed to fetch user:', error);
-            } finally {
-                setLoading(false);
-            }
-        };
-
-        fetchUser();
-    }, [router]);
+        if (error) router.push('/login');
+    }, [error, router]);
 
     if (loading) {
         return (
@@ -62,7 +25,7 @@ export default function SettingsPage() {
         );
     }
 
-    if (!user) return null;
+    if (error || !user) return null;
 
     return (
         <div className="min-h-screen bg-background text-foreground flex flex-col">

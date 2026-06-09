@@ -1,43 +1,21 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import { Play, Clock, LogOut } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-
-interface User {
-    email: string;
-    userId: string;
-}
+import { useCurrentUser } from '@/lib/hooks/useCurrentUser';
 
 const HeroSection = () => {
     const router = useRouter();
-    const [user, setUser] = useState<User | null>(null);
-    const [loading, setLoading] = useState(true);
-
-    useEffect(() => {
-        fetchUser();
-    }, []);
-
-    const fetchUser = async () => {
-        try {
-            const res = await fetch('/api/auth/me');
-            if (res.ok) {
-                const data = await res.json();
-                setUser(data);
-            }
-        } catch (error) {
-            console.error('Failed to fetch user:', error);
-        } finally {
-            setLoading(false);
-        }
-    };
+    const { user, isLoading: loading, mutate } = useCurrentUser();
 
     const handleLogout = async () => {
         try {
             await fetch('/api/auth/logout', { method: 'POST' });
-            setUser(null);
-            router.refresh();
+            // Clear the shared /api/auth/me cache for every consumer.
+            await mutate(undefined, { revalidate: false });
+            router.push('/login');
         } catch (error) {
             console.error('Logout failed:', error);
         }

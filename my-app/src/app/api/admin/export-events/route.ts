@@ -109,11 +109,16 @@ export async function GET(request: NextRequest) {
     // Query events
     const events = await prisma.event.findMany({
       where: whereClause,
+      // Narrow select: the CSV row mapping below only reads video.title,
+      // assignment.status/labelType/userEmail. Avoid pulling the full user row
+      // (incl. password hash) and ~20 unused video columns into memory.
       include: {
         assignment: {
-          include: {
-            video: true,
-            user: true
+          select: {
+            status: true,
+            labelType: true,
+            userEmail: true,
+            video: { select: { title: true } }
           }
         }
       },

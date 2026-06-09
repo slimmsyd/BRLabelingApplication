@@ -1,7 +1,11 @@
 import { NextResponse } from 'next/server';
 import { getSession } from '@/lib/session';
 import { prisma } from '@/lib/prisma';
-import { getExternalAccountByEmail, normalizeAccountType } from '@/lib/external-api';
+import { getExternalAccountByEmail, normalizeAccountType, type PermissionResponse } from '@/lib/external-api';
+
+// External /accounts sync is expensive (downloads the full account list). Only
+// re-sync when the cached permissions are older than this window.
+const EXTERNAL_SYNC_TTL_MS = 5 * 60 * 1000; // 5 minutes
 
 export async function GET() {
     try {
@@ -36,55 +40,27 @@ export async function GET() {
             );
         }
 
-        // Fetch external account data from /accounts API by EMAIL
-        console.log('\n🔐 [/api/auth/me] ========================================');
-        console.log('👤 Fetching user data for:', user.email);
-        console.log('🔑 User ID:', user.id);
-        console.log('📡 Calling getExternalAccountByEmail...');
-        
-        const externalAccount = await getExternalAccountByEmail(user.email);
-        
-        console.log('📥 External account fetch result:', externalAccount ? 'SUCCESS' : 'NULL/FAILED');
-        
-        // LOG ALL PERMISSIONS FOR DEBUGGING
-        console.log('\n========================================');
-        console.log('🔐 USER PERMISSIONS CHECK');
-        console.log('========================================');
-        console.log('👤 User:', user.username, `(${user.email})`);
-        console.log('🏷️  Account Type:', user.accountType);
-        console.log('\n📦 LOCAL CACHED PERMISSIONS (from Supabase):');
-        if (user.permissions) {
-            const perms = user.permissions as any;
-            console.log('   • QC:', perms.QC ?? 'not set');
-            console.log('   • Upload:', perms.Upload ?? 'not set');
-            console.log('   • ViewAssignments:', perms.ViewAssignments ?? 'not set');
-            console.log('   Last synced:', user.permissionsUpdatedAt || 'Never');
-        } else {
-            console.log('   ❌ No cached permissions');
-        }
-        
-        console.log('\n🌐 EXTERNAL PERMISSIONS (from /accounts API):');
-        if (externalAccount) {
-            console.log('   ✅ External account found!');
-            console.log('   • Username:', externalAccount.username);
-            console.log('   • Email:', externalAccount.email);
-            console.log('   • Account Type:', externalAccount.accountType);
-            console.log('   • QC:', externalAccount.permissions?.QC ?? 'not set');
-            console.log('   • Upload:', externalAccount.permissions?.Upload ?? 'not set');
-            console.log('   • ViewAssignments:', externalAccount.permissions?.ViewAssignments ?? 'not set');
-        } else {
-            console.log('   ❌ Not found in external system');
-            console.log('   ⚠️  This user will not have external permissions!');
-        }
-        console.log('========================================\n');
+        // External /accounts is the source of truth for ADMIN/QC roles, but the
+        // call is expensive. Only re-sync if the cached permissions are stale.
+        const lastSync = user.permissionsUpdatedAt
+            ? new Date(user.permissionsUpdatedAt).getTime()
+            : 0;
+        const isFresh = lastSync > 0 && Date.now() - lastSync < EXTERNAL_SYNC_TTL_MS;
 
-        // Sync accountType from external API if it differs
-        // External API is source of truth for ADMIN and QC roles; everything else defaults to LABELER
+        let externalAccount: PermissionResponse | null = null;
         let effectiveAccountType = user.accountType;
-        if (externalAccount?.accountType) {
-            const normalizedType = normalizeAccountType(externalAccount.accountType);
-            if (normalizedType !== user.accountType) {
-                console.log(`🔄 [Role Sync] Updating ${user.email} from ${user.accountType} → ${normalizedType}`);
+        let effectivePermissions = user.permissions;
+
+        if (!isFresh) {
+            externalAccount = await getExternalAccountByEmail(user.email);
+
+            // On every SUCCESSFUL sync we advance permissionsUpdatedAt so the TTL
+            // window actually moves forward (even when the role is unchanged).
+            // A failed fetch leaves the timestamp stale so it retries next request.
+            if (externalAccount?.accountType) {
+                const normalizedType = normalizeAccountType(externalAccount.accountType);
+                effectiveAccountType = normalizedType;
+                effectivePermissions = externalAccount.permissions ?? user.permissions;
                 await prisma.user.update({
                     where: { id: user.id },
                     data: {
@@ -93,30 +69,42 @@ export async function GET() {
                         permissionsUpdatedAt: new Date(),
                     },
                 });
-                effectiveAccountType = normalizedType;
             }
         }
 
-        // Merge local user data with external account data
+        // When serving from cache (fresh), reconstruct externalAccount from the
+        // last-synced local fields so the settings page's CONNECTED badge and
+        // local-vs-external comparison keep working without a live call.
+        const externalAccountForResponse = externalAccount
+            ? {
+                username: externalAccount.username,
+                email: externalAccount.email,
+                accountType: externalAccount.accountType,
+                permissions: externalAccount.permissions,
+            }
+            : user.permissionsUpdatedAt
+                ? {
+                    username: user.username,
+                    email: user.email,
+                    accountType: effectiveAccountType,
+                    permissions: (user.permissions ?? {}) as PermissionResponse['permissions'],
+                }
+                : null;
+
         const responseData = {
             // Local Prisma user data
             userId: user.id,
             email: user.email,
             username: user.username,
             accountType: effectiveAccountType,
-            permissions: user.permissions,
+            permissions: effectivePermissions,
             permissionsUpdatedAt: user.permissionsUpdatedAt,
             createdAt: user.createdAt,
             updatedAt: user.updatedAt,
-            // External account data (from /accounts API)
-            externalAccount: externalAccount ? {
-                username: externalAccount.username,
-                email: externalAccount.email,
-                accountType: externalAccount.accountType,
-                permissions: externalAccount.permissions,
-            } : null,
+            // External account data (live when synced, cached when fresh)
+            externalAccount: externalAccountForResponse,
             // Flag to indicate if user is verified in external system
-            isExternalVerified: !!externalAccount,
+            isExternalVerified: externalAccountForResponse !== null,
         };
 
         return NextResponse.json(responseData, { status: 200 });

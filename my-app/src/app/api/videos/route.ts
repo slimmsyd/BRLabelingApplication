@@ -1,6 +1,10 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 
+// Safety ceiling so this query can never grow unbounded. Set well above current
+// volume (~695).
+const VIDEOS_CAP = 5000;
+
 /**
  * GET /api/videos
  * Fetches all videos from the database
@@ -8,11 +12,12 @@ import { prisma } from '@/lib/prisma';
 export async function GET() {
   try {
     console.log('[Videos API] Fetching all videos with assignments...');
-    
+
     const videos = await prisma.video.findMany({
       orderBy: {
         createdAt: 'desc', // Newest first
       },
+      take: VIDEOS_CAP,
       select: {
         id: true,
         title: true,
