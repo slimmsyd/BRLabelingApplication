@@ -27,27 +27,13 @@ const VideoCard = ({ id, title, boxer1, boxer2, round, fightDate, numCameraViews
     const [showMenu, setShowMenu] = useState(false);
     const [removing, setRemoving] = useState(false);
 
-    // Format the fight date
-    const formattedDate = new Date(fightDate).toLocaleDateString('en-US', {
-        month: 'short',
-        day: 'numeric',
-        year: 'numeric'
-    });
-
-    // Format the upload date
-    const uploadDate = new Date(createdAt).toLocaleDateString('en-US', {
-        month: 'short',
-        day: 'numeric'
-    });
+    const formattedDate = new Date(fightDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    const uploadDate = new Date(createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 
     const handleRemoveAssignment = async (e: React.MouseEvent) => {
         e.preventDefault();
         e.stopPropagation();
-
-        if (!assignmentId || !confirm('Are you sure you want to remove this assignment?')) {
-            return;
-        }
-
+        if (!assignmentId || !confirm('Are you sure you want to remove this assignment?')) return;
         setRemoving(true);
         try {
             const response = await fetch(`/api/videos/${id}/unassign`, {
@@ -55,7 +41,6 @@ const VideoCard = ({ id, title, boxer1, boxer2, round, fightDate, numCameraViews
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ assignmentId }),
             });
-
             if (response.ok) {
                 onAssignmentChange?.();
             } else {
@@ -70,6 +55,14 @@ const VideoCard = ({ id, title, boxer1, boxer2, round, fightDate, numCameraViews
         }
     };
 
+    // ── ADDED: shared status label + color, so de-duped footer matches old colors ──
+    const statusLabel = assignee?.status === 'ASSIGNED' ? 'IN PROGRESS' : assignee?.status;
+    const statusClasses = assignee?.status === 'SUBMITTED'
+        ? 'bg-yellow-500/10 text-yellow-500 border-yellow-500/20'
+        : assignee?.status === 'COMPLETED'
+            ? 'bg-green-500/10 text-green-500 border-green-500/20'
+            : 'bg-blue-500/10 text-blue-500 border-blue-500/20';
+
     return (
         <Link href={`/workspace?videoId=${id}`}>
             <div className="group bg-surface hover:bg-surface-hover rounded-xl overflow-hidden border border-transparent hover:border-border transition-all duration-300 cursor-pointer flex flex-col h-full relative">
@@ -82,8 +75,6 @@ const VideoCard = ({ id, title, boxer1, boxer2, round, fightDate, numCameraViews
                                 className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                                 muted
                                 playsInline
-                            // onMouseOver={(e) => e.currentTarget.play()}
-                            // onMouseOut={(e) => { e.currentTarget.pause(); e.currentTarget.currentTime = 0; }}
                             />
                         ) : (
                             <div className="absolute inset-0 bg-gradient-to-br from-gray-800 to-gray-900 group-hover:scale-105 transition-transform duration-500" />
@@ -93,35 +84,20 @@ const VideoCard = ({ id, title, boxer1, boxer2, round, fightDate, numCameraViews
                         {canAssign && (
                             <div className="absolute top-2 left-2 z-20">
                                 <button
-                                    onClick={(e) => {
-                                        e.preventDefault();
-                                        e.stopPropagation();
-                                        setShowMenu(!showMenu);
-                                    }}
+                                    onClick={(e) => { e.preventDefault(); e.stopPropagation(); setShowMenu(!showMenu); }}
                                     className="w-8 h-8 rounded-lg bg-black/60 backdrop-blur-sm border border-white/20 hover:bg-black/80 flex items-center justify-center transition-all"
                                 >
                                     <MoreVertical size={16} className="text-white" />
                                 </button>
-
-                                {/* Dropdown Menu */}
                                 {showMenu && (
                                     <div className="absolute top-10 left-0 w-48 bg-surface border border-border rounded-lg shadow-xl overflow-hidden z-30">
-                                        {/* Assign to User - Always show for admins */}
                                         <button
-                                            onClick={(e) => {
-                                                e.preventDefault();
-                                                e.stopPropagation();
-                                                console.log('[VideoCard] Assign clicked for video:', { id, title, hasAssignee: !!assignee });
-                                                setShowMenu(false);
-                                                onAssignClick?.();
-                                            }}
+                                            onClick={(e) => { e.preventDefault(); e.stopPropagation(); setShowMenu(false); onAssignClick?.(); }}
                                             className="w-full px-4 py-2.5 text-left text-sm text-accent-primary hover:bg-accent-primary/10 flex items-center gap-2 transition-colors border-b border-border"
                                         >
                                             <UserPlus size={14} />
                                             {assignee ? 'Reassign Video' : 'Assign to User'}
                                         </button>
-
-                                        {/* Remove Assignment - Only show if assigned */}
                                         {assignee && assignmentId && (
                                             <button
                                                 onClick={handleRemoveAssignment}
@@ -156,42 +132,31 @@ const VideoCard = ({ id, title, boxer1, boxer2, round, fightDate, numCameraViews
 
                 {/* Content */}
                 <div className="px-5 pb-5 pt-2 flex flex-col flex-1">
+                    {/* CHANGED: title only — the redundant "{boxer1} vs {boxer2}" subtitle is removed,
+                        because the title already reads e.g. "Isaac Cruz v Giovanni Cabrera - R11". */}
                     <h3 className="font-semibold text-foreground text-base mb-1 group-hover:text-accent-primary transition-colors line-clamp-1">
                         {title}
                     </h3>
 
-                    <p className="text-sm text-foreground-secondary mb-2">
-                        {boxer1} vs {boxer2}
-                    </p>
-
                     <div className="mt-auto space-y-3">
                         <div className="space-y-1">
-                            <p className="text-xs text-foreground-tertiary">
-                                {formattedDate}
-                            </p>
-                            <p className="text-xs text-foreground-tertiary">
-                                Uploaded {uploadDate}
-                            </p>
+                            <p className="text-xs text-foreground-tertiary">{formattedDate}</p>
+                            <p className="text-xs text-foreground-tertiary">Uploaded {uploadDate}</p>
                         </div>
 
-                        {/* Assignment Status */}
+                        {/* CHANGED: de-duplicated assignment footer.
+                            Was: a white "ASSIGNED: name" pill stacked above a separate status pill.
+                            Now: ONE inline row — name (with green dot) + status pill together. */}
                         <div>
                             {assignee ? (
-                                <div className="space-y-1.5">
-                                    <div className="inline-flex items-center gap-1.5 bg-white text-black text-[10px] font-bold px-2 py-1 rounded shadow-sm uppercase tracking-wider">
-                                        <div className="w-1.5 h-1.5 rounded-full bg-green-500" />
-                                        ASSIGNED: {assignee.username || assignee.email.split('@')[0]}
-                                    </div>
-
-                                    {/* Status Badge */}
-                                    <div className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold border uppercase tracking-wide ${assignee.status === 'SUBMITTED'
-                                        ? 'bg-yellow-500/10 text-yellow-500 border-yellow-500/20'
-                                        : assignee.status === 'COMPLETED'
-                                            ? 'bg-green-500/10 text-green-500 border-green-500/20'
-                                            : 'bg-blue-500/10 text-blue-500 border-blue-500/20'
-                                        }`}>
-                                        {assignee.status === 'ASSIGNED' ? 'IN PROGRESS' : assignee.status}
-                                    </div>
+                                <div className="flex items-center gap-2 flex-wrap">
+                                    <span className="inline-flex items-center gap-1.5 text-[11px] text-foreground-secondary">
+                                        <span className="w-1.5 h-1.5 rounded-full bg-green-500" />
+                                        {assignee.username || assignee.email.split('@')[0]}
+                                    </span>
+                                    <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold border uppercase tracking-wide ${statusClasses}`}>
+                                        {statusLabel}
+                                    </span>
                                 </div>
                             ) : (
                                 <div className="inline-flex items-center bg-white/5 border border-white/10 text-foreground-secondary text-[10px] font-bold px-2 py-1 rounded uppercase tracking-wider">
