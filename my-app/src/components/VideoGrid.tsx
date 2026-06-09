@@ -240,8 +240,38 @@ const VideoGrid = () => {
     return (
         <div className="w-full max-w-6xl mx-auto">
             {loading && (
-                <div className="flex items-center justify-center py-12">
-                    <Loader2 size={32} className="animate-spin text-accent-primary" />
+                /* Skeleton mirrors the real two-column layout so content doesn't jump in */
+                <div className="flex flex-col lg:flex-row gap-8 animate-pulse" aria-busy="true" aria-label="Loading projects">
+                    {/* Left column: heading + filter bar + two-up card grid */}
+                    <div className="flex-1 min-w-0">
+                        <div className="h-8 w-48 bg-white/5 rounded-lg mb-6" />
+                        <div className="flex items-center gap-3 mb-6">
+                            <div className="h-8 w-64 max-w-full bg-white/5 rounded-[10px]" />
+                            <div className="h-8 w-28 bg-white/5 rounded-[10px]" />
+                        </div>
+                        <div className="grid grid-cols-2 gap-4 lg:gap-6">
+                            {Array.from({ length: 6 }).map((_, i) => (
+                                <div key={i} className="bg-surface rounded-xl overflow-hidden border border-border flex flex-col">
+                                    <div className="aspect-[4/3] bg-white/5" />
+                                    <div className="px-3 pb-3 pt-2 lg:px-5 lg:pb-5 space-y-2.5 flex-1">
+                                        <div className="h-4 w-3/4 bg-white/5 rounded" />
+                                        <div className="h-3 w-1/2 bg-white/5 rounded" />
+                                        <div className="h-5 w-24 bg-white/5 rounded-full" />
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                    {/* Right rail: upload button + queue cards */}
+                    <div className="w-full lg:w-80 shrink-0 space-y-6">
+                        <div className="h-[74px] bg-white/5 rounded-2xl" />
+                        <div className="space-y-4">
+                            <div className="h-6 w-28 bg-white/5 rounded" />
+                            {Array.from({ length: 3 }).map((_, i) => (
+                                <div key={i} className="h-[88px] bg-surface border border-border rounded-xl" />
+                            ))}
+                        </div>
+                    </div>
                 </div>
             )}
 
@@ -252,7 +282,7 @@ const VideoGrid = () => {
             )}
 
             {!loading && !error && (
-                <div className="flex gap-8">
+                <div className="flex flex-col lg:flex-row gap-8">
                     {/* Left Column: Explore Projects */}
                     <div className="flex-1 min-w-0">
                         <div className="flex items-center justify-between mb-6">
@@ -309,7 +339,7 @@ const VideoGrid = () => {
                             </span>
                         </div>
 
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                        <div className="grid grid-cols-2 gap-4 lg:gap-6">
                             {filteredVideos.map((video) => (
                                 <VideoCard
                                     key={video.id}
@@ -346,7 +376,7 @@ const VideoGrid = () => {
                     </div>
 
                     {/* Right Column: In Queue (Unassigned) */}
-                    <div className="w-80 shrink-0 space-y-6">
+                    <div className="w-full lg:w-80 shrink-0 space-y-6">
                         {/* Upload Video Indicator — UNCHANGED */}
                         <Link
                             href="/upload"
