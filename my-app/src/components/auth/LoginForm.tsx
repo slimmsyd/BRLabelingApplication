@@ -2,7 +2,9 @@
 
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { mutate } from 'swr';
 import { Mail, Lock, Loader2, Eye, EyeOff } from 'lucide-react';
+import { AUTH_ME_KEY } from '@/lib/hooks/useCurrentUser';
 
 interface LoginFormProps {
     onToggleMode: () => void;
@@ -37,6 +39,10 @@ export const LoginForm: React.FC<LoginFormProps> = ({ onToggleMode }) => {
                 throw new Error(message);
             }
 
+            // The logged-out visit to "/" cached a 401 for /api/auth/me; without
+            // this revalidation the dashboard serves that stale error after the
+            // client-side push and renders blank until a hard refresh.
+            await mutate(AUTH_ME_KEY, undefined, { revalidate: true });
             router.push('/');
         } catch (err: any) {
             setError(err.message);
