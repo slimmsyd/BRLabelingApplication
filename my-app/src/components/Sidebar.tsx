@@ -155,8 +155,11 @@ const Sidebar = ({ isOpen, toggle }: SidebarProps) => {
                     </div>
                 </div>
 
-                {/* Main Navigation */}
-                <nav className="flex-1 px-4 py-6 space-y-6 overflow-y-auto overflow-x-hidden custom-scrollbar">
+                {/* Main Navigation
+                    CHANGED: nav is now a flex column that owns the full remaining height.
+                    `min-h-0` lets children shrink so their inner lists can scroll.
+                    The nav itself no longer scrolls — each list scrolls inside its own region. */}
+                <nav className="flex-1 min-h-0 px-4 py-6 flex flex-col gap-6 overflow-x-hidden">
 
                     {/* Assigned to You */}
                     {(() => {
@@ -171,7 +174,7 @@ const Sidebar = ({ isOpen, toggle }: SidebarProps) => {
                         });
 
                         return (
-                            <div className="space-y-2">
+                            <div className="space-y-2 shrink-0">
                                 <div className={`px-2 text-xs font-semibold text-foreground-tertiary uppercase tracking-wider transition-opacity duration-200 ${!isOpen ? 'opacity-0 hidden' : 'opacity-100'}`}>
                                     Assigned to You
                                 </div>
@@ -219,7 +222,7 @@ const Sidebar = ({ isOpen, toggle }: SidebarProps) => {
                         });
 
                         return (
-                            <div className="space-y-2">
+                            <div className={`space-y-2 ${isOpen ? 'flex-1 min-h-0 flex flex-col pt-6 border-t border-border' : ''}`}>
                                 <div className={`px-2 flex items-center gap-2 transition-opacity duration-200 ${!isOpen ? 'opacity-0 hidden' : 'opacity-100'}`}>
                                     <span className="text-xs font-semibold text-foreground-tertiary uppercase tracking-wider">
                                         Awaiting QC
@@ -230,7 +233,7 @@ const Sidebar = ({ isOpen, toggle }: SidebarProps) => {
                                         </span>
                                     )}
                                 </div>
-                                <div className="space-y-0.5 max-h-40 overflow-y-auto">
+                                <div className="space-y-0.5 flex-1 min-h-0 overflow-y-auto custom-scrollbar">
                                     {submittedLoading ? (
                                         <div className="px-3 py-2 text-foreground-secondary text-sm flex items-center gap-2">
                                             <Loader2 size={14} className="animate-spin" />
@@ -292,7 +295,7 @@ const Sidebar = ({ isOpen, toggle }: SidebarProps) => {
                         });
 
                         return (
-                            <div className="space-y-2">
+                            <div className={`space-y-2 ${isOpen ? 'flex-1 min-h-0 flex flex-col pt-6 border-t border-border' : ''}`}>
                                 <div className={`px-2 flex items-center gap-2 transition-opacity duration-200 ${!isOpen ? 'opacity-0 hidden' : 'opacity-100'}`}>
                                     <span className="text-xs font-semibold text-foreground-tertiary uppercase tracking-wider">
                                         QC Complete
@@ -303,7 +306,7 @@ const Sidebar = ({ isOpen, toggle }: SidebarProps) => {
                                         </span>
                                     )}
                                 </div>
-                                <div className="space-y-0.5 max-h-40 overflow-y-auto">
+                                <div className="space-y-0.5 flex-1 min-h-0 overflow-y-auto custom-scrollbar">
                                     {submittedLoading ? (
                                         <div className="px-3 py-2 text-foreground-secondary text-sm flex items-center gap-2">
                                             <Loader2 size={14} className="animate-spin" />
