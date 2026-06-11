@@ -308,7 +308,7 @@ const SidebarControls = ({
                                     disabled={readOnly}
                                     className="w-full bg-background border border-border rounded-lg px-2 py-1.5 text-xs text-foreground focus:outline-none focus:border-accent-primary"
                                 >
-                                    {['Guard', 'Slip', 'Parry', 'Duck'].map(type => (
+                                    {['Guard', 'Slip', 'Parry', 'Duck', 'Block'].map(type => (
                                         <option key={type} value={type}>{type}</option>
                                     ))}
                                 </select>
