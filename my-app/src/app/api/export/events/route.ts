@@ -86,6 +86,7 @@ export async function GET(request: Request) {
       stance: e.stance,
       landed: e.landed,
       punchResult: e.punchResult,
+      defenseType: e.defenseType,
       cam: e.cam,
       fightTitle: e.fightTitle,
       videoId: e.assignment.video.id,
