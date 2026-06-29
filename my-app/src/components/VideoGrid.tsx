@@ -6,6 +6,7 @@ import AssignmentModal from './AssignmentModal';
 import FeedbackWidget from './FeedbackWidget';
 import { Plus, Loader2, UserPlus, MoreVertical, Trash2, SlidersHorizontal, ChevronDown, ChevronRight, Layers } from 'lucide-react';
 import Link from 'next/link';
+import ArchivedVideoOverlay from './ArchivedVideoOverlay';
 import { canAssignRounds } from '@/lib/permissions';
 import { useCurrentUser } from '@/lib/hooks/useCurrentUser';
 
@@ -18,6 +19,7 @@ interface Video {
     fightDate: string;
     numCameraViews: number;
     sourceUrls: string[];
+    archived?: boolean;
     createdAt: string;
     assignments?: Array<{
         id: string;
@@ -50,6 +52,7 @@ const VideoGrid = () => {
     const [groupQueue, setGroupQueue] = useState(true); // group by event (matchup)
     // Groups start collapsed (chip strip); a click expands to the full rows.
     const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({});
+    const [archivedOverlayTitle, setArchivedOverlayTitle] = useState<string | null>(null);
 
     useEffect(() => {
         const fetchVideos = async () => {
@@ -146,46 +149,61 @@ const VideoGrid = () => {
     // ── Single queue-card renderer reused by BOTH grouped and flat modes ──────
     // (This is the original per-video row markup, extracted verbatim so the
     //  assign button, delete menu and thumbnail behavior are unchanged.)
-    const renderQueueCard = (video: Video) => (
-        <div key={video.id} className="relative">
-            <Link
-                href={`/workspace?videoId=${video.id}`}
-                className="block bg-surface border border-border rounded-xl p-3 hover:border-foreground-secondary/50 transition-colors cursor-pointer group/card"
-            >
-                <div className="flex items-start gap-3">
-                    <div className="w-24 h-16 rounded-lg bg-black overflow-hidden shrink-0 relative border border-white/10">
-                        {video.sourceUrls?.[0] ? (
-                            <video
-                                src={video.sourceUrls[0]}
-                                className="w-full h-full object-cover opacity-80 group-hover/card:opacity-100 transition-opacity"
-                                muted
-                                playsInline
-                                onMouseOver={e => e.currentTarget.play()}
-                                onMouseOut={e => { e.currentTarget.pause(); e.currentTarget.currentTime = 0; }}
-                            />
-                        ) : (
-                            <div className="w-full h-full flex items-center justify-center text-foreground-secondary">
-                                <span className="text-xs">No Video</span>
-                            </div>
-                        )}
-                        <div className="absolute top-1 right-1 px-1.5 py-0.5 bg-black/60 backdrop-blur-sm rounded text-[8px] font-bold text-white border border-white/10">
-                            R{video.round}
+    const renderQueueCard = (video: Video) => {
+        const cardClass = "block bg-surface border border-border rounded-xl p-3 hover:border-foreground-secondary/50 transition-colors cursor-pointer group/card";
+        const cardBody = (
+            <div className="flex items-start gap-3">
+                <div className="w-24 h-16 rounded-lg bg-black overflow-hidden shrink-0 relative border border-white/10">
+                    {video.sourceUrls?.[0] && !video.archived ? (
+                        <video
+                            src={video.sourceUrls[0]}
+                            className="w-full h-full object-cover opacity-80 group-hover/card:opacity-100 transition-opacity"
+                            muted
+                            playsInline
+                            onMouseOver={e => e.currentTarget.play()}
+                            onMouseOut={e => { e.currentTarget.pause(); e.currentTarget.currentTime = 0; }}
+                        />
+                    ) : (
+                        <div className="w-full h-full flex items-center justify-center text-foreground-secondary">
+                            <span className="text-xs">{video.archived ? 'Archived' : 'No Video'}</span>
                         </div>
-                    </div>
-
-                    <div className="flex-1 min-w-0 py-0.5">
-                        <h4 className="text-sm font-medium text-foreground truncate group-hover/card:text-accent-primary transition-colors">{video.title}</h4>
-                        <p className="text-xs text-foreground-secondary mt-0.5 truncate">
-                            {video.boxer1} vs {video.boxer2}
-                        </p>
-                        <div className="flex items-center gap-2 mt-2">
-                            <span className="px-2 py-0.5 text-[10px] font-medium bg-amber-500/10 text-amber-500 rounded border border-amber-500/20">
-                                AWAITING PICKUP
-                            </span>
-                        </div>
+                    )}
+                    <div className="absolute top-1 right-1 px-1.5 py-0.5 bg-black/60 backdrop-blur-sm rounded text-[8px] font-bold text-white border border-white/10">
+                        R{video.round}
                     </div>
                 </div>
-            </Link>
+
+                <div className="flex-1 min-w-0 py-0.5">
+                    <h4 className="text-sm font-medium text-foreground truncate group-hover/card:text-accent-primary transition-colors">{video.title}</h4>
+                    <p className="text-xs text-foreground-secondary mt-0.5 truncate">
+                        {video.boxer1} vs {video.boxer2}
+                    </p>
+                    <div className="flex items-center gap-2 mt-2">
+                        <span className="px-2 py-0.5 text-[10px] font-medium bg-amber-500/10 text-amber-500 rounded border border-amber-500/20">
+                            AWAITING PICKUP
+                        </span>
+                    </div>
+                </div>
+            </div>
+        );
+
+        return (
+        <div key={video.id} className="relative">
+            {video.archived ? (
+                <div
+                    role="button"
+                    tabIndex={0}
+                    className={cardClass}
+                    onClick={() => setArchivedOverlayTitle(video.title)}
+                    onKeyDown={(e) => e.key === 'Enter' && setArchivedOverlayTitle(video.title)}
+                >
+                    {cardBody}
+                </div>
+            ) : (
+                <Link href={`/workspace?videoId=${video.id}`} className={cardClass}>
+                    {cardBody}
+                </Link>
+            )}
 
             {/* Assign Button — only round-assigners */}
             {canAssignRounds(currentUser?.email) && (
@@ -235,7 +253,8 @@ const VideoGrid = () => {
                 </div>
             )}
         </div>
-    );
+        );
+    };
 
     return (
         <div className="w-full max-w-6xl mx-auto">
@@ -351,6 +370,8 @@ const VideoGrid = () => {
                                     fightDate={video.fightDate}
                                     numCameraViews={video.numCameraViews}
                                     createdAt={video.createdAt}
+                                    archived={video.archived}
+                                    onArchivedClick={setArchivedOverlayTitle}
                                     assignee={video.assignments?.[0] ? {
                                         ...video.assignments[0].user,
                                         status: video.assignments[0].status
@@ -553,6 +574,14 @@ const VideoGrid = () => {
                         </div>
                     </div>
                 </div>
+            )}
+
+            {archivedOverlayTitle && (
+                <ArchivedVideoOverlay
+                    variant="modal"
+                    title={archivedOverlayTitle}
+                    onClose={() => setArchivedOverlayTitle(null)}
+                />
             )}
         </div>
     );

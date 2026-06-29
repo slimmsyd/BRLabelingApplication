@@ -1,0 +1,3 @@
+-- AlterTable
+ALTER TABLE "Video" ADD COLUMN "archived" BOOLEAN NOT NULL DEFAULT false;
+ALTER TABLE "Video" ADD COLUMN "archivedAt" TIMESTAMP(3);

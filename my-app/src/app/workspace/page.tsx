@@ -7,6 +7,7 @@ import VideoPlayer from '@/components/workspace/VideoPlayer';
 import EventLog, { EventData } from '@/components/workspace/EventLog';
 import SidebarControls from '@/components/workspace/SidebarControls';
 import SuccessModal from '@/components/SuccessModal';
+import ArchivedVideoOverlay from '@/components/ArchivedVideoOverlay';
 import { Loader2 } from 'lucide-react';
 import { generateId, safeGetItem, safeSetItem, safeRemoveItem, safeJsonParse, safeResponseJson } from '@/lib/client-utils';
 import { useCurrentUser } from '@/lib/hooks/useCurrentUser';
@@ -28,6 +29,8 @@ interface VideoData {
     duration?: number;
     weightClass?: string;
     venue?: string;
+    archived?: boolean;
+    archivedAt?: string | null;
     createdAt: string;
     updatedAt: string;
 }
@@ -979,6 +982,10 @@ function WorkspacePage() {
                 </div>
             </div>
         );
+    }
+
+    if (videoData.archived) {
+        return <ArchivedVideoOverlay variant="page" title={videoData.title} />;
     }
 
     const handleAssign = async () => {

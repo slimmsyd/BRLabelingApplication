@@ -28,6 +28,7 @@ export async function GET() {
         fps: true,
         numCameraViews: true,
         sourceUrls: true,
+        archived: true,
         // storagePath: true,
         // storageProvider: true,
         createdAt: true,

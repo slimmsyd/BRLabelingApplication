@@ -36,6 +36,7 @@ export async function GET() {
               boxer1: true,
               boxer2: true,
               round: true,
+              archived: true,
             },
           },
         },

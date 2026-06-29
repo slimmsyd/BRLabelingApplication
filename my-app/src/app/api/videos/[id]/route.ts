@@ -31,6 +31,8 @@ export async function GET(
         // storageProvider: true,
         duration: true,
         uploadedBy: true,
+        archived: true,
+        archivedAt: true,
         createdAt: true,
         updatedAt: true,
       },

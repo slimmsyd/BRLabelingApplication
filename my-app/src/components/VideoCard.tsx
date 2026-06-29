@@ -11,6 +11,8 @@ interface VideoCardProps {
     fightDate: string;
     numCameraViews: number;
     createdAt: string;
+    archived?: boolean;
+    onArchivedClick?: (title: string) => void;
     assignee?: {
         username: string | null;
         email: string;
@@ -23,7 +25,7 @@ interface VideoCardProps {
     onAssignClick?: () => void;
 }
 
-const VideoCard = ({ id, title, boxer1, boxer2, round, fightDate, numCameraViews, createdAt, assignee, thumbnailUrl, canAssign = false, assignmentId, onAssignmentChange, onAssignClick }: VideoCardProps) => {
+const VideoCard = ({ id, title, boxer1, boxer2, round, fightDate, numCameraViews, createdAt, archived = false, onArchivedClick, assignee, thumbnailUrl, canAssign = false, assignmentId, onAssignmentChange, onAssignClick }: VideoCardProps) => {
     const [showMenu, setShowMenu] = useState(false);
     const [removing, setRemoving] = useState(false);
 
@@ -63,8 +65,7 @@ const VideoCard = ({ id, title, boxer1, boxer2, round, fightDate, numCameraViews
             ? 'bg-green-500/10 text-green-500 border-green-500/20'
             : 'bg-blue-500/10 text-blue-500 border-blue-500/20';
 
-    return (
-        <Link href={`/workspace?videoId=${id}`}>
+    const cardInner = (
             <div className="group bg-surface hover:bg-surface-hover rounded-xl overflow-hidden border border-transparent hover:border-border transition-all duration-300 cursor-pointer flex flex-col h-full relative">
 
                 <div className="relative aspect-[4/3] bg-black/40 overflow-hidden p-2 lg:p-4">
@@ -167,6 +168,24 @@ const VideoCard = ({ id, title, boxer1, boxer2, round, fightDate, numCameraViews
                     </div>
                 </div>
             </div>
+    );
+
+    if (archived) {
+        return (
+            <div
+                role="button"
+                tabIndex={0}
+                onClick={() => onArchivedClick?.(title)}
+                onKeyDown={(e) => e.key === 'Enter' && onArchivedClick?.(title)}
+            >
+                {cardInner}
+            </div>
+        );
+    }
+
+    return (
+        <Link href={`/workspace?videoId=${id}`}>
+            {cardInner}
         </Link>
     );
 };

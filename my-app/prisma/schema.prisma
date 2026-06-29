@@ -84,6 +84,8 @@ model Video {
   
   // Upload Tracking
   uploadedBy  String?                     // User ID who uploaded (optional)
+  archived    Boolean            @default(false) // Storage files removed; labeling data preserved
+  archivedAt  DateTime?                   // When storage was cleared
   createdAt   DateTime           @default(now())
   updatedAt   DateTime           @updatedAt
   
