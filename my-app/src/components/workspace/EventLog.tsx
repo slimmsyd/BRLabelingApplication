@@ -33,6 +33,7 @@ interface EventLogProps {
     onDeleteEvent: (eventId: string) => void;
     readOnly?: boolean;
     onSeek?: (event: EventData) => void;
+    onSeekEnd?: (event: EventData) => void;
     onSelectEvent?: (event: EventData) => void;
     boxerNames?: { boxerA: string; boxerB: string };
     selectedEventId?: string | null; // Currently editing event
@@ -71,6 +72,7 @@ const EventRow = ({
     readOnly,
     onSelectEvent,
     onSeek,
+    onSeekEnd,
     onDeleteEvent
 }: {
     event: EventData,
@@ -79,6 +81,7 @@ const EventRow = ({
     readOnly: boolean,
     onSelectEvent?: (event: EventData) => void,
     onSeek?: (event: EventData) => void,
+    onSeekEnd?: (event: EventData) => void,
     onDeleteEvent: (eventId: string) => void
 }) => (
     <div
@@ -198,14 +201,28 @@ const EventRow = ({
                         e.stopPropagation();
                         onSeek?.(event);
                     }}
+                    title="Seek to start time"
                     className="font-mono text-xs text-accent-primary hover:underline cursor-pointer bg-accent-primary/10 px-1.5 py-0.5 rounded"
                 >
                     {event.startTime}
                 </button>
                 <span className="text-foreground-secondary text-[10px]">-</span>
-                <span className="font-mono text-xs text-foreground-secondary">
-                    {event.endTime || '...'}
-                </span>
+                {event.endTime ? (
+                    <button
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            onSeekEnd?.(event);
+                        }}
+                        title="Seek to end time"
+                        className="font-mono text-xs text-accent-primary hover:underline cursor-pointer bg-accent-primary/10 px-1.5 py-0.5 rounded"
+                    >
+                        {event.endTime}
+                    </button>
+                ) : (
+                    <span className="font-mono text-xs text-foreground-secondary">
+                        ...
+                    </span>
+                )}
             </div>
 
             {!readOnly && (
@@ -231,6 +248,7 @@ const EventTable = ({
     readOnly,
     onSelectEvent,
     onSeek,
+    onSeekEnd,
     onDeleteEvent
 }: {
     title: string,
@@ -239,6 +257,7 @@ const EventTable = ({
     readOnly: boolean,
     onSelectEvent?: (event: EventData) => void,
     onSeek?: (event: EventData) => void,
+    onSeekEnd?: (event: EventData) => void,
     onDeleteEvent: (eventId: string) => void
 }) => (
     <div className="flex-1 min-w-0 bg-surface rounded-xl border border-border overflow-hidden flex flex-col h-[400px]">
@@ -263,6 +282,7 @@ const EventTable = ({
                         readOnly={readOnly}
                         onSelectEvent={onSelectEvent}
                         onSeek={onSeek}
+                        onSeekEnd={onSeekEnd}
                         onDeleteEvent={onDeleteEvent}
                     />
                 ))
@@ -271,7 +291,7 @@ const EventTable = ({
     </div>
 );
 
-const EventLog = ({ events, onStartPunch, onEndPunch, onDeleteEvent, readOnly = false, onSeek, onSelectEvent, boxerNames, selectedEventId }: EventLogProps) => {
+const EventLog = ({ events, onStartPunch, onEndPunch, onDeleteEvent, readOnly = false, onSeek, onSeekEnd, onSelectEvent, boxerNames, selectedEventId }: EventLogProps) => {
     // Sort mode: 'recent' = order added (most recent first), 'timestamp' = by video time
     const [sortMode, setSortMode] = useState<'recent' | 'timestamp'>('recent');
 
@@ -335,6 +355,7 @@ const EventLog = ({ events, onStartPunch, onEndPunch, onDeleteEvent, readOnly = 
                     readOnly={readOnly}
                     onSelectEvent={onSelectEvent}
                     onSeek={onSeek}
+                    onSeekEnd={onSeekEnd}
                     onDeleteEvent={onDeleteEvent}
                 />
                 <EventTable
@@ -344,6 +365,7 @@ const EventLog = ({ events, onStartPunch, onEndPunch, onDeleteEvent, readOnly = 
                     readOnly={readOnly}
                     onSelectEvent={onSelectEvent}
                     onSeek={onSeek}
+                    onSeekEnd={onSeekEnd}
                     onDeleteEvent={onDeleteEvent}
                 />
             </div>
