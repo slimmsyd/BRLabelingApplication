@@ -429,36 +429,13 @@ function WorkspacePage() {
         return mins * 60 + secs + ms / 100;
     };
 
-    const handleSeek = (event: EventData) => {
-        if (videoRef.current) {
-            const seconds = parseTimeToSeconds(event.startTime);
-            videoRef.current.currentTime = seconds;
-        }
-
-        // Allow editing if:
-        // 1. Not submitted (labelers can edit their own work before submission)
-        // 2. OR in QC mode (QC reviewers can edit after submission)
-        if (!isSubmitted || isQCMode) {
-            setSelectedEventId(event.id);
-            // Populate form with event data
-            setBoxer(event.boxer);
-            setPunchType(event.punchType);
-            setHand(event.hand);
-            setTarget(event.target);
-            setVisibilityFlags(event.visibilityFlags);
-            setKnockdown(event.knockdown);
-            setPunchQuality(event.punchQuality);
-            setStance(event.stance || 'Orthodox');
-            setLanded(event.landed !== undefined ? event.landed : true);
-            setPunchResult(event.punchResult || (event.landed !== false ? 'Landed' : 'Missed'));
-            setDefenseType(event.defenseType || 'Guard');
-            setStartTime(event.startTime);
-            setEndTime(event.endTime);
+    const seekVideoToTime = (timeStr: string) => {
+        if (videoRef.current && timeStr) {
+            videoRef.current.currentTime = parseTimeToSeconds(timeStr);
         }
     };
 
-    const handleSelectEvent = (event: EventData) => {
-        // Populate form with event data
+    const populateEventFormForEdit = (event: EventData) => {
         setSelectedEventId(event.id);
         setBoxer(event.boxer);
         setPunchType(event.punchType);
@@ -473,12 +450,32 @@ function WorkspacePage() {
         setDefenseType(event.defenseType || 'Guard');
         setStartTime(event.startTime);
         setEndTime(event.endTime);
+    };
 
-        // Optional: Seek to start time for context
-        if (videoRef.current) {
-            const seconds = parseTimeToSeconds(event.startTime);
-            videoRef.current.currentTime = seconds;
+    const handleSeek = (event: EventData) => {
+        seekVideoToTime(event.startTime);
+
+        // Allow editing if:
+        // 1. Not submitted (labelers can edit their own work before submission)
+        // 2. OR in QC mode (QC reviewers can edit after submission)
+        if (!isSubmitted || isQCMode) {
+            populateEventFormForEdit(event);
         }
+    };
+
+    const handleSeekEnd = (event: EventData) => {
+        if (!event.endTime) return;
+
+        seekVideoToTime(event.endTime);
+
+        if (!isSubmitted || isQCMode) {
+            populateEventFormForEdit(event);
+        }
+    };
+
+    const handleSelectEvent = (event: EventData) => {
+        populateEventFormForEdit(event);
+        seekVideoToTime(event.startTime);
     };
 
     // Helper function to convert visibility flags to boolean matrix
@@ -1140,6 +1137,7 @@ function WorkspacePage() {
                                 onDeleteEvent={handleDeleteEvent}
                                 readOnly={isReadOnly}
                                 onSeek={handleSeek}
+                                onSeekEnd={handleSeekEnd}
                                 onSelectEvent={handleSelectEvent}
                                 boxerNames={boxerNames}
                                 selectedEventId={selectedEventId}
