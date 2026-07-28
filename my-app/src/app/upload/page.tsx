@@ -9,14 +9,22 @@ import Link from 'next/link';
 import { uploadVideosStandard, StandardUploadProgress } from '@/lib/storage/standard-upload';
 
 
-type CameraKey = 'cam1' | 'cam2' | 'cam3';
+type CameraKey = 'cam1' | 'cam2' | 'cam3' | 'cam4';
+
+const CAMERA_KEYS: CameraKey[] = ['cam1', 'cam2', 'cam3', 'cam4'];
+
+const emptyCamProgress = (): { progress: number; status: 'pending' | 'uploading' | 'complete' | 'error' } => ({
+    progress: 0,
+    status: 'pending',
+});
 
 const UploadPage = () => {
     const router = useRouter();
-    const [files, setFiles] = useState<{ cam1: File | null; cam2: File | null; cam3: File | null }>({
+    const [files, setFiles] = useState<{ cam1: File | null; cam2: File | null; cam3: File | null; cam4: File | null }>({
         cam1: null,
         cam2: null,
-        cam3: null
+        cam3: null,
+        cam4: null,
     });
     const [boxer1, setBoxer1] = useState('');
     const [boxer2, setBoxer2] = useState('');
@@ -30,14 +38,16 @@ const UploadPage = () => {
         cam1: { progress: number; status: 'pending' | 'uploading' | 'complete' | 'error' };
         cam2: { progress: number; status: 'pending' | 'uploading' | 'complete' | 'error' };
         cam3: { progress: number; status: 'pending' | 'uploading' | 'complete' | 'error' };
+        cam4: { progress: number; status: 'pending' | 'uploading' | 'complete' | 'error' };
     }>({
-        cam1: { progress: 0, status: 'pending' },
-        cam2: { progress: 0, status: 'pending' },
-        cam3: { progress: 0, status: 'pending' }
+        cam1: emptyCamProgress(),
+        cam2: emptyCamProgress(),
+        cam3: emptyCamProgress(),
+        cam4: emptyCamProgress(),
     });
     const [uploadStartTime, setUploadStartTime] = useState<number | null>(null);
     const [elapsedTime, setElapsedTime] = useState(0);
-    const [dragActive, setDragActive] = useState({ cam1: false, cam2: false, cam3: false });
+    const [dragActive, setDragActive] = useState({ cam1: false, cam2: false, cam3: false, cam4: false });
 
     // MOV file warning state
     const [showMovWarning, setShowMovWarning] = useState(false);
@@ -59,7 +69,8 @@ const UploadPage = () => {
     const fileInputRefs = {
         cam1: useRef<HTMLInputElement>(null),
         cam2: useRef<HTMLInputElement>(null),
-        cam3: useRef<HTMLInputElement>(null)
+        cam3: useRef<HTMLInputElement>(null),
+        cam4: useRef<HTMLInputElement>(null),
     };
 
     // Check if file is a MOV and show warning
@@ -140,9 +151,10 @@ const UploadPage = () => {
         setError('');
         setUploadStartTime(Date.now());
         setUploadProgress({
-            cam1: { progress: 0, status: 'pending' },
-            cam2: { progress: 0, status: 'pending' },
-            cam3: { progress: 0, status: 'pending' }
+            cam1: emptyCamProgress(),
+            cam2: emptyCamProgress(),
+            cam3: emptyCamProgress(),
+            cam4: emptyCamProgress(),
         });
 
         try {
@@ -161,11 +173,13 @@ const UploadPage = () => {
                     setUploadProgress(prev => {
                         const newProgress = { ...prev };
                         progressUpdates.forEach((update: StandardUploadProgress) => {
-                            const camKey = `cam${update.camera}` as 'cam1' | 'cam2' | 'cam3';
-                            newProgress[camKey] = {
-                                progress: update.progress,
-                                status: update.status
-                            };
+                            const camKey = `cam${update.camera}` as CameraKey;
+                            if (camKey in newProgress) {
+                                newProgress[camKey] = {
+                                    progress: update.progress,
+                                    status: update.status
+                                };
+                            }
                         });
                         return newProgress;
                     });
@@ -184,6 +198,7 @@ const UploadPage = () => {
         }
     };
 
+
     return (
         <div className="min-h-screen bg-background text-foreground p-6">
             <div className="max-w-5xl mx-auto">
@@ -199,12 +214,12 @@ const UploadPage = () => {
                             Multi-Angle Support
                         </div>
                     </div>
-                    <p className="text-foreground-secondary mb-8">Upload up to 3 camera angles for this fight.</p>
+                    <p className="text-foreground-secondary mb-8">Upload up to 4 camera angles for this fight.</p>
 
                     <form onSubmit={handleSubmit} className="space-y-8">
                         {/* Camera Upload Grid */}
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                            {(['cam1', 'cam2', 'cam3'] as CameraKey[]).map((cam, index) => (
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                            {CAMERA_KEYS.map((cam, index) => (
                                 <div key={cam} className="space-y-2">
                                     <label className="flex items-center gap-2 text-sm font-medium text-foreground-secondary uppercase tracking-wider">
                                         <Camera size={14} />
@@ -393,7 +408,7 @@ const UploadPage = () => {
                                 </div>
 
                                 {/* Per-camera progress */}
-                                {(['cam1', 'cam2', 'cam3'] as CameraKey[]).map((cam, index) => {
+                                {CAMERA_KEYS.map((cam, index) => {
                                     const camProgress = uploadProgress[cam];
                                     const hasFile = files[cam] !== null;
 
@@ -438,7 +453,7 @@ const UploadPage = () => {
                                         <span className="text-foreground font-medium">Overall Progress</span>
                                         <span className="text-foreground font-mono">
                                             {(() => {
-                                                const activeCams = (['cam1', 'cam2', 'cam3'] as CameraKey[]).filter(c => files[c] !== null);
+                                                const activeCams = CAMERA_KEYS.filter(c => files[c] !== null);
                                                 const totalProgress = activeCams.reduce((sum, c) => sum + uploadProgress[c].progress, 0);
                                                 return Math.round(totalProgress / activeCams.length);
                                             })()}%
@@ -449,7 +464,7 @@ const UploadPage = () => {
                                             className="h-full bg-gradient-to-r from-accent-primary to-green-500 transition-all duration-300 ease-out"
                                             style={{
                                                 width: `${(() => {
-                                                    const activeCams = (['cam1', 'cam2', 'cam3'] as CameraKey[]).filter(c => files[c] !== null);
+                                                    const activeCams = CAMERA_KEYS.filter(c => files[c] !== null);
                                                     const totalProgress = activeCams.reduce((sum, c) => sum + uploadProgress[c].progress, 0);
                                                     return Math.round(totalProgress / activeCams.length);
                                                 })()}%`

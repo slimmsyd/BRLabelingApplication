@@ -212,7 +212,10 @@ export default function ClipExportPanel() {
                 setProgress(Math.round(((i) / events.length) * 90));
 
                 // Use first source URL (cam1 by default unless cam is specified)
-                const camIndex = event.cam === 'CAM 2' ? 1 : event.cam === 'CAM 3' ? 2 : 0;
+                const camIndex =
+                    event.cam === 'CAM 2' ? 1 :
+                    event.cam === 'CAM 3' ? 2 :
+                    event.cam === 'CAM 4' ? 3 : 0;
                 const sourceUrl = event.sourceUrls[camIndex] ?? event.sourceUrls[0];
                 if (!sourceUrl) { skipped++; continue; }
 

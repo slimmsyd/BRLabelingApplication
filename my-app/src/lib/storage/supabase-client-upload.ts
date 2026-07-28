@@ -200,7 +200,7 @@ export async function finalizeUpload(
  * 2. Finalize by creating database record
  */
 export async function uploadVideosWithClient(
-  files: { cam1: File | null; cam2: File | null; cam3: File | null },
+  files: { cam1: File | null; cam2: File | null; cam3: File | null; cam4?: File | null },
   metadata: VideoMetadata,
   onProgress?: (progress: UploadProgress[]) => void
 ): Promise<{ videoId: string; urls: string[] }> {
@@ -208,6 +208,7 @@ export async function uploadVideosWithClient(
   if (files.cam1) filesToUpload.push({ camera: 1, file: files.cam1 });
   if (files.cam2) filesToUpload.push({ camera: 2, file: files.cam2 });
   if (files.cam3) filesToUpload.push({ camera: 3, file: files.cam3 });
+  if (files.cam4) filesToUpload.push({ camera: 4, file: files.cam4 });
 
   if (filesToUpload.length === 0) {
     throw new Error('At least one camera file is required');
