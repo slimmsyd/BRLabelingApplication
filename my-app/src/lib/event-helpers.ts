@@ -32,6 +32,7 @@ export interface IncomingEvent {
   landed?: boolean | null;
   punchResult?: string | null;
   defenseType?: string | null;
+  flagged?: boolean | null;
   labeledBy?: string | null;
   labeledByEmail?: string | null;
   fightTitle?: string | null;
@@ -53,6 +54,7 @@ export interface EventInsertRow {
   landed: boolean | null;
   punchResult: string | null;
   defenseType: string | null;
+  flagged: boolean;
   labeledBy: string | null;
   labeledByEmail: string | null;
   fightTitle: string;
@@ -99,6 +101,7 @@ export function computeEventRowsWithPreservedTimestamps(
     landed: event.landed ?? null,
     punchResult: event.punchResult ?? null,
     defenseType: event.defenseType ?? null,
+    flagged: event.flagged ?? false,
     labeledBy: event.labeledBy ?? null,
     labeledByEmail: event.labeledByEmail ?? null,
     fightTitle: event.fightTitle || fallbackFightTitle,

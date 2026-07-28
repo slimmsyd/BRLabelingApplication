@@ -18,6 +18,7 @@ interface SidebarControlsProps {
         landed: boolean;
         punchResult: string;
         defenseType: string;
+        flagged: boolean;
     };
     setFormState: {
         setBoxer: (val: string) => void;
@@ -33,6 +34,7 @@ interface SidebarControlsProps {
         setLanded: (val: boolean) => void;
         setPunchResult: (val: string) => void;
         setDefenseType: (val: string) => void;
+        setFlagged: (val: boolean) => void;
     };
     activeTimeMode: 'start' | 'end';
     setActiveTimeMode: (mode: 'start' | 'end') => void;
@@ -42,6 +44,8 @@ interface SidebarControlsProps {
     onCancelEdit?: () => void;
     onUpdateEvent?: (eventData: any) => void;
     boxerNames?: { boxerA: string; boxerB: string };
+    /** Ref for What's New spotlight on Flag for QC */
+    flagControlRef?: React.RefObject<HTMLDivElement | null>;
 }
 
 const SidebarControls = ({
@@ -56,13 +60,14 @@ const SidebarControls = ({
     isEditing = false,
     onCancelEdit,
     onUpdateEvent,
-    boxerNames
+    boxerNames,
+    flagControlRef,
 }: SidebarControlsProps) => {
     // Get display names for boxers (fallback to generic labels)
     const boxerAName = boxerNames?.boxerA || 'Boxer A';
     const boxerBName = boxerNames?.boxerB || 'Boxer B';
-    const { boxer, startTime, endTime, punchType, hand, target, visibilityFlags, knockdown, punchQuality, stance, landed, punchResult, defenseType } = formState;
-    const { setBoxer, setStartTime, setEndTime, setPunchType, setHand, setTarget, setVisibilityFlags, setKnockdown, setPunchQuality, setStance, setLanded, setPunchResult, setDefenseType } = setFormState;
+    const { boxer, startTime, endTime, punchType, hand, target, visibilityFlags, knockdown, punchQuality, stance, landed, punchResult, defenseType, flagged } = formState;
+    const { setBoxer, setStartTime, setEndTime, setPunchType, setHand, setTarget, setVisibilityFlags, setKnockdown, setPunchQuality, setStance, setLanded, setPunchResult, setDefenseType, setFlagged } = setFormState;
 
     const parseTime = (timeStr: string): number => {
         if (!timeStr) return 0;
@@ -128,6 +133,7 @@ const SidebarControls = ({
             landed, // Deprecated but kept for compat
             punchResult,
             defenseType: punchResult === 'Defended' ? defenseType : undefined,
+            flagged,
             details: detailsStr,
             cam: activeCam
         };
@@ -154,6 +160,7 @@ const SidebarControls = ({
         setLanded(true);
         setPunchResult('Landed');
         setDefenseType('Guard');
+        setFlagged(false);
         setActiveTimeMode('start');
 
         if (isEditing && onCancelEdit) {
@@ -418,6 +425,37 @@ const SidebarControls = ({
                                 </button>
                             );
                         })}
+                    </div>
+                </div>
+
+                {/* Flag for QC - Compact */}
+                <div
+                    ref={flagControlRef}
+                    className="mb-3 flex items-center justify-between bg-background border border-border rounded-lg p-2 min-h-[44px]"
+                >
+                    <span className="text-[10px] font-medium text-foreground-secondary">Flag for QC?</span>
+                    <div className="flex gap-2">
+                        <button
+                            type="button"
+                            onClick={() => setFlagged(true)}
+                            disabled={readOnly}
+                            className={`px-3 py-1.5 rounded text-[10px] font-bold transition-colors cursor-pointer ${flagged
+                                ? 'bg-amber-500 text-black'
+                                : 'bg-surface border border-border text-foreground-secondary hover:text-foreground'
+                                } ${readOnly ? 'opacity-50 cursor-not-allowed' : ''}`}
+                        >
+                            YES
+                        </button>
+                        {flagged && (
+                            <button
+                                type="button"
+                                onClick={() => setFlagged(false)}
+                                disabled={readOnly}
+                                className={`text-[10px] text-foreground-secondary hover:text-foreground underline cursor-pointer ${readOnly ? 'opacity-50 cursor-not-allowed' : ''}`}
+                            >
+                                Clear
+                            </button>
+                        )}
                     </div>
                 </div>
 

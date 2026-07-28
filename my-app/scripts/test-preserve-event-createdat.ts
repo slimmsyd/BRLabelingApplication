@@ -35,6 +35,7 @@ function payload(startTime: string, over: Partial<IncomingEvent> = {}): Incoming
     landed: false,
     punchResult: null,
     defenseType: null,
+    flagged: false,
     labeledBy: 'u1',
     labeledByEmail: 'u1@boxraw.com',
     fightTitle: 'Test Fight',
@@ -163,4 +164,29 @@ function payload(startTime: string, over: Partial<IncomingEvent> = {}): Incoming
   console.log('✅ T7: first save uses now() for all rows');
 }
 
-console.log('\n🎉 All 7 tests passed.');
+// ───────────────────────────────────────────────────────────────────────────
+// T8 — flagged survives rebuild; omitted flagged defaults to false.
+// ───────────────────────────────────────────────────────────────────────────
+{
+  const rows = computeEventRowsWithPreservedTimestamps(
+    [{ startTime: '1:23.45', createdAt: ORIGINAL }],
+    [payload('1:23.45', { flagged: true })],
+    ASSIGNMENT_ID,
+    NOW,
+    'fallback',
+  );
+  assert.equal(rows[0].flagged, true, 'flagged: true must persist on re-save');
+  assert.equal(rows[0].createdAt.getTime(), ORIGINAL.getTime(), 'flag does not break createdAt pin');
+
+  const omitted = computeEventRowsWithPreservedTimestamps(
+    [],
+    [payload('1:00.00', { flagged: undefined })],
+    ASSIGNMENT_ID,
+    NOW,
+    'fallback',
+  );
+  assert.equal(omitted[0].flagged, false, 'missing flagged defaults to false');
+  console.log('✅ T8: flagged survives rebuild; omitted → false');
+}
+
+console.log('\n🎉 All 8 tests passed.');

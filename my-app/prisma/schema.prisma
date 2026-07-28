@@ -162,6 +162,7 @@ model Event {
   landed          Boolean?
   punchResult     String?
   defenseType     String?
+  flagged         Boolean         @default(false) // Labeler unsure; surface for QC
   
   // Track who labeled this event (maintains attribution even when assignments are re-assigned)
   labeledBy       String?         // User ID who created this event

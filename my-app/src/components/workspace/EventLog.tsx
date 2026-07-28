@@ -18,6 +18,7 @@ export interface EventData {
     landed?: boolean; // Deprecated in favor of punchResult, kept for compat
     punchResult?: string;
     defenseType?: string;
+    flagged?: boolean; // Labeler unsure; surface for QC
     // Track who labeled this event
     labeledBy?: string;
     labeledByEmail?: string;
@@ -37,6 +38,8 @@ interface EventLogProps {
     onSelectEvent?: (event: EventData) => void;
     boxerNames?: { boxerA: string; boxerB: string };
     selectedEventId?: string | null; // Currently editing event
+    /** Ref for What's New spotlight on All | Flagged filter */
+    filterBarRef?: React.RefObject<HTMLDivElement | null>;
 }
 
 // Helper function to parse time string to seconds for sorting
@@ -173,6 +176,13 @@ const EventRow = ({
                     </span>
                 )}
 
+                {/* Flagged for QC */}
+                {event.flagged && (
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-amber-500/20 text-amber-400 border border-amber-500/30 uppercase tracking-wider">
+                        Flagged
+                    </span>
+                )}
+
                 {/* Knockdown Badge */}
                 {event.knockdown && (
                     <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-red-500/20 text-red-500 border border-red-500/30 uppercase tracking-wider">
@@ -291,18 +301,29 @@ const EventTable = ({
     </div>
 );
 
-const EventLog = ({ events, onStartPunch, onEndPunch, onDeleteEvent, readOnly = false, onSeek, onSeekEnd, onSelectEvent, boxerNames, selectedEventId }: EventLogProps) => {
+const EventLog = ({ events, onStartPunch, onEndPunch, onDeleteEvent, readOnly = false, onSeek, onSeekEnd, onSelectEvent, boxerNames, selectedEventId, filterBarRef }: EventLogProps) => {
     // Sort mode: 'recent' = order added (most recent first), 'timestamp' = by video time
     const [sortMode, setSortMode] = useState<'recent' | 'timestamp'>('recent');
+    // Show all events, or only those flagged for QC
+    const [filterMode, setFilterMode] = useState<'all' | 'flagged'>('all');
 
     // Get display names for boxers (fallback to generic labels)
     const boxerAName = boxerNames?.boxerA || 'Boxer A';
     const boxerBName = boxerNames?.boxerB || 'Boxer B';
 
+    const flaggedCount = useMemo(
+        () => events.filter(e => e.flagged).length,
+        [events]
+    );
+
     // Memoize the events split and sorted to avoid re-calculation on every render
     const filteredAndSortedEvents = useMemo(() => {
-        const boxerA = events.filter(e => e.boxer === boxerAName || e.boxer === 'Boxer A');
-        const boxerB = events.filter(e => e.boxer === boxerBName || e.boxer === 'Boxer B');
+        const scoped = filterMode === 'flagged'
+            ? events.filter(e => e.flagged)
+            : events;
+
+        const boxerA = scoped.filter(e => e.boxer === boxerAName || e.boxer === 'Boxer A');
+        const boxerB = scoped.filter(e => e.boxer === boxerBName || e.boxer === 'Boxer B');
 
         const sortModeToDescending = sortMode === 'recent';
 
@@ -310,7 +331,7 @@ const EventLog = ({ events, onStartPunch, onEndPunch, onDeleteEvent, readOnly = 
             boxerA: sortEventsByTimestamp(boxerA, sortModeToDescending),
             boxerB: sortEventsByTimestamp(boxerB, sortModeToDescending)
         };
-    }, [events, sortMode, boxerAName, boxerBName]);
+    }, [events, sortMode, filterMode, boxerAName, boxerBName]);
 
     return (
         <div className="space-y-4">
@@ -334,16 +355,55 @@ const EventLog = ({ events, onStartPunch, onEndPunch, onDeleteEvent, readOnly = 
                 </div>
             )}
 
-            {/* Sort Toggle */}
-            <div className="flex items-center justify-end gap-2">
-                <span className="text-xs text-foreground-secondary">Sort by:</span>
-                <button
-                    onClick={() => setSortMode(sortMode === 'recent' ? 'timestamp' : 'recent')}
-                    className="flex items-center gap-1.5 px-3 py-1.5 bg-surface hover:bg-white/10 border border-border rounded-lg text-xs font-medium transition-colors"
-                >
-                    <ArrowUpDown size={12} />
-                    {sortMode === 'recent' ? 'Latest First' : 'Earliest First'}
-                </button>
+            {/* Filter + Sort */}
+            <div className="flex flex-wrap items-center justify-between gap-2">
+                <div ref={filterBarRef} className="flex items-center gap-2 rounded-lg">
+                    <span className="text-xs text-foreground-secondary">Show:</span>
+                    <div className="flex bg-surface border border-border rounded-lg p-0.5">
+                        <button
+                            type="button"
+                            onClick={() => setFilterMode('all')}
+                            className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors cursor-pointer ${
+                                filterMode === 'all'
+                                    ? 'bg-white/10 text-foreground'
+                                    : 'text-foreground-secondary hover:text-foreground'
+                            }`}
+                        >
+                            All
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => setFilterMode('flagged')}
+                            className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors cursor-pointer flex items-center gap-1.5 ${
+                                filterMode === 'flagged'
+                                    ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30'
+                                    : 'text-foreground-secondary hover:text-foreground'
+                            }`}
+                        >
+                            Flagged
+                            {flaggedCount > 0 && (
+                                <span className={`min-w-[1.25rem] px-1 py-0.5 rounded text-[10px] font-bold tabular-nums ${
+                                    filterMode === 'flagged'
+                                        ? 'bg-amber-500/30 text-amber-300'
+                                        : 'bg-amber-500/15 text-amber-400/90'
+                                }`}>
+                                    {flaggedCount}
+                                </span>
+                            )}
+                        </button>
+                    </div>
+                </div>
+                <div className="flex items-center gap-2">
+                    <span className="text-xs text-foreground-secondary">Sort by:</span>
+                    <button
+                        type="button"
+                        onClick={() => setSortMode(sortMode === 'recent' ? 'timestamp' : 'recent')}
+                        className="flex items-center gap-1.5 px-3 py-1.5 bg-surface hover:bg-white/10 border border-border rounded-lg text-xs font-medium transition-colors cursor-pointer"
+                    >
+                        <ArrowUpDown size={12} />
+                        {sortMode === 'recent' ? 'Latest First' : 'Earliest First'}
+                    </button>
+                </div>
             </div>
 
             {/* Split View Tables */}

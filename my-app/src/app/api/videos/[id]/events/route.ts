@@ -17,6 +17,7 @@ interface EventInput {
   landed?: boolean;
   punchResult?: string;
   defenseType?: string;
+  flagged?: boolean;
   labeledBy?: string;
   labeledByEmail?: string;
   fightTitle?: string;  // Fight identifier for external API alignment
