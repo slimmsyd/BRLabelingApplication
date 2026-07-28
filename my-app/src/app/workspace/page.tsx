@@ -8,8 +8,10 @@ import EventLog, { EventData } from '@/components/workspace/EventLog';
 import SidebarControls from '@/components/workspace/SidebarControls';
 import SuccessModal from '@/components/SuccessModal';
 import ArchivedVideoOverlay from '@/components/ArchivedVideoOverlay';
+import WhatsNewSpotlight from '@/components/WhatsNewSpotlight';
 import { Loader2 } from 'lucide-react';
 import { generateId, safeGetItem, safeSetItem, safeRemoveItem, safeJsonParse, safeResponseJson } from '@/lib/client-utils';
+import { WHATS_NEW_FLAGGED_FILTER } from '@/lib/whats-new';
 import { useCurrentUser } from '@/lib/hooks/useCurrentUser';
 
 interface VideoData {
@@ -70,6 +72,8 @@ function WorkspacePage() {
 
     const [events, setEvents] = useState<EventData[]>([]);
     const videoRef = useRef<HTMLVideoElement>(null);
+    const flagControlRef = useRef<HTMLDivElement>(null);
+    const filterBarRef = useRef<HTMLDivElement>(null);
 
     // Lifted State for Form
     const [boxer, setBoxer] = useState('');
@@ -85,6 +89,7 @@ function WorkspacePage() {
     const [landed, setLanded] = useState(true);
     const [punchResult, setPunchResult] = useState('Landed');
     const [defenseType, setDefenseType] = useState('Guard');
+    const [flagged, setFlagged] = useState(false);
     const [activeTimeMode, setActiveTimeMode] = useState<'start' | 'end'>('start');
     const [activeCam, setActiveCam] = useState('CAM 1');
     const [showSuccessModal, setShowSuccessModal] = useState(false);
@@ -267,6 +272,7 @@ function WorkspacePage() {
                             landed: e.landed,
                             punchResult: e.punchResult,
                             defenseType: e.defenseType,
+                            flagged: e.flagged ?? false,
                             // Preserve original labeler attribution for QC workflow
                             labeledBy: e.labeledBy,
                             labeledByEmail: e.labeledByEmail,
@@ -327,9 +333,10 @@ function WorkspacePage() {
     const handleUpdateEvent = (updatedEventData: Omit<EventData, 'id'>) => {
         if (!selectedEventId) return;
 
+        // Merge so labeledBy/createdAt/etc. are not wiped by form-only payload
         setEvents(events.map(event =>
             event.id === selectedEventId
-                ? { ...updatedEventData, id: selectedEventId }
+                ? { ...event, ...updatedEventData, id: selectedEventId }
                 : event
         ));
 
@@ -337,7 +344,7 @@ function WorkspacePage() {
         setSelectedEventId(null);
         setStartTime('');
         setEndTime('');
-        // Don't reset boxer — keep last selected fighter
+        // Don't reset boxer; keep last selected fighter
         setPunchType('Jab');
         setHand('Left');
         setTarget('Head');
@@ -348,13 +355,14 @@ function WorkspacePage() {
         setLanded(true);
         setPunchResult('Landed');
         setDefenseType('Guard');
+        setFlagged(false);
     };
 
     const handleCancelEdit = () => {
         setSelectedEventId(null);
         setStartTime('');
         setEndTime('');
-        // Don't reset boxer — keep last selected fighter
+        // Don't reset boxer; keep last selected fighter
         setPunchType('Jab');
         setHand('Left');
         setTarget('Head');
@@ -365,6 +373,7 @@ function WorkspacePage() {
         setLanded(true);
         setPunchResult('Landed');
         setDefenseType('Guard');
+        setFlagged(false);
     };
 
     const handleUpdateVideo = async (updates: { boxer1: string; boxer2: string; round: number }) => {
@@ -448,6 +457,7 @@ function WorkspacePage() {
         setLanded(event.landed !== undefined ? event.landed : true);
         setPunchResult(event.punchResult || (event.landed !== false ? 'Landed' : 'Missed'));
         setDefenseType(event.defenseType || 'Guard');
+        setFlagged(event.flagged ?? false);
         setStartTime(event.startTime);
         setEndTime(event.endTime);
     };
@@ -522,6 +532,7 @@ function WorkspacePage() {
                         landed: event.landed,
                         punchResult: event.punchResult || (event.landed !== false ? 'Landed' : 'Missed'),
                         defenseType: event.punchResult === 'Defended' ? event.defenseType : null,
+                        flagged: event.flagged ?? false,
                         labeledBy: event.labeledBy || user?.userId,
                         labeledByEmail: event.labeledByEmail || user?.email,
                     })),
@@ -679,6 +690,7 @@ function WorkspacePage() {
                         landed: event.landed,
                         punchResult: event.punchResult || (event.landed !== false ? 'Landed' : 'Missed'),
                         defenseType: event.punchResult === 'Defended' ? event.defenseType : null,
+                        flagged: event.flagged ?? false,
                         labeledBy: event.labeledBy || user?.userId,
                         labeledByEmail: event.labeledByEmail || user?.email,
                         fightTitle: fightTitle,  // Include fight_title for DB alignment
@@ -1091,8 +1103,8 @@ function WorkspacePage() {
                         <SidebarControls
                             onLogEvent={handleLogEvent}
                             getCurrentTime={getCurrentTime}
-                            formState={{ boxer, startTime, endTime, punchType, hand, target, visibilityFlags, knockdown, punchQuality, stance, landed, punchResult, defenseType }}
-                            setFormState={{ setBoxer: handleBoxerChange, setStartTime, setEndTime, setPunchType, setHand, setTarget, setVisibilityFlags, setKnockdown, setPunchQuality, setStance, setLanded, setPunchResult, setDefenseType }}
+                            formState={{ boxer, startTime, endTime, punchType, hand, target, visibilityFlags, knockdown, punchQuality, stance, landed, punchResult, defenseType, flagged }}
+                            setFormState={{ setBoxer: handleBoxerChange, setStartTime, setEndTime, setPunchType, setHand, setTarget, setVisibilityFlags, setKnockdown, setPunchQuality, setStance, setLanded, setPunchResult, setDefenseType, setFlagged }}
                             activeTimeMode={activeTimeMode}
                             setActiveTimeMode={setActiveTimeMode}
                             activeCam={activeCam}
@@ -1101,6 +1113,7 @@ function WorkspacePage() {
                             onUpdateEvent={handleUpdateEvent}
                             onCancelEdit={handleCancelEdit}
                             boxerNames={boxerNames}
+                            flagControlRef={flagControlRef}
                         />
                     </div>
 
@@ -1141,11 +1154,30 @@ function WorkspacePage() {
                                 onSelectEvent={handleSelectEvent}
                                 boxerNames={boxerNames}
                                 selectedEventId={selectedEventId}
+                                filterBarRef={filterBarRef}
                             />
                         </section>
                     </div>
                 </main>
             </div>
+
+            {/* First-visit tour: Flag for QC form control, then Flagged list filter */}
+            <WhatsNewSpotlight
+                featureId={WHATS_NEW_FLAGGED_FILTER}
+                steps={[
+                    {
+                        targetRef: flagControlRef,
+                        title: "What's new",
+                        body: 'Flag for QC marks a punch when you\'re unsure (e.g. punch type). Still pick your best guess, then flag so QC can review it.',
+                    },
+                    {
+                        targetRef: filterBarRef,
+                        title: "What's new",
+                        body: 'Use Flagged to show only flagged events in the list, for faster QC without scrolling every punch.',
+                    },
+                ]}
+            />
+
             {/* Success Modal */}
             <SuccessModal
                 isOpen={showSuccessModal}
