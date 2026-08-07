@@ -78,7 +78,7 @@ model Video {
   
   // Video Technical Details
   fps         Int                         // Frames per second
-  numCameraViews Int                      // Number of camera angles (1-4)
+  numCameraViews Int                      // Number of camera angles (1-3)
   sourceUrls  Json                        // Array of public URLs (Supabase or S3/CloudFront)
   duration    Int?                        // Duration in seconds
   

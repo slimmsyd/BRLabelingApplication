@@ -927,14 +927,12 @@ function WorkspacePage() {
             cam1: urls.cam1 || urls[0],
             cam2: urls.cam2 || urls[1],
             cam3: urls.cam3 || urls[2],
-            cam4: urls.cam4 || urls[3],
         };
 
         console.log('[VIDEO DEBUG] Parsed video sources:', {
             cam1: parsed.cam1 ? `${parsed.cam1.substring(0, 80)}...` : 'EMPTY/UNDEFINED',
             cam2: parsed.cam2 ? `${parsed.cam2.substring(0, 80)}...` : 'EMPTY/UNDEFINED',
             cam3: parsed.cam3 ? `${parsed.cam3.substring(0, 80)}...` : 'EMPTY/UNDEFINED',
-            cam4: parsed.cam4 ? `${parsed.cam4.substring(0, 80)}...` : 'EMPTY/UNDEFINED',
         });
 
         return parsed;

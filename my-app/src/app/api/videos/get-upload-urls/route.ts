@@ -35,9 +35,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (numCameras < 1 || numCameras > 4) {
+    if (numCameras < 1 || numCameras > 3) {
       return NextResponse.json(
-        { error: 'numCameras must be between 1 and 4' },
+        { error: 'numCameras must be between 1 and 3' },
         { status: 400 }
       );
     }
