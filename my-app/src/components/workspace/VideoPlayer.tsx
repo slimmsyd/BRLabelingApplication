@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useRef, RefObject } from 'react';
 import { Play, Pause, SkipBack, SkipForward, Maximize2, Minimize2, Volume2, VolumeX, Volume1, Settings, Gauge, ChevronUp, ChevronDown, Loader2 } from 'lucide-react';
-import { initVideoTrace, isVideoTraceEnabled, snapVideo, vtrace, vtraceAnomaly } from '@/lib/video-trace';
 
 type VideoSize = 'small' | 'medium' | 'large';
 
@@ -86,131 +85,6 @@ const VideoPlayer = ({ videoRef, activeCam, setActiveCam, videoSources, fps = 30
     // Helper to get all video refs
     const getAllVideoRefs = () => [cam1Ref, cam2Ref, cam3Ref, cam4Ref];
 
-    // ── TRACE INSTRUMENTATION (see src/lib/video-trace.ts) ──────────────────
-    // Monotonic id for each camera switch. A switch handler that resolves after
-    // this has moved on is STALE: it will retarget videoRef and resume playback
-    // on a camera the user is no longer looking at. That is the freeze suspect.
-    const switchIdRef = useRef(0);
-
-    /** Which camera does this element belong to? Used to detect wrong-target actions. */
-    const camNameOfElement = (el: HTMLVideoElement | null): string => {
-        if (!el) return 'none';
-        if (el === cam1Ref.current) return 'CAM 1';
-        if (el === cam2Ref.current) return 'CAM 2';
-        if (el === cam3Ref.current) return 'CAM 3';
-        if (el === cam4Ref.current) return 'CAM 4';
-        return 'unknown';
-    };
-
-    /**
-     * Log a control action and flag it when videoRef is not pointing at the
-     * camera on screen — that is what makes buttons feel dead.
-     */
-    const traceControl = (action: string, extra?: Record<string, unknown>) => {
-        if (!isVideoTraceEnabled()) return;
-        const target = videoRef.current;
-        const targetCam = camNameOfElement(target);
-        const payload = { action, targetCam, activeCam, uiIsPlaying: isPlaying, ...extra, target: snapVideo(target) };
-        if (targetCam !== activeCam) {
-            vtraceAnomaly('control.WRONG_TARGET', payload);
-        } else {
-            vtrace('control', payload);
-        }
-    };
-
-    useEffect(() => {
-        initVideoTrace();
-    }, []);
-
-    // Watchdog: every 500ms, compare what the DOM is doing against what the UI
-    // claims. Catches the two visible symptoms directly — a hidden camera that
-    // is playing, and the on-screen camera stuck while the UI says "playing".
-    useEffect(() => {
-        if (!isVideoTraceEnabled()) return;
-
-        let lastVisibleTime = -1;
-        let stalledTicks = 0;
-
-        const interval = setInterval(() => {
-            const cams: [string, HTMLVideoElement | null][] = [
-                ['CAM 1', cam1Ref.current],
-                ['CAM 2', cam2Ref.current],
-                ['CAM 3', cam3Ref.current],
-                ['CAM 4', cam4Ref.current],
-            ];
-
-            for (const [name, el] of cams) {
-                if (!el || name === activeCam) continue;
-                if (!el.paused && !el.ended) {
-                    vtraceAnomaly('watchdog.HIDDEN_CAM_PLAYING', {
-                        hiddenCam: name,
-                        activeCam,
-                        hidden: snapVideo(el),
-                    });
-                }
-            }
-
-            const active = getActiveVideoElement();
-            if (!active) return;
-
-            const refCam = camNameOfElement(videoRef.current);
-            if (refCam !== activeCam) {
-                vtraceAnomaly('watchdog.REF_DIVERGED', {
-                    videoRefPointsAt: refCam,
-                    activeCam,
-                    refTarget: snapVideo(videoRef.current),
-                });
-            }
-
-            // "Frozen": UI thinks it is playing, but the visible element has not
-            // advanced across consecutive ticks.
-            if (isPlaying) {
-                const t = active.currentTime;
-                if (Math.abs(t - lastVisibleTime) < 0.001) {
-                    stalledTicks += 1;
-                    if (stalledTicks === 3) {
-                        vtraceAnomaly('watchdog.VISIBLE_CAM_FROZEN', {
-                            activeCam,
-                            stalledForMs: 1500,
-                            active: snapVideo(active),
-                            videoRefPointsAt: refCam,
-                        });
-                    }
-                } else {
-                    stalledTicks = 0;
-                }
-                lastVisibleTime = t;
-            } else {
-                stalledTicks = 0;
-                lastVisibleTime = -1;
-            }
-        }, 500);
-
-        return () => clearInterval(interval);
-    }, [activeCam, isPlaying, videoRef]);
-    // The "Loading camera..." overlay sits at z-50 across the whole player, so
-    // while it is up every click on the video area is swallowed. Nothing clears it
-    // except a completing switch — if it is up for more than 3s, that is the
-    // "can't press anything" symptom, and this says so explicitly.
-    useEffect(() => {
-        if (!isVideoTraceEnabled()) return;
-        if (!isSwitchingCamera) {
-            vtrace('overlay.cleared', { activeCam });
-            return;
-        }
-        vtrace('overlay.shown', { activeCam, switchId: switchIdRef.current });
-        const stuck = setTimeout(() => {
-            vtraceAnomaly('overlay.STUCK_BLOCKING_INPUT', {
-                activeCam,
-                switchId: switchIdRef.current,
-                heldForMs: 3000,
-                active: snapVideo(getActiveVideoElement()),
-            });
-        }, 3000);
-        return () => clearTimeout(stuck);
-    }, [isSwitchingCamera, activeCam]);
-    // ── END TRACE INSTRUMENTATION ──────────────────────────────────────────
-
     // Video size configurations
     const sizeConfig = {
         small: { maxWidth: '480px', label: 'S' },
@@ -246,13 +120,11 @@ const VideoPlayer = ({ videoRef, activeCam, setActiveCam, videoSources, fps = 30
         };
         const initialActiveCamKey = getActiveCamKey(initialActiveCamRef.current);
 
-        vtrace('preload.init', {
-            initialActiveCam: initialActiveCamRef.current,
-            cam1: !!videoSources.cam1,
-            cam2: !!videoSources.cam2,
-            cam3: !!videoSources.cam3,
-            cam4: !!videoSources.cam4,
-        });
+        console.log('\n🎬 [VIDEO LAZY LOAD] Initial active camera:', initialActiveCamRef.current);
+        console.log('📹 CAM 1:', videoSources.cam1 ? 'HAS URL' : 'MISSING');
+        console.log('📹 CAM 2:', videoSources.cam2 ? 'HAS URL' : 'MISSING');
+        console.log('📹 CAM 3:', videoSources.cam3 ? 'HAS URL' : 'MISSING');
+        console.log('📹 CAM 4:', videoSources.cam4 ? 'HAS URL' : 'MISSING');
 
         const setupVideo = (
             ref: React.RefObject<HTMLVideoElement | null>,
@@ -265,32 +137,28 @@ const VideoPlayer = ({ videoRef, activeCam, setActiveCam, videoSources, fps = 30
             const isInitialActive = camName === initialActiveCamKey;
 
             // Only mark as loading if it's the initial active camera doing full preload
-            vtrace('preload.setup', {
-                cam: camName,
-                strategy: isInitialActive ? 'auto' : 'metadata',
-            });
             if (isInitialActive) {
+                console.log(`⚡ [${camName.toUpperCase()}] INITIAL ACTIVE - Full preload (auto)`);
                 setVideoLoadingState(prev => ({ ...prev, [camName]: 'loading' }));
+            } else {
+                console.log(`💤 [${camName.toUpperCase()}] INACTIVE - Metadata only`);
             }
 
             const handleCanPlay = () => {
-                vtrace('preload.ready', { cam: camName, duration: video.duration });
+                console.log(`✅ [${camName.toUpperCase()}] Ready! Duration: ${video.duration}s`);
                 setVideoLoadingState(prev => ({ ...prev, [camName]: 'ready' }));
             };
 
             const handleLoadedMetadata = () => {
-                // For inactive cameras, mark as ready once metadata loads.
-                // NOTE: 'ready' here means metadata only — the camera can still be
-                // readyState<1 for playback, which is what pushes a switch onto the
-                // slow path even though the tab shows a green dot.
+                // For inactive cameras, mark as ready once metadata loads
                 if (!isInitialActive) {
-                    vtrace('preload.metadataOnly', { cam: camName, duration: video.duration });
+                    console.log(`📋 [${camName.toUpperCase()}] Metadata loaded. Duration: ${video.duration}s`);
                     setVideoLoadingState(prev => ({ ...prev, [camName]: 'ready' }));
                 }
             };
 
-            const handleError = () => {
-                vtraceAnomaly('preload.ERROR', { cam: camName, code: video.error?.code });
+            const handleError = (e: Event) => {
+                console.error(`❌ [${camName.toUpperCase()}] Load error:`, video.error);
                 setVideoLoadingState(prev => ({ ...prev, [camName]: 'error' }));
             };
 
@@ -351,67 +219,55 @@ const VideoPlayer = ({ videoRef, activeCam, setActiveCam, videoSources, fps = 30
         };
 
         const updateDuration = () => {
-            vtrace('media.loadedmetadata', { cam: camNameOfElement(video), duration: video.duration });
+            console.log('[VIDEO DEBUG] loadedmetadata fired - duration:', video.duration);
             setDuration(video.duration);
         };
 
-        // These media events used to console.log on every fire, which drowned out
-        // anything useful. They now land in the trace ring buffer in timeline order
-        // alongside the switch events — `stalled`/`waiting`/`error` are the ones that
-        // explain a freeze that is the network's fault rather than ours.
-        const handleError = () => {
+        // DEBUG: Error handler
+        const handleError = (e: Event) => {
             const mediaError = video.error;
-            vtraceAnomaly('media.ERROR', {
-                cam: camNameOfElement(video),
+            console.error('[VIDEO DEBUG] ❌ VIDEO ERROR:', {
                 code: mediaError?.code,
-                kind: ['', 'ABORTED', 'NETWORK', 'DECODE', 'SRC_NOT_SUPPORTED'][mediaError?.code ?? 0],
                 message: mediaError?.message,
+                MEDIA_ERR_ABORTED: mediaError?.code === 1,
+                MEDIA_ERR_NETWORK: mediaError?.code === 2,
+                MEDIA_ERR_DECODE: mediaError?.code === 3,
+                MEDIA_ERR_SRC_NOT_SUPPORTED: mediaError?.code === 4,
+                currentSrc: video.currentSrc,
                 networkState: video.networkState,
-                readyState: video.readyState,
+                readyState: video.readyState
             });
         };
 
+        // DEBUG: Loading events
         const handleLoadStart = () => {
-            vtrace('media.loadstart', { cam: camNameOfElement(video) });
+            console.log('[VIDEO DEBUG] loadstart - Beginning to load:', video.currentSrc?.substring(0, 80));
         };
 
         const handleCanPlay = () => {
-            vtrace('media.canplay', { cam: camNameOfElement(video), readyState: video.readyState });
+            console.log('[VIDEO DEBUG] ✅ canplay - Video is ready to play');
         };
 
         const handleCanPlayThrough = () => {
-            vtrace('media.canplaythrough', { cam: camNameOfElement(video) });
+            console.log('[VIDEO DEBUG] ✅ canplaythrough - Video can play through without buffering');
         };
 
         const handleStalled = () => {
-            vtraceAnomaly('media.STALLED', {
-                cam: camNameOfElement(video),
-                time: Number(video.currentTime.toFixed(3)),
-                networkState: video.networkState,
-                readyState: video.readyState,
-            });
+            console.warn('[VIDEO DEBUG] ⚠️ stalled - Download stalled');
         };
 
         const handleWaiting = () => {
-            // Buffering while the user sees a still frame — the benign kind of freeze.
-            vtrace('media.waiting', {
-                cam: camNameOfElement(video),
-                time: Number(video.currentTime.toFixed(3)),
-                readyState: video.readyState,
-            });
+            console.log('[VIDEO DEBUG] waiting - Buffering...');
         };
 
         const handleSuspend = () => {
-            vtrace('media.suspend', { cam: camNameOfElement(video), readyState: video.readyState });
+            console.log('[VIDEO DEBUG] suspend - Download suspended (normal for lazy loading)');
         };
 
         const handleProgress = () => {
             if (video.buffered.length > 0) {
                 const bufferedEnd = video.buffered.end(video.buffered.length - 1);
-                vtrace('media.progress', {
-                    cam: camNameOfElement(video),
-                    bufferedTo: Math.round(bufferedEnd),
-                });
+                console.log('[VIDEO DEBUG] progress - Buffered:', Math.round(bufferedEnd), 'seconds');
             }
         };
 
@@ -475,28 +331,8 @@ const VideoPlayer = ({ videoRef, activeCam, setActiveCam, videoSources, fps = 30
         if (previousCamRef.current === activeCam) return;
 
         const switchStartTime = performance.now();
-        // TRACE: every switch gets an id. Handlers below capture it; if the id has
-        // moved on by the time they fire, they are acting on a stale switch.
-        const mySwitchId = ++switchIdRef.current;
-        const fromCam = previousCamRef.current;
-
-        // ── CANCELLATION ───────────────────────────────────────────────────
-        // A switch is asynchronous: it waits on 'seeked' (and sometimes 'canplay')
-        // before it retargets videoRef and resumes playback. If the user picks a
-        // different camera while that is in flight, this effect re-runs — and
-        // WITHOUT the teardown below the older switch stayed armed, later calling
-        // play() on a display:none video and stealing videoRef. That produced the
-        // frozen picture, the audible hidden camera, and the dead buttons.
-        // Everything async this effect starts must be registered in `teardown`.
-        let cancelled = false;
-        const teardown: Array<() => void> = [];
-        /** True only while this switch is still the one the user is waiting on. */
-        const isCurrent = () => !cancelled && mySwitchId === switchIdRef.current;
-
-        // Emoji switch logs were for the TIMESTAMP_SYNC_DEBUG.md investigation.
-        // Silenced so the structured trace is the only signal — see src/lib/video-trace.ts.
-        // console.log('\n🎥 [CAMERA SWITCH + TIMESTAMP SYNC DEBUG] ===========================');
-        // console.log('🔄 Switching camera:', previousCamRef.current, '->', activeCam);
+        console.log('\n🎥 [CAMERA SWITCH + TIMESTAMP SYNC DEBUG] ===========================');
+        console.log('🔄 Switching camera:', previousCamRef.current, '->', activeCam);
 
         // Get previous and new video elements
         const getPrevVideoElement = (): HTMLVideoElement | null => {
@@ -513,24 +349,27 @@ const VideoPlayer = ({ videoRef, activeCam, setActiveCam, videoSources, fps = 30
         const newVideo = getActiveVideoElement();
 
         if (!prevVideo || !newVideo) {
-            vtraceAnomaly('switch.MISSING_ELEMENT', { id: mySwitchId, fromCam, toCam: activeCam });
+            console.warn('⚠️  Missing video element(s)');
             previousCamRef.current = activeCam;
             return;
         }
+
+        console.log('📍 Previous video currentTime:', prevVideo.currentTime);
+        console.log('📏 Previous video duration:', prevVideo.duration);
+        console.log('📊 Previous video readyState:', prevVideo.readyState);
+        console.log('🌐 Previous video networkState:', prevVideo.networkState);
+        console.log('⏸️  Was playing:', !prevVideo.paused);
+        console.log('---');
+        console.log('📏 New video duration:', newVideo.duration);
+        console.log('📊 New video readyState:', newVideo.readyState);
+        console.log('🌐 New video networkState:', newVideo.networkState);
+        console.log('📍 New video BEFORE sync:', newVideo.currentTime);
 
         // Store state
         const targetTime = prevVideo.currentTime;
         const wasPlaying = !prevVideo.paused;
 
-        vtrace('switch.start', {
-            id: mySwitchId,
-            fromCam,
-            toCam: activeCam,
-            targetTime: Number(targetTime.toFixed(3)),
-            wasPlaying,
-            prev: snapVideo(prevVideo),
-            next: snapVideo(newVideo),
-        });
+        console.log('🎯 Target timestamp to sync:', targetTime);
 
         // Pause old video
         prevVideo.pause();
@@ -540,12 +379,9 @@ const VideoPlayer = ({ videoRef, activeCam, setActiveCam, videoSources, fps = 30
             // Video is ready - instant switch!
             const adjustedTargetTime = Math.min(targetTime, newVideo.duration || targetTime);
 
-            vtrace('switch.fastPath', {
-                id: mySwitchId,
-                toCam: activeCam,
-                readyState: newVideo.readyState,
-                adjustedTargetTime: Number(adjustedTargetTime.toFixed(3)),
-            });
+            console.log('⚡ Video already ready (readyState:', newVideo.readyState, ')');
+            console.log('🎯 Adjusted target time:', adjustedTargetTime, '(capped to duration)');
+            console.log('📍 Setting currentTime from', newVideo.currentTime, 'to', adjustedTargetTime);
 
             // FIX: Use 'seeked' event to wait for seek to complete
             let seekTimeout: NodeJS.Timeout | null = null;
@@ -554,34 +390,15 @@ const VideoPlayer = ({ videoRef, activeCam, setActiveCam, videoSources, fps = 30
                 // Clear timeout if seek completed naturally
                 if (seekTimeout) clearTimeout(seekTimeout);
 
-                // A superseded switch must not touch videoRef or call play().
-                // Bail before any of that. The camera the user actually chose is
-                // being driven by a later run of this effect.
-                if (!isCurrent()) {
-                    vtrace('switch.abandoned', {
-                        id: mySwitchId,
-                        currentSwitchId: switchIdRef.current,
-                        handlerCam: camNameOfElement(newVideo),
-                        onScreenCam: previousCamRef.current,
-                        reason: 'user switched away before seek landed',
-                    });
-                    return;
-                }
-
-                vtrace('switch.seeked', {
-                    id: mySwitchId,
-                    handlerCam: camNameOfElement(newVideo),
-                    wasPlaying,
-                    drift: Number(Math.abs(newVideo.currentTime - adjustedTargetTime).toFixed(3)),
-                    video: snapVideo(newVideo),
-                });
+                console.log('✅ Seek completed! (seeked event fired)');
+                console.log('📍 New video currentTime AFTER seek:', newVideo.currentTime);
+                console.log('❓ Difference from target:', Math.abs(newVideo.currentTime - adjustedTargetTime).toFixed(3), 'seconds');
 
                 if (Math.abs(newVideo.currentTime - adjustedTargetTime) > 0.5) {
-                    vtraceAnomaly('switch.SYNC_DRIFT', {
-                        id: mySwitchId,
-                        expected: Number(adjustedTargetTime.toFixed(3)),
-                        got: Number(newVideo.currentTime.toFixed(3)),
-                    });
+                    console.error('🚨 TIMESTAMP SYNC FAILED! Difference > 0.5s');
+                    console.error('   Expected:', adjustedTargetTime);
+                    console.error('   Got:', newVideo.currentTime);
+                    console.error('   Attempting correction...');
 
                     // Try again
                     newVideo.currentTime = adjustedTargetTime;
@@ -595,24 +412,22 @@ const VideoPlayer = ({ videoRef, activeCam, setActiveCam, videoSources, fps = 30
                 if (wasPlaying) {
                     newVideo.play().then(() => {
                         setIsPlaying(true);
-                        vtrace('switch.done', {
-                            id: mySwitchId,
-                            resumed: true,
-                            ms: Number((performance.now() - switchStartTime).toFixed(1)),
-                            time: Number(newVideo.currentTime.toFixed(3)),
-                        });
+                        const switchEndTime = performance.now();
+                        console.log('▶️  Playback resumed');
+                        console.log('⏱️  Total switch time:', (switchEndTime - switchStartTime).toFixed(2), 'ms');
+                        console.log('📍 Final video time after resume:', newVideo.currentTime);
+                        console.log('🎥 [CAMERA SWITCH + TIMESTAMP SYNC DEBUG] ===========================\n');
                     }).catch(err => {
-                        vtraceAnomaly('switch.PLAY_REJECTED', { id: mySwitchId, err: String(err) });
+                        console.warn('❌ Failed to resume playback:', err);
                         setIsPlaying(false);
                     });
                 } else {
                     setIsPlaying(false);
-                    vtrace('switch.done', {
-                        id: mySwitchId,
-                        resumed: false,
-                        ms: Number((performance.now() - switchStartTime).toFixed(1)),
-                        time: Number(newVideo.currentTime.toFixed(3)),
-                    });
+                    const switchEndTime = performance.now();
+                    console.log('⏸️  Staying paused');
+                    console.log('⏱️  Total switch time:', (switchEndTime - switchStartTime).toFixed(2), 'ms');
+                    console.log('📍 Final video time (paused):', newVideo.currentTime);
+                    console.log('🎥 [CAMERA SWITCH + TIMESTAMP SYNC DEBUG] ===========================\n');
                 }
             };
 
@@ -624,52 +439,21 @@ const VideoPlayer = ({ videoRef, activeCam, setActiveCam, videoSources, fps = 30
 
             // Fallback: if seeked doesn't fire within 500ms, proceed anyway
             seekTimeout = setTimeout(() => {
-                vtraceAnomaly('switch.SEEK_TIMEOUT', {
-                    id: mySwitchId,
-                    toCam: activeCam,
-                    video: snapVideo(newVideo),
-                });
+                console.warn('⚠️  Seeked event timeout - proceeding anyway');
                 newVideo.removeEventListener('seeked', handleSeeked);
                 handleSeeked(); // Call it manually
             }, 500);
-
-            teardown.push(() => {
-                newVideo.removeEventListener('seeked', handleSeeked);
-                if (seekTimeout) clearTimeout(seekTimeout);
-            });
         } else {
             // Video not ready yet - wait for it
-            // TRACE: this arms the "Loading camera..." overlay. Nothing clears it if
-            // the user switches away before canplay fires, so note who armed it.
-            vtrace('switch.slowPath.wait', {
-                id: mySwitchId,
-                toCam: activeCam,
-                readyState: newVideo.readyState,
-                overlayArmedBy: mySwitchId,
-            });
+            console.log('⏳ Video not ready (readyState:', newVideo.readyState, '), waiting for canplay...');
             setIsSwitchingCamera(true);
 
             const handleCanPlay = () => {
-                // The cold camera finished buffering. If the user gave up waiting and
-                // moved on, stop here: do not seek it, do not take videoRef, do not play.
-                if (!isCurrent()) {
-                    vtrace('switch.abandoned', {
-                        id: mySwitchId,
-                        currentSwitchId: switchIdRef.current,
-                        handlerCam: camNameOfElement(newVideo),
-                        onScreenCam: previousCamRef.current,
-                        reason: 'user switched away before cold camera buffered',
-                    });
-                    return;
-                }
-
-                vtrace('switch.slowPath.canplay', {
-                    id: mySwitchId,
-                    handlerCam: camNameOfElement(newVideo),
-                    readyState: newVideo.readyState,
-                });
+                console.log('✅ canplay event fired - video ready now');
+                console.log('📊 New readyState:', newVideo.readyState);
 
                 const adjustedTargetTime = Math.min(targetTime, newVideo.duration || targetTime);
+                console.log('🎯 Setting currentTime to:', adjustedTargetTime);
 
                 // FIX: Use seeked event here too
                 let delayedSeekTimeout: NodeJS.Timeout | null = null;
@@ -678,31 +462,15 @@ const VideoPlayer = ({ videoRef, activeCam, setActiveCam, videoSources, fps = 30
                     // Clear timeout if seek completed naturally
                     if (delayedSeekTimeout) clearTimeout(delayedSeekTimeout);
 
-                    if (!isCurrent()) {
-                        vtrace('switch.abandoned', {
-                            id: mySwitchId,
-                            currentSwitchId: switchIdRef.current,
-                            handlerCam: camNameOfElement(newVideo),
-                            onScreenCam: previousCamRef.current,
-                            reason: 'user switched away before cold seek landed',
-                        });
-                        return;
-                    }
-
-                    vtrace('switch.slowPath.seeked', {
-                        id: mySwitchId,
-                        handlerCam: camNameOfElement(newVideo),
-                        wasPlaying,
-                        drift: Number(Math.abs(newVideo.currentTime - adjustedTargetTime).toFixed(3)),
-                        video: snapVideo(newVideo),
-                    });
+                    console.log('✅ Seek completed (delayed path)!');
+                    console.log('📍 New video currentTime AFTER delayed seek:', newVideo.currentTime);
+                    console.log('❓ Difference from target:', Math.abs(newVideo.currentTime - adjustedTargetTime).toFixed(3), 'seconds');
 
                     if (Math.abs(newVideo.currentTime - adjustedTargetTime) > 0.5) {
-                        vtraceAnomaly('switch.SYNC_DRIFT_slow', {
-                            id: mySwitchId,
-                            expected: Number(adjustedTargetTime.toFixed(3)),
-                            got: Number(newVideo.currentTime.toFixed(3)),
-                        });
+                        console.error('🚨 TIMESTAMP SYNC FAILED (delayed path)!');
+                        console.error('   Expected:', adjustedTargetTime);
+                        console.error('   Got:', newVideo.currentTime);
+                        console.error('   Attempting correction...');
                         newVideo.currentTime = adjustedTargetTime;
                     }
 
@@ -713,26 +481,20 @@ const VideoPlayer = ({ videoRef, activeCam, setActiveCam, videoSources, fps = 30
                         newVideo.play().then(() => {
                             setIsPlaying(true);
                             setIsSwitchingCamera(false);
-                            vtrace('switch.done', {
-                                id: mySwitchId,
-                                path: 'slow',
-                                resumed: true,
-                                ms: Number((performance.now() - switchStartTime).toFixed(1)),
-                            });
+                            const switchEndTime = performance.now();
+                            console.log('⏱️  Total switch time (delayed):', (switchEndTime - switchStartTime).toFixed(2), 'ms');
+                            console.log('🎥 [CAMERA SWITCH + TIMESTAMP SYNC DEBUG] ===========================\n');
                         }).catch(err => {
-                            vtraceAnomaly('switch.PLAY_REJECTED_slow', { id: mySwitchId, err: String(err) });
+                            console.warn('❌ Failed to resume playback:', err);
                             setIsPlaying(false);
                             setIsSwitchingCamera(false);
                         });
                     } else {
                         setIsPlaying(false);
                         setIsSwitchingCamera(false);
-                        vtrace('switch.done', {
-                            id: mySwitchId,
-                            path: 'slow',
-                            resumed: false,
-                            ms: Number((performance.now() - switchStartTime).toFixed(1)),
-                        });
+                        const switchEndTime = performance.now();
+                        console.log('⏱️  Total switch time (delayed):', (switchEndTime - switchStartTime).toFixed(2), 'ms');
+                        console.log('🎥 [CAMERA SWITCH + TIMESTAMP SYNC DEBUG] ===========================\n');
                     }
                 };
 
@@ -744,23 +506,13 @@ const VideoPlayer = ({ videoRef, activeCam, setActiveCam, videoSources, fps = 30
 
                 // Fallback timeout
                 delayedSeekTimeout = setTimeout(() => {
-                    vtraceAnomaly('switch.SEEK_TIMEOUT_slow', {
-                        id: mySwitchId,
-                        toCam: activeCam,
-                        video: snapVideo(newVideo),
-                    });
+                    console.warn('⚠️  Seeked event timeout (delayed path) - proceeding anyway');
                     newVideo.removeEventListener('seeked', handleDelayedSeeked);
                     handleDelayedSeeked();
                 }, 500);
-
-                teardown.push(() => {
-                    newVideo.removeEventListener('seeked', handleDelayedSeeked);
-                    if (delayedSeekTimeout) clearTimeout(delayedSeekTimeout);
-                });
             };
 
             newVideo.addEventListener('canplay', handleCanPlay, { once: true });
-            teardown.push(() => newVideo.removeEventListener('canplay', handleCanPlay));
         }
 
         // Update previous cam ref
@@ -769,45 +521,16 @@ const VideoPlayer = ({ videoRef, activeCam, setActiveCam, videoSources, fps = 30
         // Reset zoom/pan
         setZoom(1);
         setPan({ x: 0, y: 0 });
-
-        // Runs when activeCam changes again (or on unmount), BEFORE the next switch
-        // starts. Detaches every listener and timer this switch armed, so an
-        // in-flight switch can never resume playback on a camera the user has
-        // already left. Also drops the loading overlay: it is owned by the switch
-        // that raised it, and that switch is over.
-        return () => {
-            cancelled = true;
-            teardown.forEach((fn) => fn());
-            setIsSwitchingCamera(false);
-        };
     }, [activeCam, videoRef]);
 
     const togglePlay = () => {
-        // TRACE: `isPlaying` is React state, not the element's real paused flag.
-        // If they have desynced, this press does the opposite of what the user wants
-        // and the button appears dead. Record both so we can see the divergence.
-        traceControl('togglePlay', {
-            uiThinksPlaying: isPlaying,
-            elementActuallyPaused: videoRef.current?.paused ?? null,
-            desynced: videoRef.current ? isPlaying === videoRef.current.paused : null,
-            overlayBlocking: isSwitchingCamera,
-        });
-
-        // Drive the camera that is actually on screen, and decide from the element's
-        // real paused flag rather than React state. `isPlaying` can lag reality (a
-        // switch resolving, a stall, an autoplay rejection), and when it did, this
-        // button used to do the exact opposite of what its icon promised.
-        const video = getActiveVideoElement() ?? videoRef.current;
-        if (!video) return;
-
-        if (video.paused) {
-            video.play().then(() => setIsPlaying(true)).catch((err) => {
-                vtraceAnomaly('control.PLAY_REJECTED', { err: String(err) });
-                setIsPlaying(false);
-            });
-        } else {
-            video.pause();
-            setIsPlaying(false);
+        if (videoRef.current) {
+            if (isPlaying) {
+                videoRef.current.pause();
+            } else {
+                videoRef.current.play();
+            }
+            setIsPlaying(!isPlaying);
         }
     };
 
@@ -981,14 +704,12 @@ const VideoPlayer = ({ videoRef, activeCam, setActiveCam, videoSources, fps = 30
     };
 
     const skipBackward = () => {
-        traceControl('skipBackward', { skipDuration, overlayBlocking: isSwitchingCamera });
         if (videoRef.current) {
             videoRef.current.currentTime = Math.max(0, videoRef.current.currentTime - skipDuration);
         }
     };
 
     const skipForward = () => {
-        traceControl('skipForward', { skipDuration, overlayBlocking: isSwitchingCamera });
         if (videoRef.current) {
             videoRef.current.currentTime = Math.min(videoRef.current.duration, videoRef.current.currentTime + skipDuration);
         }
@@ -998,7 +719,6 @@ const VideoPlayer = ({ videoRef, activeCam, setActiveCam, videoSources, fps = 30
     const frameDuration = 1 / fps;
 
     const stepFrameForward = () => {
-        traceControl('stepFrameForward', { overlayBlocking: isSwitchingCamera });
         if (videoRef.current) {
             // Pause video when stepping frames for precision
             if (!videoRef.current.paused) {
@@ -1013,7 +733,6 @@ const VideoPlayer = ({ videoRef, activeCam, setActiveCam, videoSources, fps = 30
     };
 
     const stepFrameBackward = () => {
-        traceControl('stepFrameBackward', { overlayBlocking: isSwitchingCamera });
         if (videoRef.current) {
             // Pause video when stepping frames for precision
             if (!videoRef.current.paused) {
@@ -1076,7 +795,7 @@ const VideoPlayer = ({ videoRef, activeCam, setActiveCam, videoSources, fps = 30
         if (videoSources.cam3) cameras.push('CAM 3');
         if (videoSources.cam4) cameras.push('CAM 4');
 
-        vtrace('cameras.available', { cameras });
+        console.log('[VIDEO DEBUG] Available cameras:', cameras);
 
         return cameras;
     }, [videoSources]);
@@ -1117,19 +836,7 @@ const VideoPlayer = ({ videoRef, activeCam, setActiveCam, videoSources, fps = 30
                         {availableCameras.map((cam) => (
                             <button
                                 key={cam}
-                                onClick={() => {
-                                    // TRACE: user intent, before any of the switch machinery runs.
-                                    // Gap between consecutive clicks is what tells us whether a
-                                    // switch was still in flight when the next one started.
-                                    vtrace('tab.click', {
-                                        clicked: cam,
-                                        from: activeCam,
-                                        inFlightSwitchId: switchIdRef.current,
-                                        overlayUp: isSwitchingCamera,
-                                        loadState: getCameraLoadingState(cam),
-                                    });
-                                    setActiveCam(cam);
-                                }}
+                                onClick={() => setActiveCam(cam)}
                                 disabled={getCameraLoadingState(cam) === 'loading'}
                                 className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-colors flex items-center gap-2 ${activeCam === cam
                                     ? 'bg-surface text-accent-primary border-t border-x border-border'
