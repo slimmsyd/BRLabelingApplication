@@ -1,5 +1,6 @@
 import React from 'react';
 import { Check, Clock, Plus } from 'lucide-react';
+import { PUNCH_RESULTS } from '@/lib/event-helpers';
 
 interface SidebarControlsProps {
     onLogEvent: (eventData: any) => void;
@@ -303,7 +304,7 @@ const SidebarControls = ({
                             disabled={readOnly}
                             className="flex-1 bg-background border border-border rounded-lg px-2 py-1.5 text-xs text-foreground focus:outline-none focus:border-accent-primary"
                         >
-                            {['Landed', 'Missed', 'Unseen', 'Defended'].map(res => (
+                            {PUNCH_RESULTS.map(res => (
                                 <option key={res} value={res}>{res}</option>
                             ))}
                         </select>

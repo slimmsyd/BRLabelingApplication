@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { computeEventRowsWithPreservedTimestamps } from '@/lib/event-helpers';
+import { computeEventRowsWithPreservedTimestamps, PUNCH_RESULTS } from '@/lib/event-helpers';
 
 interface EventInput {
   startTime: string;
@@ -68,6 +68,15 @@ export async function POST(
         { error: 'Assignment not found or does not belong to this video' },
         { status: 404 }
       );
+    }
+
+    for (const event of events) {
+      if (event.punchResult && !PUNCH_RESULTS.includes(event.punchResult as typeof PUNCH_RESULTS[number])) {
+        return NextResponse.json(
+          { error: `Invalid punchResult: ${event.punchResult}` },
+          { status: 400 }
+        );
+      }
     }
 
     // Get fight title from video

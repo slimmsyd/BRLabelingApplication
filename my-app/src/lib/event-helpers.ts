@@ -12,6 +12,18 @@
  *   my-app/src/app/api/videos/[id]/events/route.ts (save endpoint)
  */
 
+/** Allowed punch result values for offense labeling. */
+export const PUNCH_RESULTS = ['Landed', 'Missed', 'Unseen', 'Defended', 'Illegal'] as const;
+export type PunchResult = (typeof PUNCH_RESULTS)[number];
+
+export function isLandedPunchResult(
+  punchResult: string | null | undefined,
+  landed?: boolean | null,
+): boolean {
+  if (punchResult) return punchResult === 'Landed';
+  return landed !== false;
+}
+
 export interface ExistingEvent {
   startTime: string;
   createdAt: Date;

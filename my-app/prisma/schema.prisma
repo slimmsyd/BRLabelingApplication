@@ -160,7 +160,7 @@ model Event {
   cam             String?
   stance          String?
   landed          Boolean?
-  punchResult     String?
+  punchResult     String?         // Landed | Missed | Unseen | Defended | Illegal
   defenseType     String?
   flagged         Boolean         @default(false) // Labeler unsure; surface for QC
   

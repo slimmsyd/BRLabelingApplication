@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { Trash2, Clock, ArrowUpDown } from 'lucide-react';
+import { isLandedPunchResult } from '@/lib/event-helpers';
 
 export interface EventData {
     id: string;
@@ -150,7 +151,7 @@ const EventRow = ({
                 )}
 
                 {/* Quality Badge - Only show if Landed */}
-                {(event.punchResult === 'Landed' || (!event.punchResult && event.landed !== false)) && (
+                {(isLandedPunchResult(event.punchResult, event.landed)) && (
                     <span className={`text-[10px] font-medium px-2 py-0.5 rounded ${event.punchQuality === '5' ? 'bg-accent-primary/20 text-accent-primary border border-accent-primary/30' :
                         event.punchQuality === '4' ? 'bg-green-500/20 text-green-400 border border-green-500/30' :
                             'bg-white/5 text-foreground-secondary border border-white/10'
@@ -164,6 +165,7 @@ const EventRow = ({
                     event.punchResult === 'Missed' || (!event.punchResult && event.landed === false) ? 'bg-orange-500/20 text-orange-400 border border-orange-500/30' :
                         event.punchResult === 'Defended' ? 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/30' :
                             event.punchResult === 'Unseen' ? 'bg-gray-500/20 text-gray-400 border border-gray-500/30' :
+                                event.punchResult === 'Illegal' ? 'bg-rose-500/20 text-rose-400 border border-rose-500/30' :
                                 'bg-white/10 text-foreground-secondary'
                     }`}>
                     {event.punchResult || (event.landed !== false ? 'Landed' : 'Missed')}
