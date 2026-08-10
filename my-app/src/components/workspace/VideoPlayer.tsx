@@ -11,6 +11,7 @@ interface VideoPlayerProps {
         cam1?: string;
         cam2?: string;
         cam3?: string;
+        cam4?: string;
     };
     fps?: number; // Video frame rate for frame-by-frame navigation
 }
@@ -19,6 +20,7 @@ interface VideoLoadingState {
     cam1: 'loading' | 'ready' | 'error' | 'idle';
     cam2: 'loading' | 'ready' | 'error' | 'idle';
     cam3: 'loading' | 'ready' | 'error' | 'idle';
+    cam4: 'loading' | 'ready' | 'error' | 'idle';
 }
 
 const VideoPlayer = ({ videoRef, activeCam, setActiveCam, videoSources, fps = 30 }: VideoPlayerProps) => {
@@ -59,12 +61,14 @@ const VideoPlayer = ({ videoRef, activeCam, setActiveCam, videoSources, fps = 30
     const cam1Ref = useRef<HTMLVideoElement>(null);
     const cam2Ref = useRef<HTMLVideoElement>(null);
     const cam3Ref = useRef<HTMLVideoElement>(null);
+    const cam4Ref = useRef<HTMLVideoElement>(null);
 
     // Track loading state for each camera
     const [videoLoadingState, setVideoLoadingState] = useState<VideoLoadingState>({
         cam1: 'idle',
         cam2: 'idle',
         cam3: 'idle',
+        cam4: 'idle',
     });
 
     // Helper to get the active video element based on current camera
@@ -73,12 +77,13 @@ const VideoPlayer = ({ videoRef, activeCam, setActiveCam, videoSources, fps = 30
             case 'CAM 1': return cam1Ref.current;
             case 'CAM 2': return cam2Ref.current;
             case 'CAM 3': return cam3Ref.current;
+            case 'CAM 4': return cam4Ref.current;
             default: return cam1Ref.current;
         }
     };
 
     // Helper to get all video refs
-    const getAllVideoRefs = () => [cam1Ref, cam2Ref, cam3Ref];
+    const getAllVideoRefs = () => [cam1Ref, cam2Ref, cam3Ref, cam4Ref];
 
     // Video size configurations
     const sizeConfig = {
@@ -104,11 +109,12 @@ const VideoPlayer = ({ videoRef, activeCam, setActiveCam, videoSources, fps = 30
         if (!videoSources) return;
 
         // Use the initial active camera for first load preload decisions
-        const getActiveCamKey = (cam: string): 'cam1' | 'cam2' | 'cam3' => {
+        const getActiveCamKey = (cam: string): 'cam1' | 'cam2' | 'cam3' | 'cam4' => {
             switch (cam) {
                 case 'CAM 1': return 'cam1';
                 case 'CAM 2': return 'cam2';
                 case 'CAM 3': return 'cam3';
+                case 'CAM 4': return 'cam4';
                 default: return 'cam1';
             }
         };
@@ -118,10 +124,11 @@ const VideoPlayer = ({ videoRef, activeCam, setActiveCam, videoSources, fps = 30
         console.log('📹 CAM 1:', videoSources.cam1 ? 'HAS URL' : 'MISSING');
         console.log('📹 CAM 2:', videoSources.cam2 ? 'HAS URL' : 'MISSING');
         console.log('📹 CAM 3:', videoSources.cam3 ? 'HAS URL' : 'MISSING');
+        console.log('📹 CAM 4:', videoSources.cam4 ? 'HAS URL' : 'MISSING');
 
         const setupVideo = (
             ref: React.RefObject<HTMLVideoElement | null>,
-            camName: 'cam1' | 'cam2' | 'cam3',
+            camName: 'cam1' | 'cam2' | 'cam3' | 'cam4',
             url: string | undefined
         ) => {
             const video = ref.current;
@@ -174,17 +181,19 @@ const VideoPlayer = ({ videoRef, activeCam, setActiveCam, videoSources, fps = 30
         const cleanup1 = setupVideo(cam1Ref, 'cam1', videoSources.cam1);
         const cleanup2 = setupVideo(cam2Ref, 'cam2', videoSources.cam2);
         const cleanup3 = setupVideo(cam3Ref, 'cam3', videoSources.cam3);
+        const cleanup4 = setupVideo(cam4Ref, 'cam4', videoSources.cam4);
 
         return () => {
             cleanup1?.();
             cleanup2?.();
             cleanup3?.();
+            cleanup4?.();
         };
     }, [videoSources]); // Only run on initial source load, NOT on camera switch
 
     // Apply volume and playback rate to ALL videos (keep them in sync)
     useEffect(() => {
-        const videos = [cam1Ref.current, cam2Ref.current, cam3Ref.current];
+        const videos = [cam1Ref.current, cam2Ref.current, cam3Ref.current, cam4Ref.current];
         videos.forEach(video => {
             if (video) {
                 video.volume = volume;
@@ -331,6 +340,7 @@ const VideoPlayer = ({ videoRef, activeCam, setActiveCam, videoSources, fps = 30
                 case 'CAM 1': return cam1Ref.current;
                 case 'CAM 2': return cam2Ref.current;
                 case 'CAM 3': return cam3Ref.current;
+                case 'CAM 4': return cam4Ref.current;
                 default: return null;
             }
         };
@@ -783,6 +793,7 @@ const VideoPlayer = ({ videoRef, activeCam, setActiveCam, videoSources, fps = 30
         if (videoSources.cam1) cameras.push('CAM 1');
         if (videoSources.cam2) cameras.push('CAM 2');
         if (videoSources.cam3) cameras.push('CAM 3');
+        if (videoSources.cam4) cameras.push('CAM 4');
 
         console.log('[VIDEO DEBUG] Available cameras:', cameras);
 
@@ -795,6 +806,7 @@ const VideoPlayer = ({ videoRef, activeCam, setActiveCam, videoSources, fps = 30
             case 'CAM 1': return videoLoadingState.cam1;
             case 'CAM 2': return videoLoadingState.cam2;
             case 'CAM 3': return videoLoadingState.cam3;
+            case 'CAM 4': return videoLoadingState.cam4;
             default: return 'idle';
         }
     };
@@ -928,6 +940,24 @@ const VideoPlayer = ({ videoRef, activeCam, setActiveCam, videoSources, fps = 30
                                 display: activeCam === 'CAM 3' ? 'block' : 'none',
                             }}
                             preload={activeCam === 'CAM 3' ? 'auto' : 'metadata'}
+                            onEnded={() => setIsPlaying(false)}
+                            onClick={handleVideoClick}
+                            onMouseDown={handleVideoMouseDown}
+                            onMouseMove={handleVideoMouseMove}
+                            onMouseUp={handleVideoMouseUp}
+                        />
+                    )}
+                    {videoSources?.cam4 && (
+                        <video
+                            ref={cam4Ref}
+                            src={videoSources.cam4}
+                            className="w-full h-full object-contain absolute inset-0"
+                            style={{
+                                transform: `scale(${zoom}) translate(${pan.x / zoom}px, ${pan.y / zoom}px)`,
+                                transition: isPanning ? 'none' : 'transform 0.1s ease-out',
+                                display: activeCam === 'CAM 4' ? 'block' : 'none',
+                            }}
+                            preload={activeCam === 'CAM 4' ? 'auto' : 'metadata'}
                             onEnded={() => setIsPlaying(false)}
                             onClick={handleVideoClick}
                             onMouseDown={handleVideoMouseDown}

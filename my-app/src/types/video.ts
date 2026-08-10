@@ -8,10 +8,11 @@ import { LabelType, VideoStatus } from '@prisma/client';
  * Form data for video upload
  */
 export interface VideoUploadFormData {
-  // Video files (1-3 cameras)
+  // Video files (1-4 cameras)
   cam1: File | null;
   cam2: File | null;
   cam3: File | null;
+  cam4: File | null;
   
   // Fight metadata
   boxer1: string;
