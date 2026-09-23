@@ -41,6 +41,8 @@ interface EventLogProps {
     selectedEventId?: string | null; // Currently editing event
     /** Ref for What's New spotlight on All | Flagged filter */
     filterBarRef?: React.RefObject<HTMLDivElement | null>;
+    /** Punch Tag assignments: single list of time + type + camera */
+    mode?: 'full' | 'punchTag';
 }
 
 // Helper function to parse time string to seconds for sorting
@@ -77,7 +79,8 @@ const EventRow = ({
     onSelectEvent,
     onSeek,
     onSeekEnd,
-    onDeleteEvent
+    onDeleteEvent,
+    punchTagMode = false,
 }: {
     event: EventData,
     isLatest?: boolean,
@@ -86,16 +89,17 @@ const EventRow = ({
     onSelectEvent?: (event: EventData) => void,
     onSeek?: (event: EventData) => void,
     onSeekEnd?: (event: EventData) => void,
-    onDeleteEvent: (eventId: string) => void
+    onDeleteEvent: (eventId: string) => void,
+    punchTagMode?: boolean,
 }) => (
     <div
-        onClick={() => !readOnly && onSelectEvent?.(event)}
+        onClick={() => !readOnly && !punchTagMode && onSelectEvent?.(event)}
         className={`group relative transition-all duration-200 p-3 flex items-start gap-4 rounded-lg ${isEditing
             ? 'bg-gradient-to-r from-orange-500/20 to-red-500/20 border-2 border-orange-500 ring-2 ring-orange-500/30 shadow-lg shadow-orange-500/10'
             : isLatest
                 ? 'bg-accent-primary/10 border border-accent-primary/30 ring-1 ring-accent-primary/20'
                 : 'hover:bg-white/5 border border-transparent'
-            } ${!readOnly ? 'cursor-pointer' : ''}`}
+            } ${!readOnly && !punchTagMode ? 'cursor-pointer' : ''}`}
     >
         {/* Editing badge - takes priority over Latest */}
         {isEditing && (
@@ -111,6 +115,27 @@ const EventRow = ({
         )}
         {/* Left: Context & Details */}
         <div className="flex-1 min-w-0">
+            {punchTagMode ? (
+                <>
+                    <div className="flex items-baseline gap-2 mb-2">
+                        <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-semibold ${
+                            event.punchType === 'Punch'
+                                ? 'bg-white/10 text-foreground'
+                                : 'bg-accent-primary/15 text-blue-200'
+                        }`}>
+                            {event.punchType}
+                        </span>
+                    </div>
+                    <div className="flex flex-wrap gap-1.5 mb-2">
+                        {event.cam && (
+                            <span className="text-[10px] font-medium px-2 py-0.5 rounded bg-purple-500/20 text-purple-400 border border-purple-500/30">
+                                {event.cam}
+                            </span>
+                        )}
+                    </div>
+                </>
+            ) : (
+                <>
             {/* Punch Type & Target */}
             <div className="flex items-baseline gap-2 mb-2">
                 <span className="font-bold text-foreground text-sm">{event.punchType}</span>
@@ -203,6 +228,8 @@ const EventRow = ({
                     ))}
                 </div>
             )}
+                </>
+            )}
         </div>
 
         {/* Right: Timestamps & Actions */}
@@ -261,7 +288,8 @@ const EventTable = ({
     onSelectEvent,
     onSeek,
     onSeekEnd,
-    onDeleteEvent
+    onDeleteEvent,
+    punchTagMode = false,
 }: {
     title: string,
     data: EventData[],
@@ -270,7 +298,8 @@ const EventTable = ({
     onSelectEvent?: (event: EventData) => void,
     onSeek?: (event: EventData) => void,
     onSeekEnd?: (event: EventData) => void,
-    onDeleteEvent: (eventId: string) => void
+    onDeleteEvent: (eventId: string) => void,
+    punchTagMode?: boolean,
 }) => (
     <div className="flex-1 min-w-0 bg-surface rounded-xl border border-border overflow-hidden flex flex-col h-[400px]">
         <div className="p-3 border-b border-border bg-white/5">
@@ -282,7 +311,7 @@ const EventTable = ({
                     <div className="w-8 h-8 rounded-full bg-white/5 flex items-center justify-center">
                         <span className="text-lg">?</span>
                     </div>
-                    <p className="text-xs">No events logged</p>
+                    <p className="text-xs">{punchTagMode ? 'No punches tagged' : 'No events logged'}</p>
                 </div>
             ) : (
                 data.map((event, index) => (
@@ -296,6 +325,7 @@ const EventTable = ({
                         onSeek={onSeek}
                         onSeekEnd={onSeekEnd}
                         onDeleteEvent={onDeleteEvent}
+                        punchTagMode={punchTagMode}
                     />
                 ))
             )}
@@ -303,7 +333,7 @@ const EventTable = ({
     </div>
 );
 
-const EventLog = ({ events, onStartPunch, onEndPunch, onDeleteEvent, readOnly = false, onSeek, onSeekEnd, onSelectEvent, boxerNames, selectedEventId, filterBarRef }: EventLogProps) => {
+const EventLog = ({ events, onStartPunch, onEndPunch, onDeleteEvent, readOnly = false, onSeek, onSeekEnd, onSelectEvent, boxerNames, selectedEventId, filterBarRef, mode = 'full' }: EventLogProps) => {
     // Sort mode: 'recent' = order added (most recent first), 'timestamp' = by video time
     const [sortMode, setSortMode] = useState<'recent' | 'timestamp'>('recent');
     // Show all events, or only those flagged for QC
@@ -312,6 +342,7 @@ const EventLog = ({ events, onStartPunch, onEndPunch, onDeleteEvent, readOnly = 
     // Get display names for boxers (fallback to generic labels)
     const boxerAName = boxerNames?.boxerA || 'Boxer A';
     const boxerBName = boxerNames?.boxerB || 'Boxer B';
+    const isPunchTag = mode === 'punchTag';
 
     const flaggedCount = useMemo(
         () => events.filter(e => e.flagged).length,
@@ -320,25 +351,32 @@ const EventLog = ({ events, onStartPunch, onEndPunch, onDeleteEvent, readOnly = 
 
     // Memoize the events split and sorted to avoid re-calculation on every render
     const filteredAndSortedEvents = useMemo(() => {
-        const scoped = filterMode === 'flagged'
+        const scoped = !isPunchTag && filterMode === 'flagged'
             ? events.filter(e => e.flagged)
             : events;
 
+        const sortModeToDescending = sortMode === 'recent';
+
+        if (isPunchTag) {
+            return {
+                boxerA: sortEventsByTimestamp(scoped, sortModeToDescending),
+                boxerB: [] as EventData[],
+            };
+        }
+
         const boxerA = scoped.filter(e => e.boxer === boxerAName || e.boxer === 'Boxer A');
         const boxerB = scoped.filter(e => e.boxer === boxerBName || e.boxer === 'Boxer B');
-
-        const sortModeToDescending = sortMode === 'recent';
 
         return {
             boxerA: sortEventsByTimestamp(boxerA, sortModeToDescending),
             boxerB: sortEventsByTimestamp(boxerB, sortModeToDescending)
         };
-    }, [events, sortMode, filterMode, boxerAName, boxerBName]);
+    }, [events, sortMode, filterMode, boxerAName, boxerBName, isPunchTag]);
 
     return (
         <div className="space-y-4">
             {/* Quick Actions */}
-            {!readOnly && (
+            {!readOnly && !isPunchTag && (
                 <div className="flex gap-2">
                     <button
                         onClick={onStartPunch}
@@ -359,6 +397,7 @@ const EventLog = ({ events, onStartPunch, onEndPunch, onDeleteEvent, readOnly = 
 
             {/* Filter + Sort */}
             <div className="flex flex-wrap items-center justify-between gap-2">
+                {!isPunchTag ? (
                 <div ref={filterBarRef} className="flex items-center gap-2 rounded-lg">
                     <span className="text-xs text-foreground-secondary">Show:</span>
                     <div className="flex bg-surface border border-border rounded-lg p-0.5">
@@ -395,6 +434,9 @@ const EventLog = ({ events, onStartPunch, onEndPunch, onDeleteEvent, readOnly = 
                         </button>
                     </div>
                 </div>
+                ) : (
+                    <span className="text-xs text-foreground-secondary">Tagged punches</span>
+                )}
                 <div className="flex items-center gap-2">
                     <span className="text-xs text-foreground-secondary">Sort by:</span>
                     <button
@@ -408,18 +450,20 @@ const EventLog = ({ events, onStartPunch, onEndPunch, onDeleteEvent, readOnly = 
                 </div>
             </div>
 
-            {/* Split View Tables */}
+            {/* Split View Tables (or single list for punch tags) */}
             <div className="flex gap-4">
                 <EventTable
-                    title={boxerAName}
+                    title={isPunchTag ? 'Tagged punches' : boxerAName}
                     data={filteredAndSortedEvents.boxerA}
                     selectedEventId={selectedEventId}
                     readOnly={readOnly}
-                    onSelectEvent={onSelectEvent}
+                    onSelectEvent={isPunchTag ? undefined : onSelectEvent}
                     onSeek={onSeek}
                     onSeekEnd={onSeekEnd}
                     onDeleteEvent={onDeleteEvent}
+                    punchTagMode={isPunchTag}
                 />
+                {!isPunchTag && (
                 <EventTable
                     title={boxerBName}
                     data={filteredAndSortedEvents.boxerB}
@@ -430,6 +474,7 @@ const EventLog = ({ events, onStartPunch, onEndPunch, onDeleteEvent, readOnly = 
                     onSeekEnd={onSeekEnd}
                     onDeleteEvent={onDeleteEvent}
                 />
+                )}
             </div>
         </div>
     );

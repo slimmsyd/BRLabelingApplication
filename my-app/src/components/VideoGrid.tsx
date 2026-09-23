@@ -24,6 +24,7 @@ interface Video {
     assignments?: Array<{
         id: string;
         userId: string;
+        labelType?: string;
         user: {
             id: string;
             username: string | null;
@@ -359,7 +360,14 @@ const VideoGrid = () => {
                         </div>
 
                         <div className="grid grid-cols-2 gap-4 lg:gap-6">
-                            {filteredVideos.map((video) => (
+                            {filteredVideos.map((video) => {
+                                const offenseAssignment = video.assignments?.find(a => a.labelType === 'OFFENSE' || !a.labelType);
+                                const punchTagAssignment = video.assignments?.find(a => a.labelType === 'PUNCH_TAG');
+                                const primaryAssignment = offenseAssignment || punchTagAssignment || video.assignments?.[0];
+                                const workspaceHref = punchTagAssignment && !offenseAssignment
+                                    ? `/workspace?videoId=${video.id}&labelType=PUNCH_TAG`
+                                    : `/workspace?videoId=${video.id}`;
+                                return (
                                 <VideoCard
                                     key={video.id}
                                     id={video.id}
@@ -372,21 +380,28 @@ const VideoGrid = () => {
                                     createdAt={video.createdAt}
                                     archived={video.archived}
                                     onArchivedClick={setArchivedOverlayTitle}
-                                    assignee={video.assignments?.[0] ? {
-                                        ...video.assignments[0].user,
-                                        status: video.assignments[0].status
+                                    assignee={primaryAssignment ? {
+                                        ...primaryAssignment.user,
+                                        status: primaryAssignment.status
                                     } : undefined}
                                     thumbnailUrl={video.sourceUrls?.[0]}
                                     canAssign={canAssignRounds(currentUser?.email)}
-                                    assignmentId={video.assignments?.[0]?.id}
+                                    assignmentId={offenseAssignment?.id || primaryAssignment?.id}
                                     onAssignmentChange={handleRefreshVideos}
+                                    workspaceHref={workspaceHref}
+                                    punchTagHref={
+                                        punchTagAssignment
+                                            ? `/workspace?videoId=${video.id}&labelType=PUNCH_TAG`
+                                            : null
+                                    }
                                     onAssignClick={() => {
-                                        const currentAssigneeUserId = video.assignments?.[0]?.userId;
+                                        const currentAssigneeUserId = primaryAssignment?.userId;
                                         setSelectedVideoForAssign({ id: video.id, title: video.title, currentAssigneeUserId });
                                         setAssignModalOpen(true);
                                     }}
                                 />
-                            ))}
+                                );
+                            })}
                         </div>
 
                         {filteredVideos.length === 0 && (

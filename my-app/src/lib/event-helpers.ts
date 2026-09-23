@@ -16,6 +16,31 @@
 export const PUNCH_RESULTS = ['Landed', 'Missed', 'Unseen', 'Defended', 'Illegal'] as const;
 export type PunchResult = (typeof PUNCH_RESULTS)[number];
 
+/** Allowed punch types for Punch Tag assignments (includes generic Punch). */
+export const PUNCH_TAG_TYPES = [
+  'Punch',
+  'Jab',
+  'Cross',
+  'Hook',
+  'Uppercut',
+  'Overhand',
+  'Screwshot',
+] as const;
+export type PunchTagType = (typeof PUNCH_TAG_TYPES)[number];
+
+/** KeyboardEvent.code → punch type for the refine window after P. */
+export const PUNCH_TAG_KEY_MAP: Record<string, PunchTagType> = {
+  KeyJ: 'Jab',
+  KeyC: 'Cross',
+  KeyH: 'Hook',
+  KeyU: 'Uppercut',
+  KeyO: 'Overhand',
+  KeyS: 'Screwshot',
+};
+
+/** How long after P a type letter may refine the same tag. */
+export const PUNCH_TAG_REFINE_WINDOW_MS = 1500;
+
 export function isLandedPunchResult(
   punchResult: string | null | undefined,
   landed?: boolean | null,

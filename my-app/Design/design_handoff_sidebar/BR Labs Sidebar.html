@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Box RAW Labs — Sidebar rework</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<style>
+  :root {
+    /* Exact tokens lifted from globals.css */
+    --bg: #121212;
+    --sidebar-bg: #121212;
+    --surface: #1E1E1E;
+    --surface-hover: #27272a;
+    --fg: #ffffff;
+    --fg2: #a1a1aa;   /* zinc-400 */
+    --fg3: #71717a;   /* zinc-500 */
+    --border: #27272a; /* zinc-800 */
+    --accent: #3B82F6;
+    /* status hues */
+    --amber: #f59e0b;
+    --blue: #60a5fa;
+    --purple: #a855f7;
+    --green: #22c55e;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; }
+  body {
+    background: var(--bg);
+    color: var(--fg);
+    font-family: "Geist", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    overflow: hidden;
+  }
+  #root { height: 100vh; }
+
+  .cscroll::-webkit-scrollbar { width: 6px; }
+  .cscroll::-webkit-scrollbar { width: 6px; }
+  .cscroll::-webkit-scrollbar-track { background: transparent; }
+  .cscroll::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 3px; }
+  .cscroll::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.28); }
+
+  .row-link { text-decoration: none; color: inherit; display: block; }
+  .row-link:hover { background: rgba(255,255,255,0.05); }
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<script type="text/babel" src="tweaks-panel.jsx"></script>
+<script type="text/babel">
+const { useState, useMemo, useRef } = React;
+
+/* ----------------------------- seed data ----------------------------- */
+const MATCHUPS = [
+  ["Yoenis Tellez", "Brian Mendoza"],
+  ["Tyson Fury", "Deontay Wilder"],
+  ["Keyshawn Davis", "Nahir Albright"],
+  ["Isaac Cruz", "Giovanni Cabrera"],
+  ["Canelo Alvarez", "Jermell Charlo"],
+  ["Gervonta Davis", "Ryan Garcia"],
+  ["Devin Haney", "Regis Prograis"],
+  ["Terence Crawford", "Errol Spence"],
+  ["Naoya Inoue", "Marlon Tapales"],
+  ["Shakur Stevenson", "Edwin De Los Santos"],
+  ["Jaron Ennis", "Cody Crowley"],
+  ["David Benavidez", "Demetrius Andrade"],
+  ["Dmitry Bivol", "Lyndon Arthur"],
+  ["Artur Beterbiev", "Callum Smith"],
+  ["Vasiliy Lomachenko", "George Kambosos"],
+  ["Jai Opetaia", "Ellis Zorro"],
+];
+const EDITORS = ["OH", "OBEDA", "ObedA", "VEDZ EZEL", "Marcus", "Jordan", "Priya", "Sam"];
+
+// deterministic pseudo-random so the list is stable across renders
+function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
+
+function fmtDate(d){ return `${d.getMonth()+1}/${d.getDate()}/${d.getFullYear()}`; }
+
+function genList(n, kind, seed){
+  const rnd = mulberry32(seed);
+  const base = new Date(2026, 5, 5); // Jun 5 2026
+  const out = [];
+  for (let i = 0; i < n; i++){
+    const m = MATCHUPS[Math.floor(rnd()*MATCHUPS.length)];
+    const round = 1 + Math.floor(rnd()*12);
+    const editor = EDITORS[Math.floor(rnd()*EDITORS.length)];
+    const d = new Date(base.getTime() - i*Math.round(rnd()*3+1)*86400000); // descending chronological
+    let status;
+    if (kind === "qc") status = "NEEDS QC";
+    else status = rnd() > 0.22 ? "REVIEWED" : "COMPLETED";
+    out.push({
+      id: kind + "-" + i,
+      title: `${m[0]} v ${m[1]} - R${round}`,
+      matchup: `${m[0]} vs ${m[1]}`,
+      round, editor, status,
+      date: fmtDate(d),
+    });
+  }
+  return out;
+}
+
+const AWAITING = genList(181, "qc", 1234);
+const COMPLETE = genList(486, "done", 9876);
+
+/* ----------------------------- icons ----------------------------- */
+const VideoIcon = ({ size = 14, color = "currentColor" }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color}
+       strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+    <path d="m16 13 5.223 3.482a.5.5 0 0 0 .777-.416V7.87a.5.5 0 0 0-.752-.432L16 10.5"/>
+    <rect x="2" y="6" width="14" height="12" rx="2"/>
+  </svg>
+);
+const SearchIcon = ({ size = 14 }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor"
+       strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+    <circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>
+  </svg>
+);
+const GearIcon = ({ size = 14 }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor"
+       strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+    <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/>
+    <circle cx="12" cy="12" r="3"/>
+  </svg>
+);
+
+/* ----------------------------- badges ----------------------------- */
+const STATUS_STYLE = {
+  "NEEDS QC":  { c: "var(--amber)",  ic: "var(--amber)" },
+  "REVIEWED":  { c: "var(--purple)", ic: "var(--purple)" },
+  "COMPLETED": { c: "var(--green)",  ic: "var(--green)" },
+};
+
+/* ----------------------------- Row ----------------------------- */
+function Row({ item, density, showEditor }){
+  const st = STATUS_STYLE[item.status];
+  const compact = density === "compact";
+  return (
+    <a href="#" className="row-link" onClick={(e)=>e.preventDefault()}
+       style={{
+         display: "flex", flexDirection: "column",
+         gap: compact ? 3 : 5,
+         padding: compact ? "5px 12px" : "8px 12px",
+         borderRadius: 8, transition: "background 120ms",
+       }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+        <VideoIcon size={14} color={st.ic} />
+        <span style={{
+          color: "var(--fg)", fontSize: 12, fontWeight: 500,
+          overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+        }}>{item.title}</span>
+      </div>
+      <div style={{ display: "flex", alignItems: "center", gap: 6, paddingLeft: 22, flexWrap: "wrap" }}>
+        <span style={{
+          padding: "1.5px 6px", fontSize: 9, fontWeight: 700, lineHeight: 1.4,
+          borderRadius: 5, textTransform: "uppercase", letterSpacing: "0.02em",
+          background: hexA(st.c, 0.10), color: st.c, border: `1px solid ${hexA(st.c, 0.22)}`, whiteSpace: "nowrap",
+        }}>{item.status}</span>
+        <span style={{
+          padding: "1.5px 6px", fontSize: 9, fontWeight: 700, lineHeight: 1.4,
+          borderRadius: 5, background: hexA("#3b82f6", 0.10), color: "var(--blue)",
+          border: `1px solid ${hexA("#3b82f6", 0.22)}`, whiteSpace: "nowrap",
+        }}>R{item.round}</span>
+        {showEditor && (
+          <span style={{ fontSize: 9, color: "var(--fg2)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 70 }}>{item.editor}</span>
+        )}
+        <span style={{ fontSize: 9, color: "var(--fg3)", marginLeft: "auto" }}>{item.date}</span>
+      </div>
+    </a>
+  );
+}
+
+// hex + alpha helper
+function hexA(hex, a){
+  const m = hex.replace("#","");
+  const v = m.length === 3 ? m.split("").map(x=>x+x).join("") : m;
+  const r = parseInt(v.slice(0,2),16), g = parseInt(v.slice(2,4),16), b = parseInt(v.slice(4,6),16);
+  return `rgba(${r}, ${g}, ${b}, ${a})`;
+}
+const SECTION_HEX = { blue: "#3B82F6", amber: "#f59e0b", green: "#22c55e" };
+
+/* ----------------------------- Section ----------------------------- */
+function Section({ label, accent, count, items, density, showEditor, sectionStyle, flexGrow, emptyText, scrollable }){
+  const hex = SECTION_HEX[accent];
+  const tinted = sectionStyle === "tinted";
+  const rail = sectionStyle === "rail";
+
+  const header = (
+    <div style={{
+      display: "flex", alignItems: "center", gap: 8,
+      padding: tinted ? "7px 12px" : "4px 12px",
+      margin: tinted ? "0 0 4px" : "0 0 2px",
+      borderRadius: tinted ? 8 : 0,
+      background: tinted ? hexA(hex, 0.08) : "transparent",
+      borderTop: sectionStyle === "plain" ? `1px solid var(--border)` : "none",
+      paddingTop: sectionStyle === "plain" ? 12 : undefined,
+    }}>
+      {tinted && <span style={{ width: 6, height: 6, borderRadius: 999, background: hex, flexShrink: 0 }} />}
+      <span style={{
+        fontSize: 11, fontWeight: 600, color: tinted ? hex : "var(--fg3)",
+        textTransform: "uppercase", letterSpacing: "0.07em",
+      }}>{label}</span>
+      {count != null && (
+        <span style={{
+          padding: "1px 7px", fontSize: 10, fontWeight: 700, borderRadius: 999,
+          background: hexA(hex, 0.12), color: hex, border: `1px solid ${hexA(hex, 0.24)}`,
+        }}>{count}</span>
+      )}
+    </div>
+  );
+
+  return (
+    <div style={{
+      display: "flex", flexDirection: "column", minHeight: 0,
+      flex: scrollable ? `${flexGrow} 1 0` : "0 0 auto",
+      paddingLeft: rail ? 10 : 0,
+      borderLeft: rail ? `2px solid ${hexA(hex, 0.55)}` : "none",
+      marginLeft: rail ? 4 : 0,
+    }}>
+      {header}
+      <div className="cscroll" style={{
+        display: "flex", flexDirection: "column", gap: 1,
+        overflowY: scrollable ? "auto" : "visible",
+        minHeight: 0, flex: scrollable ? "1 1 0" : "0 0 auto",
+        paddingRight: 2,
+      }}>
+        {items.length === 0
+          ? <div style={{ fontSize: 12, color: "var(--fg2)", fontStyle: "italic", padding: "8px 12px" }}>{emptyText}</div>
+          : items.map(it => <Row key={it.id} item={it} density={density} showEditor={showEditor} />)
+        }
+      </div>
+    </div>
+  );
+}
+
+/* ----------------------------- Sidebar ----------------------------- */
+function Sidebar({ t, query, setQuery }){
+  const q = query.trim().toLowerCase();
+  const match = (a) => !q || a.title.toLowerCase().includes(q) || a.matchup.toLowerCase().includes(q) || a.editor.toLowerCase().includes(q) || ("r"+a.round).includes(q);
+
+  const awaiting = useMemo(()=>AWAITING.filter(match), [q]);
+  const complete = useMemo(()=>COMPLETE.filter(match), [q]);
+
+  const weighted = t.balance === "weighted";
+
+  return (
+    <aside style={{
+      width: 268, height: "100vh", background: "var(--sidebar-bg)",
+      borderRight: "1px solid var(--border)", display: "flex", flexDirection: "column",
+      position: "relative", flexShrink: 0,
+    }}>
+      {/* Header / search */}
+      <div style={{ height: 64, display: "flex", alignItems: "center", padding: "0 16px", gap: 12, flexShrink: 0 }}>
+        <button style={{
+          background: "none", border: "none", cursor: "pointer", padding: 8, borderRadius: 6,
+          color: "var(--fg2)", display: "flex",
+        }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+            <div style={{ width: 16, height: 2, background: "currentColor", borderRadius: 1 }} />
+            <div style={{ width: 16, height: 2, background: "currentColor", borderRadius: 1 }} />
+            <div style={{ width: 16, height: 2, background: "currentColor", borderRadius: 1 }} />
+          </div>
+        </button>
+        <div style={{ flex: 1, position: "relative" }}>
+          <div style={{
+            display: "flex", alignItems: "center", gap: 8, background: "var(--surface)",
+            padding: "6px 12px", borderRadius: 999, border: "1px solid var(--border)", color: "var(--fg2)",
+          }}>
+            <SearchIcon size={14} />
+            <input value={query} onChange={e=>setQuery(e.target.value)} placeholder="Search projects..."
+              style={{ background: "transparent", border: "none", outline: "none", color: "var(--fg)",
+                       fontSize: 13, width: "100%", fontFamily: "inherit" }} />
+          </div>
+        </div>
+      </div>
+
+      {/* Nav — three sections fill the full height */}
+      <nav style={{
+        flex: 1, minHeight: 0, display: "flex", flexDirection: "column",
+        gap: t.sectionStyle === "tinted" ? 10 : 14,
+        padding: "8px 12px 16px",
+      }}>
+        <Section
+          label="Assigned to You" accent="blue"
+          items={[]} emptyText="No active assignments"
+          density={t.density} showEditor={t.showEditor} sectionStyle={t.sectionStyle}
+          scrollable={false}
+        />
+        <Section
+          label="Awaiting QC" accent="amber" count={awaiting.length}
+          items={awaiting} emptyText="No videos awaiting QC"
+          density={t.density} showEditor={t.showEditor} sectionStyle={t.sectionStyle}
+          scrollable={true} flexGrow={weighted ? 1 : 1}
+        />
+        <Section
+          label="QC Complete" accent="green" count={complete.length}
+          items={complete} emptyText="No QC completed videos"
+          density={t.density} showEditor={t.showEditor} sectionStyle={t.sectionStyle}
+          scrollable={true} flexGrow={weighted ? 1.7 : 1}
+        />
+      </nav>
+
+      {/* Footer */}
+      <div style={{ padding: 16, flexShrink: 0 }}>
+        <a href="#" className="row-link" onClick={e=>e.preventDefault()} style={{
+          display: "flex", alignItems: "center", justifyContent: "space-between",
+          padding: "8px", borderRadius: 8, color: "var(--fg2)", fontSize: 12,
+        }}>
+          <span>Settings</span>
+          <GearIcon size={14} />
+        </a>
+        <div style={{ paddingTop: 16, marginTop: 8, borderTop: "1px solid var(--border)" }}>
+          <div style={{ textAlign: "center", padding: "4px 8px", fontSize: 11, color: "var(--fg3)",
+                        fontWeight: 500, letterSpacing: "0.1em", textTransform: "uppercase" }}>Box RAW Labs</div>
+        </div>
+      </div>
+    </aside>
+  );
+}
+
+/* ----------------------------- ghost backdrop (context) ----------------------------- */
+function GhostGrid(){
+  const cards = [0,1,2,3,4,5];
+  return (
+    <div style={{ flex: 1, height: "100vh", overflow: "hidden", position: "relative", opacity: 0.42, pointerEvents: "none" }}>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24, padding: 32, maxWidth: 820 }}>
+        {cards.map(i => (
+          <div key={i} style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 12, overflow: "hidden" }}>
+            <div style={{ height: 150, background: "linear-gradient(135deg, #1b2740, #0f1115 70%)" }} />
+            <div style={{ padding: 16 }}>
+              <div style={{ height: 14, width: "72%", background: "#2a2a2e", borderRadius: 4, marginBottom: 10 }} />
+              <div style={{ height: 10, width: "50%", background: "#222226", borderRadius: 4, marginBottom: 14 }} />
+              <div style={{ height: 22, width: 130, background: "#1f1f23", borderRadius: 999 }} />
+            </div>
+          </div>
+        ))}
+      </div>
+      <div style={{ position: "absolute", inset: 0, background: "linear-gradient(90deg, rgba(18,18,18,0) 40%, rgba(18,18,18,0.85) 100%)" }} />
+    </div>
+  );
+}
+
+/* ----------------------------- App ----------------------------- */
+const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
+  "sectionStyle": "plain",
+  "balance": "equal",
+  "density": "comfortable",
+  "showEditor": true
+}/*EDITMODE-END*/;
+
+function App(){
+  const [t, setTweak] = useTweaks(TWEAK_DEFAULTS);
+  const [query, setQuery] = useState("");
+  return (
+    <div style={{ display: "flex", height: "100vh", background: "var(--bg)" }}>
+      <Sidebar t={t} query={query} setQuery={setQuery} />
+      <GhostGrid />
+
+      <TweaksPanel>
+        <TweakSection label="Telling sections apart" />
+        <TweakRadio label="Section style" value={t.sectionStyle}
+          options={["tinted","rail","plain"]}
+          onChange={(v)=>setTweak("sectionStyle", v)} />
+        <TweakSection label="Filling the space" />
+        <TweakRadio label="List balance" value={t.balance}
+          options={["equal","weighted"]}
+          onChange={(v)=>setTweak("balance", v)} />
+        <TweakRadio label="Density" value={t.density}
+          options={["comfortable","compact"]}
+          onChange={(v)=>setTweak("density", v)} />
+        <TweakToggle label="Show editor name" value={t.showEditor}
+          onChange={(v)=>setTweak("showEditor", v)} />
+      </TweaksPanel>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+</script>
+</body>
+</html>

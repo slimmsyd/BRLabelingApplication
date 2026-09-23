@@ -1,0 +1,606 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Punch tagging sample</title>
+<style>
+  :root {
+    --background: #121212;
+    --surface: #1e1e1e;
+    --surface-hover: #27272a;
+    --foreground: #ffffff;
+    --foreground-secondary: #a1a1aa;
+    --foreground-tertiary: #71717a;
+    --border: #27272a;
+    --accent: #3b82f6;
+    --accent-dim: rgba(59, 130, 246, 0.15);
+    --red: #ef4444;
+    --green: #22c55e;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; }
+  body {
+    background: var(--background);
+    color: var(--foreground);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+  }
+  button, input { font: inherit; color: inherit; }
+  button { cursor: pointer; }
+  button:focus-visible, .cam:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  .sample-bar {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 8px 20px;
+    background: #172033;
+    border-bottom: 1px solid #243049;
+    font-size: 13px;
+    color: #c7d2fe;
+  }
+  .sample-bar strong { color: #fff; font-weight: 600; }
+  .sample-bar kbd {
+    display: inline-block;
+    min-width: 1.4em;
+    padding: 1px 6px;
+    margin: 0 1px;
+    border-radius: 4px;
+    background: #0f172a;
+    border: 1px solid #334155;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 12px;
+    text-align: center;
+  }
+
+  header {
+    height: 64px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 20px;
+    gap: 16px;
+    flex-shrink: 0;
+  }
+  .brand { display: flex; align-items: center; gap: 14px; min-width: 0; }
+  .back {
+    background: none; border: 0; color: var(--foreground-secondary); font-size: 18px; padding: 4px;
+  }
+  .titles { min-width: 0; }
+  .titles h1 { margin: 0; font-size: 15px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .titles p { margin: 2px 0 0; font-size: 12px; color: var(--foreground-secondary); }
+  .badge {
+    font-size: 11px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase;
+    color: var(--accent); background: var(--accent-dim); border: 1px solid rgba(59,130,246,0.35);
+    border-radius: 999px; padding: 3px 8px;
+  }
+  .header-actions { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+  .btn {
+    border: 1px solid var(--border); background: var(--surface); border-radius: 8px;
+    padding: 7px 12px; font-size: 13px; font-weight: 500;
+  }
+  .btn:hover { background: var(--surface-hover); }
+  .btn.record { border-color: rgba(239,68,68,0.45); color: #fca5a5; }
+  .btn.record.on { background: rgba(239,68,68,0.15); color: #fecaca; }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  .banner {
+    text-align: center; font-size: 13px; font-weight: 500; padding: 10px 16px; flex-shrink: 0;
+  }
+  .banner.idle { background: rgba(59,130,246,0.1); color: #93c5fd; }
+  .banner.live { background: rgba(239,68,68,0.1); color: #fca5a5; }
+
+  .workspace { display: flex; flex: 1; min-height: 0; }
+  aside {
+    width: 320px; flex-shrink: 0; border-right: 1px solid var(--border);
+    padding: 16px; display: flex; flex-direction: column; gap: 14px;
+    position: relative;
+  }
+  .popup {
+    position: absolute;
+    top: 44px;
+    left: 16px;
+    right: 16px;
+    z-index: 5;
+    background: #242424;
+    border: 1px solid #3f3f46;
+    border-radius: 12px;
+    padding: 14px 14px 12px;
+    box-shadow: 0 16px 40px rgba(0, 0, 0, 0.45);
+  }
+  .popup h3 {
+    margin: 0 28px 8px 0;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: #fbbf24;
+  }
+  .popup p { margin: 0 0 12px; font-size: 13px; line-height: 1.45; color: var(--foreground); }
+  .popup-close {
+    position: absolute; top: 8px; right: 8px;
+    width: 28px; height: 28px; border: 0; border-radius: 8px;
+    background: transparent; color: var(--foreground-secondary); font-size: 18px; line-height: 1;
+  }
+  .popup-close:hover { background: var(--surface-hover); color: var(--foreground); }
+  .popup .btn { width: 100%; }
+  aside h2 { margin: 0; font-size: 13px; font-weight: 600; }
+  .readout {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+    padding: 16px; min-height: 118px; display: flex; flex-direction: column; justify-content: center; gap: 8px;
+  }
+  .readout.hot { border-color: rgba(59,130,246,0.7); background: #172033; }
+  .readout .keyline { display: flex; align-items: baseline; gap: 10px; }
+  .readout .bigkey {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 32px; font-weight: 700; line-height: 1;
+  }
+  .readout .arrow { color: var(--foreground-tertiary); font-size: 18px; }
+  .readout .typename { font-size: 22px; font-weight: 600; }
+  .readout .meta { font-size: 12px; color: var(--foreground-secondary); }
+  .bar { height: 4px; background: #27272a; border-radius: 99px; overflow: hidden; }
+  .bar > span { display: block; height: 100%; width: 0; background: var(--accent); }
+  .keys { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .keys .wide { grid-column: 1 / -1; }
+  .key {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
+    padding: 10px 8px; text-align: left;
+  }
+  .key:hover:not(:disabled) { background: var(--surface-hover); }
+  .key:disabled { opacity: 0.35; cursor: not-allowed; }
+  .key .k {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 14px; font-weight: 700; color: var(--accent);
+  }
+  .key .name { display: block; margin-top: 2px; font-size: 12px; color: var(--foreground-secondary); }
+  .key.pressed { border-color: var(--accent); background: var(--accent-dim); }
+  .count { font-size: 12px; color: var(--foreground-secondary); }
+  .hint { font-size: 12px; color: #fbbf24; min-height: 16px; }
+
+  main { flex: 1; min-width: 0; padding: 20px 24px 28px; overflow: auto; background: rgba(0,0,0,0.2); }
+  .stage { max-width: 920px; margin: 0 auto; display: flex; flex-direction: column; gap: 16px; }
+  .player {
+    position: relative; background: #0a0a0a; border: 1px solid var(--border); border-radius: 12px;
+    aspect-ratio: 16 / 9; overflow: hidden;
+  }
+  .ring {
+    position: absolute; inset: 12% 22%;
+    border: 3px solid rgba(255,255,255,0.18); border-radius: 50%;
+  }
+  .ring::after {
+    content: ""; position: absolute; inset: 18%;
+    border: 1px dashed rgba(255,255,255,0.12); border-radius: 50%;
+  }
+  .player-time {
+    position: absolute; left: 14px; bottom: 14px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 14px; background: rgba(0,0,0,0.55); padding: 4px 8px; border-radius: 6px;
+  }
+  .cams { position: absolute; top: 12px; left: 12px; display: flex; gap: 6px; }
+  .cam {
+    background: rgba(0,0,0,0.55); border: 1px solid rgba(255,255,255,0.15);
+    color: #d4d4d8; border-radius: 6px; padding: 4px 8px; font-size: 12px;
+  }
+  .cam.on { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .transport {
+    position: absolute; top: 12px; right: 12px; display: flex; gap: 6px;
+  }
+  .toast {
+    position: absolute; right: 14px; bottom: 14px; min-width: 180px;
+    background: rgba(18,18,18,0.92); border: 1px solid rgba(59,130,246,0.55);
+    border-radius: 12px; padding: 12px 14px; display: none;
+  }
+  .toast.show { display: block; }
+  .toast .keyline { display: flex; align-items: baseline; gap: 8px; }
+  .toast .bigkey { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 28px; font-weight: 700; }
+  .toast .typename { font-size: 18px; font-weight: 600; }
+  .toast .sub { margin-top: 4px; font-size: 11px; color: var(--foreground-secondary); }
+
+  .log {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 12px; overflow: hidden;
+  }
+  .log head, .log-head {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 12px 14px; border-bottom: 1px solid var(--border); background: rgba(255,255,255,0.03);
+  }
+  .log-head h3 { margin: 0; font-size: 14px; font-weight: 500; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th { text-align: left; font-weight: 500; color: var(--foreground-tertiary); font-size: 11px; letter-spacing: 0.04em; text-transform: uppercase; }
+  th, td { padding: 10px 14px; border-bottom: 1px solid var(--border); }
+  tr:last-child td { border-bottom: 0; }
+  tr.fresh td { background: rgba(59,130,246,0.08); }
+  .type-chip {
+    display: inline-block; padding: 2px 8px; border-radius: 999px;
+    background: var(--accent-dim); color: #bfdbfe; font-size: 12px; font-weight: 600;
+  }
+  .type-chip.plain { background: #27272a; color: #e4e4e7; }
+  .icon-btn { background: none; border: 0; color: var(--foreground-tertiary); padding: 2px 6px; }
+  .icon-btn:hover { color: #fca5a5; }
+  .empty { padding: 36px 16px; text-align: center; color: var(--foreground-tertiary); font-size: 13px; }
+  .time-link { background: none; border: 0; padding: 0; color: var(--foreground); font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+  .time-link:hover { color: var(--accent); }
+</style>
+</head>
+<body>
+  <div class="sample-bar">
+    <span>Sample only. This is not the app.</span>
+    <span>Click <strong>Start Recording</strong>, then <kbd>P</kbd> when a punch happens. Within 1.5s press <kbd>J</kbd> <kbd>C</kbd> <kbd>H</kbd> <kbd>U</kbd> <kbd>O</kbd> <kbd>S</kbd>. <kbd>Backspace</kbd> removes the last tag. <kbd>Space</kbd> plays and pauses.</span>
+  </div>
+
+  <header>
+    <div class="brand">
+      <button class="back" type="button" aria-label="Back">←</button>
+      <div class="titles">
+        <h1>Abdullah Mason vs Sam Noakes</h1>
+        <p>Round 2 · Punch tag assignment</p>
+      </div>
+      <span class="badge">Punch tag</span>
+    </div>
+    <div class="header-actions">
+      <button class="btn record" id="recordBtn" type="button">Start Recording</button>
+      <button class="btn" id="saveBtn" type="button" disabled>Save</button>
+      <button class="btn primary" id="submitBtn" type="button" disabled>Submit</button>
+    </div>
+  </header>
+
+  <div class="banner idle" id="banner">Click "Start Recording" to begin labeling events</div>
+
+  <div class="workspace">
+    <aside>
+      <h2>Punch tagging</h2>
+      <div class="popup" id="whatsNew" role="dialog" aria-labelledby="whatsNewTitle">
+        <button class="popup-close" id="whatsNewClose" type="button" aria-label="Close">×</button>
+        <h3 id="whatsNewTitle">What's new</h3>
+        <p>Press P when a punch happens. Within 1.5 seconds press J, C, H, U, O, or S to set the type. A second letter in that window replaces the first. Backspace removes the newest tag.</p>
+        <button class="btn" id="whatsNewGotIt" type="button">Got it</button>
+      </div>
+      <div class="readout" id="readout">
+        <div class="keyline" id="keyline">
+          <span class="meta" id="readoutIdle">Press P when a punch happens</span>
+        </div>
+        <div class="meta" id="readoutMeta"></div>
+        <div class="bar" id="bar" hidden><span id="barFill"></span></div>
+      </div>
+      <div class="keys" id="keypad"></div>
+      <div class="count" id="count">0 tags</div>
+      <div class="hint" id="hint" role="status"></div>
+    </aside>
+
+    <main>
+      <div class="stage">
+        <div class="player" id="player">
+          <div class="ring" aria-hidden="true"></div>
+          <div class="cams" id="cams"></div>
+          <div class="transport">
+            <button class="cam" id="playBtn" type="button">Play</button>
+          </div>
+          <div class="player-time" id="clock">00:00.00</div>
+          <div class="toast" id="toast" aria-live="polite">
+            <div class="keyline">
+              <span class="bigkey" id="toastKey">P</span>
+              <span class="arrow">→</span>
+              <span class="typename" id="toastType">Punch</span>
+            </div>
+            <div class="sub" id="toastSub"></div>
+            <div class="bar" style="margin-top:8px"><span id="toastFill"></span></div>
+          </div>
+        </div>
+
+        <section class="log">
+          <div class="log-head">
+            <h3>Tagged punches</h3>
+            <span class="count" id="logCount">Most recent first</span>
+          </div>
+          <div id="logBody"></div>
+        </section>
+      </div>
+    </main>
+  </div>
+
+<script>
+const WINDOW_MS = 1500;
+const TYPES = {
+  KeyJ: "Jab",
+  KeyC: "Cross",
+  KeyH: "Hook",
+  KeyU: "Uppercut",
+  KeyO: "Overhand",
+  KeyS: "Screwshot",
+};
+const KEY_LABEL = { KeyJ: "J", KeyC: "C", KeyH: "H", KeyU: "U", KeyO: "O", KeyS: "S" };
+
+const state = {
+  recording: false,
+  playing: false,
+  time: 12.4,
+  cam: 1,
+  tags: [],
+  window: null,
+  nextId: 1,
+};
+
+const recordBtn = document.getElementById("recordBtn");
+const saveBtn = document.getElementById("saveBtn");
+const submitBtn = document.getElementById("submitBtn");
+const banner = document.getElementById("banner");
+const clock = document.getElementById("clock");
+const playBtn = document.getElementById("playBtn");
+const readout = document.getElementById("readout");
+const keyline = document.getElementById("keyline");
+const readoutMeta = document.getElementById("readoutMeta");
+const bar = document.getElementById("bar");
+const barFill = document.getElementById("barFill");
+const toast = document.getElementById("toast");
+const toastKey = document.getElementById("toastKey");
+const toastType = document.getElementById("toastType");
+const toastSub = document.getElementById("toastSub");
+const toastFill = document.getElementById("toastFill");
+const hint = document.getElementById("hint");
+const count = document.getElementById("count");
+const logBody = document.getElementById("logBody");
+const keypad = document.getElementById("keypad");
+
+function formatTime(seconds) {
+  const clamped = Math.max(0, seconds);
+  const mins = Math.floor(clamped / 60);
+  const secs = Math.floor(clamped % 60);
+  const cs = Math.floor((clamped % 1) * 100);
+  return String(mins).padStart(2, "0") + ":" + String(secs).padStart(2, "0") + "." + String(cs).padStart(2, "0");
+}
+
+function windowOpen() {
+  return state.window && performance.now() < state.window.expiresAt;
+}
+
+function setHint(text) {
+  hint.textContent = text || "";
+}
+
+function flashKey(letter, typeName, sub) {
+  readout.classList.add("hot");
+  keyline.innerHTML =
+    '<span class="bigkey">' + letter + '</span><span class="arrow">→</span><span class="typename">' + typeName + "</span>";
+  toastKey.textContent = letter;
+  toastType.textContent = typeName;
+  toastSub.textContent = sub;
+  toast.classList.add("show");
+  document.querySelectorAll(".key").forEach((el) => {
+    el.classList.toggle("pressed", el.dataset.letter === letter);
+  });
+}
+
+function clearFlashSoon() {
+  /* kept visible while the refine window is open */
+}
+
+function renderKeys() {
+  const items = [
+    { letter: "P", name: "Punch happened", wide: true },
+    { letter: "J", name: "Jab" },
+    { letter: "C", name: "Cross" },
+    { letter: "H", name: "Hook" },
+    { letter: "U", name: "Uppercut" },
+    { letter: "O", name: "Overhand" },
+    { letter: "S", name: "Screwshot" },
+  ];
+  keypad.innerHTML = items.map((item) =>
+    '<button class="key' + (item.wide ? " wide" : "") + '" type="button" data-letter="' + item.letter + '">' +
+      '<span class="k">' + item.letter + '</span><span class="name">' + item.name + "</span></button>"
+  ).join("");
+}
+
+function renderCams() {
+  const cams = document.getElementById("cams");
+  cams.innerHTML = [1, 2, 3, 4].map((n) =>
+    '<button class="cam' + (state.cam === n ? " on" : "") + '" type="button" data-cam="' + n + '">Cam ' + n + "</button>"
+  ).join("");
+}
+
+function renderLog() {
+  count.textContent = state.tags.length === 1 ? "1 tag" : state.tags.length + " tags";
+  const canSave = state.recording && state.tags.length > 0;
+  saveBtn.disabled = !canSave;
+  submitBtn.disabled = !canSave;
+  if (state.tags.length === 0) {
+    logBody.innerHTML = '<div class="empty">No punches tagged yet. Press P while the round plays.</div>';
+    return;
+  }
+  const rows = state.tags.map((tag, index) => {
+    const chipClass = tag.type === "Punch" ? "type-chip plain" : "type-chip";
+    return "<tr" + (index === 0 ? ' class="fresh"' : "") + ">" +
+      '<td><button class="time-link" type="button" data-seek="' + tag.time + '">' + tag.label + "</button></td>" +
+      "<td>Cam " + tag.cam + "</td>" +
+      '<td><span class="' + chipClass + '">' + tag.type + "</span></td>" +
+      '<td><button class="icon-btn" type="button" data-delete="' + tag.id + '" aria-label="Delete tag">Delete</button></td>' +
+      "</tr>";
+  }).join("");
+  logBody.innerHTML = "<table><thead><tr><th>Time</th><th>Camera</th><th>Type</th><th></th></tr></thead><tbody>" + rows + "</tbody></table>";
+}
+
+function renderChrome() {
+  recordBtn.textContent = state.recording ? "Stop Recording" : "Start Recording";
+  recordBtn.classList.toggle("on", state.recording);
+  banner.textContent = state.recording
+    ? "Recording in progress. P tags a punch. A letter within 1.5s sets the type."
+    : 'Click "Start Recording" to begin labeling events';
+  banner.className = "banner " + (state.recording ? "live" : "idle");
+  playBtn.textContent = state.playing ? "Pause" : "Play";
+  clock.textContent = formatTime(state.time);
+  document.querySelectorAll(".key").forEach((el) => { el.disabled = !state.recording; });
+  renderCams();
+  renderLog();
+}
+
+function onP() {
+  if (!state.recording) {
+    setHint("Start Recording before tagging.");
+    return;
+  }
+  const tag = {
+    id: state.nextId++,
+    time: state.time,
+    label: formatTime(state.time),
+    cam: state.cam,
+    type: "Punch",
+  };
+  state.tags.unshift(tag);
+  state.window = { id: tag.id, openedAt: performance.now(), expiresAt: performance.now() + WINDOW_MS };
+  setHint("");
+  flashKey("P", "Punch", tag.label + " · Cam " + tag.cam);
+  renderChrome();
+}
+
+function onType(code) {
+  const typeName = TYPES[code];
+  const letter = KEY_LABEL[code];
+  if (!state.recording) {
+    setHint("Start Recording before tagging.");
+    return;
+  }
+  if (!windowOpen()) {
+    setHint("Press P first.");
+    flashKey(letter, "—", "Press P first");
+    readout.classList.remove("hot");
+    return;
+  }
+  const tag = state.tags.find((item) => item.id === state.window.id);
+  if (!tag) return;
+  tag.type = typeName;
+  setHint("");
+  flashKey(letter, typeName, tag.label + " · Cam " + tag.cam + " · still open");
+  renderChrome();
+}
+
+function onUndo() {
+  if (!state.recording || state.tags.length === 0) return;
+  const removed = state.tags.shift();
+  if (state.window && state.window.id === removed.id) state.window = null;
+  setHint("Removed " + removed.type + " at " + removed.label);
+  readout.classList.remove("hot");
+  toast.classList.remove("show");
+  renderChrome();
+}
+
+function handleLetter(letter) {
+  if (letter === "P") onP();
+  else if (letter === "Backspace") onUndo();
+  else {
+    const code = Object.keys(KEY_LABEL).find((key) => KEY_LABEL[key] === letter);
+    if (code) onType(code);
+  }
+}
+
+document.addEventListener("keydown", (event) => {
+  const target = event.target;
+  if (target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement) return;
+  if (event.metaKey || event.ctrlKey || event.altKey || event.repeat) return;
+  if (event.code === "Space") {
+    event.preventDefault();
+    state.playing = !state.playing;
+    renderChrome();
+    return;
+  }
+  if (event.code === "ArrowLeft") {
+    event.preventDefault();
+    state.playing = false;
+    state.time = Math.max(0, state.time - 1 / 30);
+    renderChrome();
+    return;
+  }
+  if (event.code === "ArrowRight") {
+    event.preventDefault();
+    state.playing = false;
+    state.time += 1 / 30;
+    renderChrome();
+    return;
+  }
+  if (event.code === "KeyP") { event.preventDefault(); onP(); return; }
+  if (TYPES[event.code]) { event.preventDefault(); onType(event.code); return; }
+  if (event.code === "Backspace") { event.preventDefault(); onUndo(); }
+});
+
+document.body.addEventListener("click", (event) => {
+  const key = event.target.closest(".key");
+  if (key && !key.disabled) handleLetter(key.dataset.letter);
+  const cam = event.target.closest("[data-cam]");
+  if (cam) { state.cam = Number(cam.dataset.cam); renderChrome(); }
+  const seek = event.target.closest("[data-seek]");
+  if (seek) { state.playing = false; state.time = Number(seek.dataset.seek); renderChrome(); }
+  const del = event.target.closest("[data-delete]");
+  if (del) {
+    const id = Number(del.dataset.delete);
+    state.tags = state.tags.filter((tag) => tag.id !== id);
+    if (state.window && state.window.id === id) state.window = null;
+    renderChrome();
+  }
+});
+
+recordBtn.addEventListener("click", () => {
+  state.recording = !state.recording;
+  if (!state.recording) state.window = null;
+  setHint("");
+  renderChrome();
+});
+playBtn.addEventListener("click", () => { state.playing = !state.playing; renderChrome(); });
+saveBtn.addEventListener("click", () => setHint("Sample only. Save would write these tags to the assignment."));
+submitBtn.addEventListener("click", () => {
+  const payload = state.tags.map((tag) => ({
+    punchType: tag.type,
+    startTime: Number(tag.time.toFixed(2)),
+    endTime: Number(tag.time.toFixed(2)),
+    cam: "Cam" + tag.cam,
+    fighter: null,
+    hand: null,
+    target: null,
+    stance: null,
+    punchResult: null,
+  }));
+  setHint("Sample submit. " + payload.length + " tags. Unlabeled fields stay null.");
+  console.log(payload);
+});
+
+let last = performance.now();
+function tick(now) {
+  const dt = (now - last) / 1000;
+  last = now;
+  if (state.playing) {
+    state.time += dt;
+    clock.textContent = formatTime(state.time);
+  }
+  if (state.window) {
+    const remaining = state.window.expiresAt - now;
+    const ratio = Math.max(0, Math.min(1, remaining / WINDOW_MS));
+    bar.hidden = false;
+    barFill.style.width = (ratio * 100) + "%";
+    toastFill.style.width = (ratio * 100) + "%";
+    if (remaining <= 0) {
+      state.window = null;
+      bar.hidden = true;
+      readout.classList.remove("hot");
+      document.querySelectorAll(".key.pressed").forEach((el) => el.classList.remove("pressed"));
+      readoutMeta.textContent = "Window closed. Press P for the next punch.";
+    } else {
+      readoutMeta.textContent = "Type a letter to set the punch. " + (remaining / 1000).toFixed(1) + "s left.";
+    }
+  }
+  requestAnimationFrame(tick);
+}
+
+function closeWhatsNew() {
+  document.getElementById("whatsNew").hidden = true;
+}
+document.getElementById("whatsNewClose").addEventListener("click", closeWhatsNew);
+document.getElementById("whatsNewGotIt").addEventListener("click", closeWhatsNew);
+
+renderKeys();
+renderChrome();
+requestAnimationFrame(tick);
+</script>
+</body>
+</html>

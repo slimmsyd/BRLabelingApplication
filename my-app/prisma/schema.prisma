@@ -32,6 +32,7 @@ enum LabelType {
   OFFENSE
   DEFENSE
   FOOTWORK
+  PUNCH_TAG
 }
 
 model User {
@@ -110,7 +111,7 @@ model VideoAssignment {
   videoId       String
   userId        String
   videoTitle    String?      // Cached video title for human-readable display
-  labelType     LabelType    // Type of labeling: Offense, Defense, or Footwork
+  labelType     LabelType    // Type of labeling: Offense, Defense, Footwork, or Punch Tag
   status        VideoStatus  @default(ASSIGNED)
   
   // Cached user info for admin visibility (avoids joins)

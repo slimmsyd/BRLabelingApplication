@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { computeEventRowsWithPreservedTimestamps, PUNCH_RESULTS } from '@/lib/event-helpers';
+import { computeEventRowsWithPreservedTimestamps, PUNCH_RESULTS, PUNCH_TAG_TYPES } from '@/lib/event-helpers';
 
 interface EventInput {
   startTime: string;
@@ -76,6 +76,17 @@ export async function POST(
           { error: `Invalid punchResult: ${event.punchResult}` },
           { status: 400 }
         );
+      }
+    }
+
+    if (assignment.labelType === 'PUNCH_TAG') {
+      for (const event of events) {
+        if (!PUNCH_TAG_TYPES.includes(event.punchType as typeof PUNCH_TAG_TYPES[number])) {
+          return NextResponse.json(
+            { error: `Invalid punchType for Punch Tag: ${event.punchType}` },
+            { status: 400 }
+          );
+        }
       }
     }
 

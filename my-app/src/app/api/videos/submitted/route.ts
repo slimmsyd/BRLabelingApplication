@@ -16,7 +16,7 @@ export async function GET() {
   try {
     const whereClause: Prisma.VideoAssignmentWhereInput = {
       status: { in: ['SUBMITTED', 'REVIEWED', 'COMPLETED'] },
-      labelType: 'OFFENSE', // Only show offense assignments for now
+      labelType: { in: ['OFFENSE', 'PUNCH_TAG'] },
     };
 
     const [submittedAssignments, grouped] = await Promise.all([
@@ -27,6 +27,7 @@ export async function GET() {
         select: {
           id: true,
           status: true,
+          labelType: true,
           updatedAt: true,
           username: true,
           video: {

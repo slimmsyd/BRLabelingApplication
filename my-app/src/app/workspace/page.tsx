@@ -6,6 +6,7 @@ import WorkspaceHeader from '@/components/workspace/WorkspaceHeader';
 import VideoPlayer from '@/components/workspace/VideoPlayer';
 import EventLog, { EventData } from '@/components/workspace/EventLog';
 import SidebarControls from '@/components/workspace/SidebarControls';
+import PunchTagPanel from '@/components/workspace/PunchTagPanel';
 import SuccessModal from '@/components/SuccessModal';
 import ArchivedVideoOverlay from '@/components/ArchivedVideoOverlay';
 import WhatsNewSpotlight from '@/components/WhatsNewSpotlight';
@@ -13,6 +14,12 @@ import { Loader2 } from 'lucide-react';
 import { generateId, safeGetItem, safeSetItem, safeRemoveItem, safeJsonParse, safeResponseJson } from '@/lib/client-utils';
 import { WHATS_NEW_FLAGGED_FILTER } from '@/lib/whats-new';
 import { useCurrentUser } from '@/lib/hooks/useCurrentUser';
+import { usePunchTagHotkeys } from '@/lib/hooks/usePunchTagHotkeys';
+import {
+    createInitialPunchTagState,
+    type PunchTagHotkeyState,
+} from '@/lib/punch-tag/punch-tag-state';
+import type { PunchTagType } from '@/lib/event-helpers';
 
 interface VideoData {
     id: string;
@@ -64,6 +71,7 @@ function parseBoxerNamesFromTitle(title: string): { boxerA: string; boxerB: stri
 function WorkspacePage() {
     const searchParams = useSearchParams();
     const videoId = searchParams.get('videoId');
+    const labelTypeParam = searchParams.get('labelType') || 'OFFENSE';
     const [videoData, setVideoData] = useState<VideoData | null>(null);
     const [videoLoading, setVideoLoading] = useState(true);
     const [videoError, setVideoError] = useState<string | null>(null);
@@ -74,6 +82,9 @@ function WorkspacePage() {
     const videoRef = useRef<HTMLVideoElement>(null);
     const flagControlRef = useRef<HTMLDivElement>(null);
     const filterBarRef = useRef<HTMLDivElement>(null);
+    const [punchTagHotkeyState, setPunchTagHotkeyState] = useState<PunchTagHotkeyState>(
+        createInitialPunchTagState,
+    );
 
     // Lifted State for Form
     const [boxer, setBoxer] = useState('');
@@ -144,10 +155,22 @@ function WorkspacePage() {
 
     // Load from localStorage on mount (video-specific) - only for events, not submitted state
     // Note: isSubmitted is determined by database assignment status, not localStorage
+    // Punch Tag drafts use a separate key so they never collide with Offense drafts.
     useEffect(() => {
         if (!videoId) return;
 
-        const savedEvents = safeGetItem(`workspace_events_${videoId}`);
+        setEvents([]);
+
+        const eventsKey =
+            labelTypeParam === 'PUNCH_TAG'
+                ? `workspace_events_${videoId}_PUNCH_TAG`
+                : `workspace_events_${videoId}`;
+        const recordingKey =
+            labelTypeParam === 'PUNCH_TAG'
+                ? `workspace_recording_${videoId}_PUNCH_TAG`
+                : `workspace_recording_${videoId}`;
+
+        const savedEvents = safeGetItem(eventsKey);
 
         if (savedEvents) {
             const parsedEvents = safeJsonParse<EventData[]>(savedEvents);
@@ -155,18 +178,20 @@ function WorkspacePage() {
                 const eventsWithIds = parsedEvents.map(e => ({
                     ...e,
                     id: e.id || generateId(),
-                    landed: e.landed !== undefined ? e.landed : true,
-                    punchResult: e.punchResult || (e.landed !== false ? 'Landed' : 'Missed')
+                    landed: e.landed !== undefined ? e.landed : (labelTypeParam === 'PUNCH_TAG' ? undefined : true),
+                    punchResult: e.punchResult || (labelTypeParam === 'PUNCH_TAG'
+                        ? undefined
+                        : (e.landed !== false ? 'Landed' : 'Missed')),
                 }));
                 setEvents(eventsWithIds);
             }
         }
 
-        const savedRecordingState = safeGetItem(`workspace_recording_${videoId}`);
+        const savedRecordingState = safeGetItem(recordingKey);
         if (savedRecordingState !== null) {
             setIsRecording(savedRecordingState === 'true');
         }
-    }, [videoId]);
+    }, [videoId, labelTypeParam]);
 
     // Fetch video data when videoId is available
     useEffect(() => {
@@ -219,8 +244,9 @@ function WorkspacePage() {
             if (!videoId) return;
 
             try {
-                // Fetch assignment without userId to get *any* existing assignment (default OFFENSE)
-                const response = await fetch(`/api/videos/${videoId}/assignment`);
+                const response = await fetch(
+                    `/api/videos/${videoId}/assignment?labelType=${encodeURIComponent(labelTypeParam)}`,
+                );
                 if (response.ok) {
                     const data = await response.json();
                     setAssignment(data.assignment);
@@ -231,7 +257,11 @@ function WorkspacePage() {
                         if (submittedStatuses.includes(data.assignment.status)) {
                             setIsSubmitted(true);
                             console.log(`Video assignment status: ${data.assignment.status} - marking as submitted`);
+                        } else {
+                            setIsSubmitted(false);
                         }
+                    } else {
+                        setIsSubmitted(false);
                     }
                 }
             } catch (err) {
@@ -240,7 +270,7 @@ function WorkspacePage() {
         };
 
         fetchAssignment();
-    }, [videoId]); // Removed user dependency to allow fetching before user loads, and to get global state
+    }, [videoId, labelTypeParam]); // Removed user dependency to allow fetching before user loads, and to get global state
 
     // Fetch saved events from database when assignment is loaded
     useEffect(() => {
@@ -294,19 +324,27 @@ function WorkspacePage() {
         fetchEventsFromDB();
     }, [videoId, assignment?.id]);
 
-    // Save events to localStorage whenever they change (video-specific)
+    // Save events to localStorage whenever they change (video-specific; Punch Tag has its own key)
     useEffect(() => {
         if (videoId && events.length > 0) {
-            safeSetItem(`workspace_events_${videoId}`, JSON.stringify(events));
+            const eventsKey =
+                labelTypeParam === 'PUNCH_TAG'
+                    ? `workspace_events_${videoId}_PUNCH_TAG`
+                    : `workspace_events_${videoId}`;
+            safeSetItem(eventsKey, JSON.stringify(events));
         }
-    }, [events, videoId]);
+    }, [events, videoId, labelTypeParam]);
 
     // Save recording state to localStorage whenever it changes
     useEffect(() => {
         if (videoId) {
-            safeSetItem(`workspace_recording_${videoId}`, String(isRecording));
+            const recordingKey =
+                labelTypeParam === 'PUNCH_TAG'
+                    ? `workspace_recording_${videoId}_PUNCH_TAG`
+                    : `workspace_recording_${videoId}`;
+            safeSetItem(recordingKey, String(isRecording));
         }
-    }, [isRecording, videoId]);
+    }, [isRecording, videoId, labelTypeParam]);
 
     // Handle boxer change
     const handleBoxerChange = (newBoxer: string) => {
@@ -508,34 +546,62 @@ function WorkspacePage() {
         setSaveStatus('saving');
 
         try {
-            // Save to localStorage (video-specific)
+            // Save to localStorage (video-specific; Punch Tag has its own key)
             if (videoId) {
-                safeSetItem(`workspace_events_${videoId}`, JSON.stringify(events));
+                const eventsKey =
+                    labelTypeParam === 'PUNCH_TAG'
+                        ? `workspace_events_${videoId}_PUNCH_TAG`
+                        : `workspace_events_${videoId}`;
+                safeSetItem(eventsKey, JSON.stringify(events));
             }
+
+            const isPunchTagAssignment = assignment?.labelType === 'PUNCH_TAG' || labelTypeParam === 'PUNCH_TAG';
 
             // Save to database so admins can see progress (but NOT submit/finalize)
             if (videoId && assignment?.id) {
                 const dbPayload = {
                     assignmentId: assignment.id,
-                    events: events.map(event => ({
-                        startTime: event.startTime,
-                        endTime: event.endTime,
-                        boxer: event.boxer,
-                        punchType: event.punchType,
-                        hand: event.hand,
-                        target: event.target,
-                        visibilityFlags: event.visibilityFlags,
-                        knockdown: event.knockdown,
-                        punchQuality: event.punchQuality,
-                        cam: event.cam,
-                        stance: event.stance || 'Orthodox',
-                        landed: event.landed,
-                        punchResult: event.punchResult || (event.landed !== false ? 'Landed' : 'Missed'),
-                        defenseType: event.punchResult === 'Defended' ? event.defenseType : null,
-                        flagged: event.flagged ?? false,
-                        labeledBy: event.labeledBy || user?.userId,
-                        labeledByEmail: event.labeledByEmail || user?.email,
-                    })),
+                    events: events.map(event => (
+                        isPunchTagAssignment
+                            ? {
+                                startTime: event.startTime,
+                                endTime: event.endTime,
+                                boxer: event.boxer || '',
+                                punchType: event.punchType,
+                                hand: event.hand || '',
+                                target: event.target || '',
+                                visibilityFlags: event.visibilityFlags || [],
+                                knockdown: false,
+                                punchQuality: event.punchQuality || '',
+                                cam: event.cam,
+                                stance: null,
+                                landed: null,
+                                punchResult: null,
+                                defenseType: null,
+                                flagged: false,
+                                labeledBy: event.labeledBy || user?.userId,
+                                labeledByEmail: event.labeledByEmail || user?.email,
+                            }
+                            : {
+                                startTime: event.startTime,
+                                endTime: event.endTime,
+                                boxer: event.boxer,
+                                punchType: event.punchType,
+                                hand: event.hand,
+                                target: event.target,
+                                visibilityFlags: event.visibilityFlags,
+                                knockdown: event.knockdown,
+                                punchQuality: event.punchQuality,
+                                cam: event.cam,
+                                stance: event.stance || 'Orthodox',
+                                landed: event.landed,
+                                punchResult: event.punchResult || (event.landed !== false ? 'Landed' : 'Missed'),
+                                defenseType: event.punchResult === 'Defended' ? event.defenseType : null,
+                                flagged: event.flagged ?? false,
+                                labeledBy: event.labeledBy || user?.userId,
+                                labeledByEmail: event.labeledByEmail || user?.email,
+                            }
+                    )),
                     saveOnly: true, // Flag to indicate this is a progress save, NOT a submission
                 };
 
@@ -569,31 +635,60 @@ function WorkspacePage() {
         const fightTitle = videoData?.title || `${videoData?.boxer1} vs ${videoData?.boxer2}`;
 
         // Transform events to external API format
-        const transformEventForExternalAPI = (event: EventData) => ({
-            eventType: "punch",
-            fighter: event.boxer === (videoData?.boxer1 || 'Boxer A') ? 'boxer1' : 'boxer2',
-            startTime: parseTimeToSeconds(event.startTime),
-            endTime: parseTimeToSeconds(event.endTime),
-            startTimeFormatted: event.startTime,
-            endTimeFormatted: event.endTime,
-            hand: event.hand.toLowerCase(),
-            punchType: event.punchType,
-            target: event.target,
-            punchQuality: event.punchQuality,
-            knockdown: event.knockdown,
-            stoppageKo: false,
-            visibility: visibilityFlagsToMatrix(event.visibilityFlags),
-            stance: event.stance || 'Orthodox',
-            punchResult: event.punchResult || (event.landed !== false ? 'Landed' : 'Missed'),
-            defenseType: event.punchResult === 'Defended' ? event.defenseType : null,
-            // Use original labeler (from assignment), not current user (QC person)
-            labeledBy: event.labeledBy || assignment?.userId || user?.userId,
-            labeledByEmail: event.labeledByEmail || assignment?.user?.email || user?.email,
-            fight_title: fightTitle,  // Include fight_title on each event
-            // Timestamps from database
-            createdAt: event.createdAt,  // When the event was originally labeled
-            updatedAt: event.updatedAt,  // When the event was last modified
-        });
+        const isPunchTagAssignment = assignment?.labelType === 'PUNCH_TAG' || labelTypeParam === 'PUNCH_TAG';
+
+        const transformEventForExternalAPI = (event: EventData) => {
+            if (isPunchTagAssignment) {
+                return {
+                    eventType: 'punch',
+                    fighter: null,
+                    startTime: parseTimeToSeconds(event.startTime),
+                    endTime: parseTimeToSeconds(event.endTime),
+                    startTimeFormatted: event.startTime,
+                    endTimeFormatted: event.endTime,
+                    hand: null,
+                    punchType: event.punchType,
+                    target: null,
+                    punchQuality: null,
+                    knockdown: false,
+                    stoppageKo: false,
+                    visibility: [0, 0, 0, 0, 0],
+                    stance: null,
+                    punchResult: null,
+                    defenseType: null,
+                    labeledBy: event.labeledBy || assignment?.userId || user?.userId,
+                    labeledByEmail: event.labeledByEmail || assignment?.user?.email || user?.email,
+                    fight_title: fightTitle,
+                    createdAt: event.createdAt,
+                    updatedAt: event.updatedAt,
+                };
+            }
+            return {
+                eventType: "punch",
+                fighter: event.boxer === (videoData?.boxer1 || 'Boxer A') ? 'boxer1' : 'boxer2',
+                startTime: parseTimeToSeconds(event.startTime),
+                endTime: parseTimeToSeconds(event.endTime),
+                startTimeFormatted: event.startTime,
+                endTimeFormatted: event.endTime,
+                hand: event.hand.toLowerCase(),
+                punchType: event.punchType,
+                target: event.target,
+                punchQuality: event.punchQuality,
+                knockdown: event.knockdown,
+                stoppageKo: false,
+                visibility: visibilityFlagsToMatrix(event.visibilityFlags),
+                stance: event.stance || 'Orthodox',
+                punchResult: event.punchResult || (event.landed !== false ? 'Landed' : 'Missed'),
+                defenseType: event.punchResult === 'Defended' ? event.defenseType : null,
+                // Use original labeler (from assignment), not current user (QC person)
+                labeledBy: event.labeledBy || assignment?.userId || user?.userId,
+                labeledByEmail: event.labeledByEmail || assignment?.user?.email || user?.email,
+                fight_title: fightTitle,  // Include fight_title on each event
+                // Timestamps from database
+                createdAt: event.createdAt,  // When the event was originally labeled
+                updatedAt: event.updatedAt,  // When the event was last modified
+            };
+        };
 
         // Group events by camera
         const groupEventsByCamera = (events: EventData[], numCameras: number) => {
@@ -675,26 +770,49 @@ function WorkspacePage() {
             if (videoId && assignment?.id) {
                 const dbPayload = {
                     assignmentId: assignment.id,
-                    events: events.map(event => ({
-                        startTime: event.startTime,
-                        endTime: event.endTime,
-                        boxer: event.boxer,
-                        punchType: event.punchType,
-                        hand: event.hand,
-                        target: event.target,
-                        visibilityFlags: event.visibilityFlags,
-                        knockdown: event.knockdown,
-                        punchQuality: event.punchQuality,
-                        cam: event.cam,
-                        stance: event.stance || 'Orthodox',
-                        landed: event.landed,
-                        punchResult: event.punchResult || (event.landed !== false ? 'Landed' : 'Missed'),
-                        defenseType: event.punchResult === 'Defended' ? event.defenseType : null,
-                        flagged: event.flagged ?? false,
-                        labeledBy: event.labeledBy || user?.userId,
-                        labeledByEmail: event.labeledByEmail || user?.email,
-                        fightTitle: fightTitle,  // Include fight_title for DB alignment
-                    })),
+                    events: events.map(event => (
+                        isPunchTagAssignment
+                            ? {
+                                startTime: event.startTime,
+                                endTime: event.endTime,
+                                boxer: event.boxer || '',
+                                punchType: event.punchType,
+                                hand: event.hand || '',
+                                target: event.target || '',
+                                visibilityFlags: event.visibilityFlags || [],
+                                knockdown: false,
+                                punchQuality: event.punchQuality || '',
+                                cam: event.cam,
+                                stance: null,
+                                landed: null,
+                                punchResult: null,
+                                defenseType: null,
+                                flagged: false,
+                                labeledBy: event.labeledBy || user?.userId,
+                                labeledByEmail: event.labeledByEmail || user?.email,
+                                fightTitle: fightTitle,
+                            }
+                            : {
+                                startTime: event.startTime,
+                                endTime: event.endTime,
+                                boxer: event.boxer,
+                                punchType: event.punchType,
+                                hand: event.hand,
+                                target: event.target,
+                                visibilityFlags: event.visibilityFlags,
+                                knockdown: event.knockdown,
+                                punchQuality: event.punchQuality,
+                                cam: event.cam,
+                                stance: event.stance || 'Orthodox',
+                                landed: event.landed,
+                                punchResult: event.punchResult || (event.landed !== false ? 'Landed' : 'Missed'),
+                                defenseType: event.punchResult === 'Defended' ? event.defenseType : null,
+                                flagged: event.flagged ?? false,
+                                labeledBy: event.labeledBy || user?.userId,
+                                labeledByEmail: event.labeledByEmail || user?.email,
+                                fightTitle: fightTitle,  // Include fight_title for DB alignment
+                            }
+                    )),
                 };
 
                 let dbResponse;
@@ -786,6 +904,7 @@ function WorkspacePage() {
             setIsSubmitted(true);
             setIsRecording(false);
             safeRemoveItem(`workspace_recording_${videoId}`);
+            safeRemoveItem(`workspace_recording_${videoId}_PUNCH_TAG`);
             // Note: isSubmitted state is now determined by database assignment status
             // No need to persist to localStorage
             setShowSuccessModal(true);
@@ -907,6 +1026,67 @@ function WorkspacePage() {
     // If we are in QC mode (and allowed to be), sidebar should be editable for corrections
     // But if we are a Labeler and it's submitted, it's read-only.
     const isSidebarReadOnly = isReadOnly;
+
+    const isPunchTagMode =
+        assignment?.labelType === 'PUNCH_TAG' || labelTypeParam === 'PUNCH_TAG';
+
+    const handleCreatePunchTag = React.useCallback((type: 'Punch', tagId: string) => {
+        const time = (() => {
+            if (!videoRef.current) return '00:00.00';
+            const t = videoRef.current.currentTime;
+            const minutes = Math.floor(t / 60);
+            const seconds = Math.floor(t % 60);
+            const milliseconds = Math.floor((t % 1) * 100);
+            return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}.${String(milliseconds).padStart(2, '0')}`;
+        })();
+        const newEvent: EventData = {
+            id: tagId,
+            details: type,
+            startTime: time,
+            endTime: time,
+            boxer: '',
+            punchType: type,
+            hand: '',
+            target: '',
+            visibilityFlags: [],
+            knockdown: false,
+            punchQuality: '',
+            cam: activeCam,
+            stance: undefined,
+            landed: undefined,
+            punchResult: undefined,
+            defenseType: undefined,
+            flagged: false,
+            labeledBy: user?.userId,
+            labeledByEmail: user?.email,
+        };
+        setEvents((prev) => [newEvent, ...prev]);
+    }, [activeCam, user?.userId, user?.email]);
+
+    const handleRefinePunchTag = React.useCallback((tagId: string, type: PunchTagType) => {
+        setEvents((prev) =>
+            prev.map((event) =>
+                event.id === tagId
+                    ? { ...event, punchType: type, details: type }
+                    : event,
+            ),
+        );
+    }, []);
+
+    const handleUndoPunchTag = React.useCallback(() => {
+        setEvents((prev) => {
+            if (prev.length === 0) return prev;
+            return prev.slice(1);
+        });
+    }, []);
+
+    usePunchTagHotkeys({
+        enabled: isPunchTagMode && !isReadOnly,
+        onCreateTag: handleCreatePunchTag,
+        onRefineTag: handleRefinePunchTag,
+        onUndoTag: handleUndoPunchTag,
+        onStateChange: setPunchTagHotkeyState,
+    });
 
     // Parse video sources from videoData
     const videoSources = React.useMemo(() => {
@@ -1102,6 +1282,14 @@ function WorkspacePage() {
                     className="relative border-r border-border bg-background p-4 shrink-0 flex flex-col"
                 >
                     <div className="flex-1 min-h-0">
+                        {isPunchTagMode ? (
+                            <PunchTagPanel
+                                hotkeyState={punchTagHotkeyState}
+                                tagCount={events.length}
+                                recording={isRecording}
+                                readOnly={isSidebarReadOnly}
+                            />
+                        ) : (
                         <SidebarControls
                             onLogEvent={handleLogEvent}
                             getCurrentTime={getCurrentTime}
@@ -1117,6 +1305,7 @@ function WorkspacePage() {
                             boxerNames={boxerNames}
                             flagControlRef={flagControlRef}
                         />
+                        )}
                     </div>
 
                     {/* Resize Handle */}
@@ -1133,7 +1322,7 @@ function WorkspacePage() {
                 <main className="flex-1 p-6 bg-black/20 overflow-y-auto">
                     <div className="max-w-6xl mx-auto space-y-6">
                         {/* Video Player */}
-                        <section>
+                        <section className="relative">
                             <VideoPlayer
                                 videoRef={videoRef}
                                 activeCam={activeCam}
@@ -1141,6 +1330,20 @@ function WorkspacePage() {
                                 videoSources={videoSources}
                                 fps={videoData.fps}
                             />
+                            {isPunchTagMode && punchTagHotkeyState.lastKey && punchTagHotkeyState.lastType && (
+                                <div className="absolute right-4 bottom-4 z-10 min-w-[160px] rounded-xl border border-accent-primary/50 bg-black/90 p-3 shadow-lg pointer-events-none">
+                                    <div className="flex items-baseline gap-2">
+                                        <span className="font-mono text-2xl font-bold">{punchTagHotkeyState.lastKey}</span>
+                                        <span className="text-foreground-tertiary">→</span>
+                                        <span className="text-lg font-semibold">{punchTagHotkeyState.lastType}</span>
+                                    </div>
+                                    {punchTagHotkeyState.refineWindow && (
+                                        <p className="text-[11px] text-foreground-secondary mt-1">
+                                            Type a letter to refine
+                                        </p>
+                                    )}
+                                </div>
+                            )}
                         </section>
 
                         {/* Event Log Table */}
@@ -1153,17 +1356,19 @@ function WorkspacePage() {
                                 readOnly={isReadOnly}
                                 onSeek={handleSeek}
                                 onSeekEnd={handleSeekEnd}
-                                onSelectEvent={handleSelectEvent}
+                                onSelectEvent={isPunchTagMode ? undefined : handleSelectEvent}
                                 boxerNames={boxerNames}
                                 selectedEventId={selectedEventId}
                                 filterBarRef={filterBarRef}
+                                mode={isPunchTagMode ? 'punchTag' : 'full'}
                             />
                         </section>
                     </div>
                 </main>
             </div>
 
-            {/* First-visit tour: Flag for QC form control, then Flagged list filter */}
+            {/* First-visit tour: Flag for QC form control, then Flagged list filter (Offense only) */}
+            {!isPunchTagMode && (
             <WhatsNewSpotlight
                 featureId={WHATS_NEW_FLAGGED_FILTER}
                 steps={[
@@ -1179,6 +1384,7 @@ function WorkspacePage() {
                     },
                 ]}
             />
+            )}
 
             {/* Success Modal */}
             <SuccessModal

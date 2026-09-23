@@ -28,7 +28,12 @@ export async function GET(request: Request) {
             not: 'COMPLETED' // Only show active assignments? Or all? Let's show all for now or filter in UI
         }
       },
-      include: {
+      select: {
+        id: true,
+        status: true,
+        labelType: true,
+        updatedAt: true,
+        assignedAt: true,
         video: {
           select: {
             id: true,

@@ -9,6 +9,7 @@ import { useCurrentUser } from '@/lib/hooks/useCurrentUser';
 
 interface Assignment {
     id: string;
+    labelType?: string;
     video: {
         id: string;
         title: string;
@@ -242,12 +243,17 @@ const Sidebar = ({ isOpen, toggle, mobileOpen = false, onMobileClose }: SidebarP
                                         filteredAssignments.map((assignment) => (
                                             <Link
                                                 key={assignment.id}
-                                                href={`/workspace?videoId=${assignment.video.id}`}
+                                                href={
+                                                    assignment.labelType === 'PUNCH_TAG'
+                                                        ? `/workspace?videoId=${assignment.video.id}&labelType=PUNCH_TAG`
+                                                        : `/workspace?videoId=${assignment.video.id}`
+                                                }
                                                 className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-foreground hover:bg-white/5 transition-colors cursor-pointer ${!expanded && 'justify-center px-0'}`}
                                             >
                                                 <Video size={16} className="text-accent-primary shrink-0" />
                                                 <span className={`transition-opacity duration-200 whitespace-nowrap truncate ${!expanded ? 'opacity-0 w-0 hidden' : 'opacity-100'}`}>
                                                     {assignment.video.title}
+                                                    {assignment.labelType === 'PUNCH_TAG' ? ' · Tag' : ''}
                                                 </span>
                                             </Link>
                                         ))
@@ -297,7 +303,11 @@ const Sidebar = ({ isOpen, toggle, mobileOpen = false, onMobileClose }: SidebarP
                                         filteredAwaitingQC.map((assignment) => (
                                             <Link
                                                 key={assignment.id}
-                                                href={`/workspace?videoId=${assignment.video.id}`}
+                                                href={
+                                                    assignment.labelType === 'PUNCH_TAG'
+                                                        ? `/workspace?videoId=${assignment.video.id}&labelType=PUNCH_TAG`
+                                                        : `/workspace?videoId=${assignment.video.id}`
+                                                }
                                                 className={`w-full flex flex-col gap-1.5 px-3 py-2 rounded-lg text-sm hover:bg-white/5 transition-colors cursor-pointer ${!expanded && 'hidden'}`}
                                             >
                                                 <div className="flex items-center gap-2">
@@ -310,6 +320,11 @@ const Sidebar = ({ isOpen, toggle, mobileOpen = false, onMobileClose }: SidebarP
                                                     <span className="px-1.5 py-0.5 text-[9px] font-bold rounded border uppercase bg-amber-500/10 text-amber-500 border-amber-500/20">
                                                         NEEDS QC
                                                     </span>
+                                                    {assignment.labelType === 'PUNCH_TAG' && (
+                                                        <span className="px-1.5 py-0.5 text-[9px] font-bold rounded border uppercase bg-accent-primary/10 text-accent-primary border-accent-primary/20">
+                                                            Punch tag
+                                                        </span>
+                                                    )}
                                                     <span className="px-1.5 py-0.5 text-[9px] font-bold rounded border bg-blue-500/10 text-blue-400 border-blue-500/20">
                                                         R{assignment.video.round}
                                                     </span>
@@ -372,7 +387,11 @@ const Sidebar = ({ isOpen, toggle, mobileOpen = false, onMobileClose }: SidebarP
                                             return (
                                                 <Link
                                                     key={assignment.id}
-                                                    href={`/workspace?videoId=${assignment.video.id}`}
+                                                    href={
+                                                        assignment.labelType === 'PUNCH_TAG'
+                                                            ? `/workspace?videoId=${assignment.video.id}&labelType=PUNCH_TAG`
+                                                            : `/workspace?videoId=${assignment.video.id}`
+                                                    }
                                                     className={`w-full flex flex-col gap-1.5 px-3 py-2 rounded-lg text-sm hover:bg-white/5 transition-colors cursor-pointer ${!expanded && 'hidden'}`}
                                                 >
                                                     <div className="flex items-center gap-2">

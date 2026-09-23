@@ -23,9 +23,12 @@ interface VideoCardProps {
     assignmentId?: string;
     onAssignmentChange?: () => void;
     onAssignClick?: () => void;
+    /** When set, card opens the punch-tag workspace and shows a Punch Tag chip */
+    punchTagHref?: string | null;
+    workspaceHref?: string;
 }
 
-const VideoCard = ({ id, title, boxer1, boxer2, round, fightDate, numCameraViews, createdAt, archived = false, onArchivedClick, assignee, thumbnailUrl, canAssign = false, assignmentId, onAssignmentChange, onAssignClick }: VideoCardProps) => {
+const VideoCard = ({ id, title, boxer1, boxer2, round, fightDate, numCameraViews, createdAt, archived = false, onArchivedClick, assignee, thumbnailUrl, canAssign = false, assignmentId, onAssignmentChange, onAssignClick, punchTagHref, workspaceHref }: VideoCardProps) => {
     const [showMenu, setShowMenu] = useState(false);
     const [removing, setRemoving] = useState(false);
 
@@ -123,10 +126,23 @@ const VideoCard = ({ id, title, boxer1, boxer2, round, fightDate, numCameraViews
                         </div>
 
                         {/* Round Badge */}
-                        <div className="absolute top-2 right-2 z-10">
+                        <div className="absolute top-2 right-2 z-10 flex flex-col items-end gap-1">
                             <span className="px-2 py-1 bg-white/10 text-white text-[10px] font-bold uppercase tracking-wider rounded border border-white/20">
                                 R{round}
                             </span>
+                            {punchTagHref && (
+                                <button
+                                    type="button"
+                                    onClick={(e) => {
+                                        e.preventDefault();
+                                        e.stopPropagation();
+                                        window.location.href = punchTagHref;
+                                    }}
+                                    className="px-2 py-1 bg-accent-primary/90 text-white text-[10px] font-bold uppercase tracking-wider rounded border border-accent-primary hover:bg-accent-primary cursor-pointer"
+                                >
+                                    Punch tag
+                                </button>
+                            )}
                         </div>
                     </div>
                 </div>
@@ -184,7 +200,7 @@ const VideoCard = ({ id, title, boxer1, boxer2, round, fightDate, numCameraViews
     }
 
     return (
-        <Link href={`/workspace?videoId=${id}`}>
+        <Link href={workspaceHref || `/workspace?videoId=${id}`}>
             {cardInner}
         </Link>
     );

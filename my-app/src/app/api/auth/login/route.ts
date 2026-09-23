@@ -19,32 +19,19 @@ export async function POST(req: Request) {
             where: { email },
         });
 
-        // LOG EXTERNAL ACCOUNTS IMMEDIATELY (even before password check for debugging)
-        console.log('\n========================================');
-        console.log('🔍 LOGIN ATTEMPT - CHECKING EXTERNAL ACCOUNTS');
-        console.log('========================================');
-        console.log('📧 Email attempting login:', email);
-        
-        const { getExternalAccountByEmail, getAllAccounts } = await import('@/lib/external-api');
+        // External account dump on login was for debugging Hueman /accounts sync
+        // (match email, dump full list on miss). Silenced for local testing — host is dead
+        // and we rely on cached local permissions. Uncomment logs when re-wiring EXTERNAL_API_*.
+        const { getExternalAccountByEmail } = await import('@/lib/external-api');
         const externalAccount = await getExternalAccountByEmail(email);
-        
-        if (externalAccount) {
-            console.log('✅ FOUND in external /accounts:');
-            console.log('   👤 Username:', externalAccount.username);
-            console.log('   📧 Email:', externalAccount.email);
-            console.log('   🏷️  Account Type:', externalAccount.accountType);
-            console.log('   🔐 Permissions:', JSON.stringify(externalAccount.permissions));
-        } else {
-            console.log('❌ NOT FOUND in external /accounts for email:', email);
-            console.log('\n📋 ALL ACCOUNTS IN EXTERNAL SYSTEM:');
-            const allAccounts = await getAllAccounts();
-            if (allAccounts && allAccounts.length > 0) {
-                allAccounts.forEach((acc, i) => {
-                    console.log(`   [${i + 1}] ${acc.email} (${acc.username}) - ${acc.accountType}`);
-                });
-            }
-        }
-        console.log('========================================\n');
+        // if (externalAccount) {
+        //   console.log('✅ FOUND in external /accounts:', externalAccount.email, externalAccount.accountType);
+        // } else {
+        //   console.log('❌ NOT FOUND in external /accounts for email:', email);
+        //   const { getAllAccounts } = await import('@/lib/external-api');
+        //   const allAccounts = await getAllAccounts();
+        //   ...
+        // }
 
         if (!user) {
             return NextResponse.json(
@@ -73,13 +60,9 @@ export async function POST(req: Request) {
                     permissionsUpdatedAt: new Date(),
                 },
             });
-            console.log('💾 Permissions cached to local database from external account');
-        } else {
-            console.log('❌ Account NOT found in external system for email:', user.email);
-            console.log('⚠️  Using cached permissions from local database');
-            console.log('   Last synced:', user.permissionsUpdatedAt || 'Never');
-            console.log('----------------------------------------\n');
+            // console.log('💾 Permissions cached to local database from external account');
         }
+        // else: external miss → use cached local permissions (expected for local testing)
 
         // Create session
         await createSession({
@@ -88,7 +71,7 @@ export async function POST(req: Request) {
             username: user.username,
         });
 
-        console.log('✅ Login successful for user:', user.username);
+        // console.log('✅ Login successful for user:', user.username);
         return NextResponse.json(
             { message: 'Login successful', userId: user.id, email: user.email, username: user.username },
             { status: 200 }

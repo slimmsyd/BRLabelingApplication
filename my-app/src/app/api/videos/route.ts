@@ -35,7 +35,7 @@ export async function GET() {
         updatedAt: true,
         assignments: {
           where: { 
-            labelType: 'OFFENSE',
+            labelType: { in: ['OFFENSE', 'PUNCH_TAG'] },
             // Exclude COMPLETED assignments to hide from landing page
             status: { notIn: ['COMPLETED'] }
           },
@@ -45,6 +45,7 @@ export async function GET() {
           select: {
             id: true,
             userId: true,
+            labelType: true,
             user: {
               select: {
                 username: true,

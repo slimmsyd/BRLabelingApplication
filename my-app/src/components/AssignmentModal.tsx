@@ -180,6 +180,7 @@ const AssignmentModal = ({ isOpen, onClose, videoId, videoTitle, onAssignmentSuc
                                     <option value="OFFENSE">Offense</option>
                                     <option value="DEFENSE">Defense</option>
                                     <option value="FOOTWORK">Footwork</option>
+                                    <option value="PUNCH_TAG">Punch Tag</option>
                                 </select>
                             </div>
 

@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, RefObject } from 'react';
 import { Play, Pause, SkipBack, SkipForward, Maximize2, Minimize2, Volume2, VolumeX, Volume1, Settings, Gauge, ChevronUp, ChevronDown, Loader2 } from 'lucide-react';
+import { isTypingTarget } from '@/lib/keyboard';
 
 type VideoSize = 'small' | 'medium' | 'large';
 
@@ -299,11 +300,7 @@ const VideoPlayer = ({ videoRef, activeCam, setActiveCam, videoSources, fps = 30
     // Keyboard shortcuts
     useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
-            // Ignore if user is typing in an input or textarea
-            if (document.activeElement instanceof HTMLInputElement ||
-                document.activeElement instanceof HTMLTextAreaElement) {
-                return;
-            }
+            if (isTypingTarget(document.activeElement)) return;
 
             switch (e.code) {
                 case 'Space':
