@@ -6,7 +6,7 @@ import WorkspaceHeader from '@/components/workspace/WorkspaceHeader';
 import VideoPlayer from '@/components/workspace/VideoPlayer';
 import EventLog, { EventData } from '@/components/workspace/EventLog';
 import SidebarControls from '@/components/workspace/SidebarControls';
-import PunchTagPanel from '@/components/workspace/PunchTagPanel';
+import PunchTagPanel, { PunchTagKeyStrip } from '@/components/workspace/PunchTagPanel';
 import SuccessModal from '@/components/SuccessModal';
 import ArchivedVideoOverlay from '@/components/ArchivedVideoOverlay';
 import WhatsNewSpotlight from '@/components/WhatsNewSpotlight';
@@ -20,6 +20,24 @@ import {
     type PunchTagHotkeyState,
 } from '@/lib/punch-tag/punch-tag-state';
 import type { PunchTagType } from '@/lib/event-helpers';
+
+function handForPunchType(type: string, currentStance: string, currentHand: string): string {
+    if (type === 'Jab') return currentStance === 'Orthodox' ? 'Left' : 'Right';
+    if (type === 'Cross') return currentStance === 'Orthodox' ? 'Right' : 'Left';
+    return currentHand;
+}
+
+function offenseEventDetails(
+    punchType: string,
+    hand: string,
+    target: string,
+    stance: string,
+    visibilityFlags: string[],
+): string {
+    let details = `${punchType} (${hand === 'Left' ? 'L' : 'R'}) - ${target} [${stance}]`;
+    if (visibilityFlags.length > 0) details += ` [${visibilityFlags.join(', ')}]`;
+    return details;
+}
 
 interface VideoData {
     id: string;
@@ -112,6 +130,14 @@ function WorkspacePage() {
     const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
     const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
     const [isRecording, setIsRecording] = useState(false);
+    const labelingFormRef = useRef({
+        boxer, punchType, hand, target, visibilityFlags, knockdown, punchQuality, stance, landed, punchResult, defenseType, flagged,
+    });
+    labelingFormRef.current = {
+        boxer, punchType, hand, target, visibilityFlags, knockdown, punchQuality, stance, landed, punchResult, defenseType, flagged,
+    };
+    const punchTagModeRef = useRef(false);
+    const lastHotkeyIdRef = useRef<string | null>(null);
 
     // Resizable sidebar state
     const [sidebarWidth, setSidebarWidth] = useState(320);
@@ -1029,6 +1055,7 @@ function WorkspacePage() {
 
     const isPunchTagMode =
         assignment?.labelType === 'PUNCH_TAG' || labelTypeParam === 'PUNCH_TAG';
+    punchTagModeRef.current = isPunchTagMode;
 
     const handleCreatePunchTag = React.useCallback((type: 'Punch', tagId: string) => {
         const time = (() => {
@@ -1039,6 +1066,38 @@ function WorkspacePage() {
             const milliseconds = Math.floor((t % 1) * 100);
             return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}.${String(milliseconds).padStart(2, '0')}`;
         })();
+        lastHotkeyIdRef.current = tagId;
+
+        if (!punchTagModeRef.current) {
+            const form = labelingFormRef.current;
+            const nextHand = handForPunchType(form.punchType, form.stance, form.hand);
+            const newEvent: EventData = {
+                id: tagId,
+                details: offenseEventDetails(form.punchType, nextHand, form.target, form.stance, form.visibilityFlags),
+                startTime: time,
+                endTime: time,
+                boxer: form.boxer,
+                punchType: form.punchType,
+                hand: nextHand,
+                target: form.target,
+                visibilityFlags: form.visibilityFlags,
+                knockdown: form.knockdown,
+                punchQuality: form.punchQuality,
+                cam: activeCam,
+                stance: form.stance,
+                landed: form.landed,
+                punchResult: form.punchResult,
+                defenseType: form.punchResult === 'Defended' ? form.defenseType : undefined,
+                flagged: form.flagged,
+                labeledBy: user?.userId,
+                labeledByEmail: user?.email,
+            };
+            setEvents((prev) => [newEvent, ...prev]);
+            setStartTime('');
+            setEndTime('');
+            return;
+        }
+
         const newEvent: EventData = {
             id: tagId,
             details: type,
@@ -1064,6 +1123,32 @@ function WorkspacePage() {
     }, [activeCam, user?.userId, user?.email]);
 
     const handleRefinePunchTag = React.useCallback((tagId: string, type: PunchTagType) => {
+        if (!punchTagModeRef.current) {
+            const form = labelingFormRef.current;
+            const nextHand = handForPunchType(type, form.stance, form.hand);
+            setPunchType(type);
+            if (type === 'Jab' || type === 'Cross') setHand(nextHand);
+            setEvents((prev) =>
+                prev.map((event) =>
+                    event.id === tagId
+                        ? {
+                            ...event,
+                            punchType: type,
+                            hand: nextHand,
+                            details: offenseEventDetails(
+                                type,
+                                nextHand,
+                                event.target,
+                                event.stance || form.stance,
+                                event.visibilityFlags,
+                            ),
+                        }
+                        : event,
+                ),
+            );
+            return;
+        }
+
         setEvents((prev) =>
             prev.map((event) =>
                 event.id === tagId
@@ -1074,6 +1159,12 @@ function WorkspacePage() {
     }, []);
 
     const handleUndoPunchTag = React.useCallback(() => {
+        const hotkeyId = lastHotkeyIdRef.current;
+        lastHotkeyIdRef.current = null;
+        if (!punchTagModeRef.current && hotkeyId) {
+            setEvents((prev) => prev.filter((event) => event.id !== hotkeyId));
+            return;
+        }
         setEvents((prev) => {
             if (prev.length === 0) return prev;
             return prev.slice(1);
@@ -1081,7 +1172,7 @@ function WorkspacePage() {
     }, []);
 
     usePunchTagHotkeys({
-        enabled: isPunchTagMode && !isReadOnly,
+        enabled: !isReadOnly,
         onCreateTag: handleCreatePunchTag,
         onRefineTag: handleRefinePunchTag,
         onUndoTag: handleUndoPunchTag,
@@ -1281,7 +1372,16 @@ function WorkspacePage() {
                     style={{ width: sidebarWidth }}
                     className="relative border-r border-border bg-background p-4 shrink-0 flex flex-col"
                 >
-                    <div className="flex-1 min-h-0">
+                    <div className="flex-1 min-h-0 flex flex-col gap-3">
+                        {!isPunchTagMode && (
+                            <PunchTagKeyStrip
+                                hotkeyState={punchTagHotkeyState}
+                                tagCount={events.length}
+                                recording={isRecording}
+                                readOnly={isSidebarReadOnly}
+                            />
+                        )}
+                        <div className="flex-1 min-h-0 overflow-y-auto">
                         {isPunchTagMode ? (
                             <PunchTagPanel
                                 hotkeyState={punchTagHotkeyState}
@@ -1306,6 +1406,7 @@ function WorkspacePage() {
                             flagControlRef={flagControlRef}
                         />
                         )}
+                        </div>
                     </div>
 
                     {/* Resize Handle */}

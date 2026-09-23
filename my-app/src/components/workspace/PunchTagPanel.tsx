@@ -3,8 +3,89 @@
 import React, { useEffect, useState } from 'react';
 import { X } from 'lucide-react';
 import { PUNCH_TAG_REFINE_WINDOW_MS } from '@/lib/event-helpers';
-import { hasSeenWhatsNew, markWhatsNewSeen, WHATS_NEW_PUNCH_TAG } from '@/lib/whats-new';
 import type { PunchTagHotkeyState } from '@/lib/punch-tag/punch-tag-state';
+
+const HOTKEY_TIP_SESSION_KEY = 'hotkeys_tip_session';
+
+function readHotkeyTipDismissed(): boolean {
+  try {
+    return sessionStorage.getItem(HOTKEY_TIP_SESSION_KEY) === '1';
+  } catch {
+    return false;
+  }
+}
+
+function dismissHotkeyTipSession(): void {
+  try {
+    sessionStorage.setItem(HOTKEY_TIP_SESSION_KEY, '1');
+  } catch {
+    // Private mode can block storage. Closing the tip still hides it until reload.
+  }
+}
+
+/** Shown once per browser session, next to the hotkeys. Gone for the rest of that session after dismiss. */
+export function HotkeySessionTip() {
+  const [open, setOpen] = useState(false);
+
+  useEffect(() => {
+    if (!readHotkeyTipDismissed()) setOpen(true);
+  }, []);
+
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        dismissHotkeyTipSession();
+        setOpen(false);
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [open]);
+
+  if (!open) return null;
+
+  const close = () => {
+    dismissHotkeyTipSession();
+    setOpen(false);
+  };
+
+  return (
+    <div className="relative mb-2" role="status">
+      <div className="rounded-xl border border-accent-primary/40 bg-[#172033] p-3 pr-8 shadow-lg shadow-black/30">
+        <button
+          type="button"
+          onClick={close}
+          className="absolute top-2 right-2 w-6 h-6 rounded-md text-foreground-secondary hover:text-foreground hover:bg-surface-hover flex items-center justify-center cursor-pointer"
+          aria-label="Close hotkey tip"
+        >
+          <X size={14} />
+        </button>
+        <p className="text-[10px] font-bold uppercase tracking-wider text-accent-primary mb-1.5">
+          Hotkeys
+        </p>
+        <p className="text-xs text-foreground leading-relaxed">
+          Press <span className="font-mono font-bold">P</span> when a punch happens.
+          Within 1.5 seconds press <span className="font-mono font-bold">J</span> Jab,{' '}
+          <span className="font-mono font-bold">C</span> Cross,{' '}
+          <span className="font-mono font-bold">H</span> Hook,{' '}
+          <span className="font-mono font-bold">U</span> Uppercut,{' '}
+          <span className="font-mono font-bold">O</span> Overhand, or{' '}
+          <span className="font-mono font-bold">S</span> Screwshot.
+          Backspace removes the last one. Start Recording first.
+        </p>
+        <button
+          type="button"
+          onClick={close}
+          className="mt-2.5 w-full py-1.5 px-3 rounded-lg bg-accent-primary text-white text-xs font-medium cursor-pointer"
+        >
+          Got it
+        </button>
+      </div>
+      <div className="mx-auto h-2 w-2 -mt-1 rotate-45 border-r border-b border-accent-primary/40 bg-[#172033]" />
+    </div>
+  );
+}
 
 const KEY_LEGEND: { letter: string; name: string; wide?: boolean }[] = [
   { letter: 'P', name: 'Punch happened', wide: true },
@@ -31,23 +112,13 @@ export default function PunchTagPanel({
   readOnly = false,
   nowMs,
 }: PunchTagPanelProps) {
-  const [showWhatsNew, setShowWhatsNew] = useState(false);
   const [tick, setTick] = useState(0);
-
-  useEffect(() => {
-    if (!hasSeenWhatsNew(WHATS_NEW_PUNCH_TAG)) setShowWhatsNew(true);
-  }, []);
 
   useEffect(() => {
     if (!hotkeyState.refineWindow) return;
     const id = window.setInterval(() => setTick((n) => n + 1), 50);
     return () => window.clearInterval(id);
   }, [hotkeyState.refineWindow]);
-
-  const dismissWhatsNew = () => {
-    markWhatsNewSeen(WHATS_NEW_PUNCH_TAG);
-    setShowWhatsNew(false);
-  };
 
   const windowOpen =
     hotkeyState.refineWindow &&
@@ -64,40 +135,7 @@ export default function PunchTagPanel({
   return (
     <div className="relative flex flex-col gap-3 h-full min-h-0">
       <h2 className="text-sm font-semibold text-foreground">Punch tagging</h2>
-
-      {showWhatsNew && (
-        <div
-          className="absolute top-8 left-0 right-0 z-10 rounded-xl border border-border bg-[#242424] p-3.5 shadow-xl shadow-black/40"
-          role="dialog"
-          aria-labelledby="punch-tag-whats-new-title"
-        >
-          <button
-            type="button"
-            onClick={dismissWhatsNew}
-            className="absolute top-2 right-2 w-7 h-7 rounded-lg text-foreground-secondary hover:text-foreground hover:bg-surface-hover flex items-center justify-center cursor-pointer"
-            aria-label="Close"
-          >
-            <X size={16} />
-          </button>
-          <p
-            id="punch-tag-whats-new-title"
-            className="text-[10px] font-bold uppercase tracking-wider text-amber-400 mb-2 pr-8"
-          >
-            What&apos;s new
-          </p>
-          <p className="text-sm text-foreground leading-relaxed mb-3">
-            Press P when a punch happens. Within 1.5 seconds press J, C, H, U, O, or S to set the type.
-            A second letter in that window replaces the first. Backspace removes the newest tag.
-          </p>
-          <button
-            type="button"
-            onClick={dismissWhatsNew}
-            className="w-full py-2 px-3 rounded-lg border border-border bg-surface hover:bg-surface-hover text-xs font-medium text-foreground cursor-pointer"
-          >
-            Got it
-          </button>
-        </div>
-      )}
+      <HotkeySessionTip />
 
       <div
         className={`rounded-xl border p-4 min-h-[118px] flex flex-col justify-center gap-2 ${
@@ -156,6 +194,60 @@ export default function PunchTagPanel({
       {readOnly && (
         <p className="text-xs text-foreground-tertiary">This assignment is read-only.</p>
       )}
+    </div>
+  );
+}
+
+/** Compact key row for the full labeling form. The form stays; these keys log on top of it. */
+export function PunchTagKeyStrip({
+  hotkeyState,
+  recording,
+  readOnly = false,
+  nowMs,
+}: PunchTagPanelProps) {
+  const [tick, setTick] = useState(0);
+
+  useEffect(() => {
+    if (!hotkeyState.refineWindow) return;
+    const id = window.setInterval(() => setTick((n) => n + 1), 50);
+    return () => window.clearInterval(id);
+  }, [hotkeyState.refineWindow]);
+
+  const windowOpen =
+    hotkeyState.refineWindow &&
+    (nowMs ?? performance.now()) < hotkeyState.refineWindow.expiresAt;
+  const remainingMs = windowOpen && hotkeyState.refineWindow
+    ? Math.max(0, hotkeyState.refineWindow.expiresAt - (nowMs ?? performance.now()))
+    : 0;
+  void tick;
+
+  const status = !recording && !readOnly
+    ? 'Start Recording, then press P when a punch happens.'
+    : readOnly
+      ? 'Hotkeys are off while this round is read-only.'
+      : windowOpen
+        ? `Press J, C, H, U, O, or S. ${(remainingMs / 1000).toFixed(1)}s left.`
+        : hotkeyState.hint || 'P logs the punch. A letter within 1.5s sets the type.';
+
+  return (
+    <div className="shrink-0">
+      <HotkeySessionTip />
+      <div className={!recording || readOnly ? 'opacity-50' : ''}>
+        <div className="flex flex-wrap gap-1">
+          {KEY_LEGEND.map((item) => (
+            <span
+              key={item.letter}
+              className={`inline-flex items-center gap-1 rounded-md border border-border bg-surface px-1.5 py-1 ${
+                hotkeyState.lastKey === item.letter && windowOpen ? 'border-accent-primary bg-accent-glow' : ''
+              }`}
+            >
+              <span className="font-mono text-[11px] font-bold text-accent-primary">{item.letter}</span>
+              <span className="text-[10px] text-foreground-secondary">{item.name}</span>
+            </span>
+          ))}
+        </div>
+        <p className="mt-1.5 text-[11px] text-foreground-secondary">{status}</p>
+      </div>
     </div>
   );
 }

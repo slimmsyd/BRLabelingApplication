@@ -13,9 +13,6 @@ import { safeGetItem, safeSetItem } from '@/lib/client-utils';
  */
 export const WHATS_NEW_FLAGGED_FILTER = 'whats_new:flagged_filter:v2';
 
-/** Closable panel popup for Punch Tag assignments (not the full-screen spotlight). */
-export const WHATS_NEW_PUNCH_TAG = 'whats_new:punch_tag:v1';
-
 export function hasSeenWhatsNew(featureId: string): boolean {
   return safeGetItem(featureId) === '1';
 }
