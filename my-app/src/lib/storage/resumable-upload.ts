@@ -1,12 +1,10 @@
 /**
  * Resumable Upload Utility using TUS Protocol
  * 
- * This handles large video uploads (up to 5GB) by:
- * 1. Breaking files into small chunks (6MB each)
+ * This handles large video uploads (up to the 100 GB project limit) by:
+ * 1. Breaking files into 6 MB chunks
  * 2. Uploading chunks one at a time
  * 3. Resuming from where it left off if interrupted
- * 
- * This bypasses all size limits that affect regular uploads.
  */
 
 import * as tus from 'tus-js-client';
@@ -30,6 +28,9 @@ export interface VideoMetadata {
 }
 
 const BUCKET_NAME = 'fight-videos';
+
+// Supabase accepts resumable chunks of exactly 6 MB. A 5 MB chunk is rejected.
+const UPLOAD_CHUNK_BYTES = 6 * 1024 * 1024;
 
 /**
  * Fetch upload credentials from the server
@@ -78,7 +79,7 @@ export async function uploadFileResumable(
   console.log(`[Resumable Upload] File type: ${file.type}`);
   console.log(`[Resumable Upload] File size: ${fileSizeMB} MB (${file.size} bytes)`);
   console.log(`[Resumable Upload] Storage path: ${storagePath}`);
-  console.log(`[Resumable Upload] Chunk size: 5 MB`);
+  console.log(`[Resumable Upload] Chunk size: ${UPLOAD_CHUNK_BYTES / (1024 * 1024)} MB`);
   console.log(`[Resumable Upload] Supabase URL: ${supabaseUrl}`);
   console.log(`[Resumable Upload] Total file size in bytes: ${file.size}`);
   console.log(`[Resumable Upload] NOTE: If 413 error occurs, check bucket file_size_limit in Supabase Dashboard`);
@@ -88,7 +89,7 @@ export async function uploadFileResumable(
     const upload = new tus.Upload(file, {
       endpoint: `${supabaseUrl}/storage/v1/upload/resumable`,
       retryDelays: [0, 3000, 5000, 10000, 20000], // Retry delays in ms
-      chunkSize: 5 * 1024 * 1024, // 5MB chunks
+      chunkSize: UPLOAD_CHUNK_BYTES,
       headers: {
         authorization: `Bearer ${token}`,
         'x-upsert': 'true', // Allow overwriting existing files

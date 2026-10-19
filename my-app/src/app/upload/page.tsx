@@ -6,7 +6,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Upload, X, FileVideo, Loader2, ArrowLeft, Camera, AlertTriangle } from 'lucide-react';
 import Link from 'next/link';
-import { uploadVideosStandard, StandardUploadProgress } from '@/lib/storage/standard-upload';
+import { uploadVideosResumable, ResumableUploadProgress } from '@/lib/storage/resumable-upload';
 
 
 type CameraKey = 'cam1' | 'cam2' | 'cam3' | 'cam4';
@@ -158,8 +158,7 @@ const UploadPage = () => {
         });
 
         try {
-            // Use STANDARD Supabase endpoint (not signed URLs)
-            const result = await uploadVideosStandard(
+            const result = await uploadVideosResumable(
                 files,
                 {
                     boxer1,
@@ -169,10 +168,10 @@ const UploadPage = () => {
                     fightDate,
                     fps
                 },
-                (progressUpdates: StandardUploadProgress[]) => {
+                (progressUpdates: ResumableUploadProgress[]) => {
                     setUploadProgress(prev => {
                         const newProgress = { ...prev };
-                        progressUpdates.forEach((update: StandardUploadProgress) => {
+                        progressUpdates.forEach((update: ResumableUploadProgress) => {
                             const camKey = `cam${update.camera}` as CameraKey;
                             if (camKey in newProgress) {
                                 newProgress[camKey] = {
