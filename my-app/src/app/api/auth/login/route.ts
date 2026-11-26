@@ -50,6 +50,13 @@ export async function POST(req: Request) {
             );
         }
 
+        if (user.accountType === 'MODEL') {
+            return NextResponse.json(
+                { message: 'Model accounts are for imported labels and cannot sign in.' },
+                { status: 403 }
+            );
+        }
+
         // Sync permissions from external account if found earlier
         if (externalAccount) {
             // Update permissions in local database

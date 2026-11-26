@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getSession } from '@/lib/session';
+import { exportHand, exportPunchResult, exportTarget } from '@/lib/punch-fields';
 
 interface ExportRow {
   id: string;
@@ -118,6 +119,7 @@ export async function GET(request: NextRequest) {
             status: true,
             labelType: true,
             userEmail: true,
+            username: true,
             video: { select: { title: true } }
           }
         }
@@ -141,17 +143,17 @@ export async function GET(request: NextRequest) {
       endTime: e.endTime,
       boxer: e.boxer,
       punchType: e.punchType,
-      hand: e.hand,
-      target: e.target,
+      hand: exportHand(e.hand),
+      target: exportTarget(e.target),
       visibilityFlags: e.visibilityFlags.join(';'),
       knockdown: e.knockdown,
       punchQuality: e.punchQuality,
       cam: e.cam,
       stance: e.stance,
       landed: e.landed,
-      punchResult: e.punchResult,
+      punchResult: exportPunchResult(e.punchResult, e.landed),
       defenseType: e.defenseType,
-      labeledBy: e.labeledBy,
+      labeledBy: e.assignment.username || e.labeledBy,
       labeledByEmail: e.labeledByEmail,
       fightTitle: e.fightTitle,
       createdAt: convertToTimezone(e.createdAt, timezone),

@@ -17,6 +17,7 @@ interface VideoCardProps {
         username: string | null;
         email: string;
         status: string;
+        accountType?: string;
     };
     thumbnailUrl?: string;
     canAssign?: boolean;
@@ -169,7 +170,8 @@ const VideoCard = ({ id, title, boxer1, boxer2, round, fightDate, numCameraViews
                                 <div className="flex items-center gap-2 flex-wrap">
                                     <span className="inline-flex items-center gap-1.5 text-[11px] text-foreground-secondary">
                                         <span className="w-1.5 h-1.5 rounded-full bg-green-500" />
-                                        {assignee.username || assignee.email.split('@')[0]}
+                                        Labeled by {assignee.username || assignee.email.split('@')[0]}
+                                        {assignee.accountType === 'MODEL' ? ' · Model' : ''}
                                     </span>
                                     <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold border uppercase tracking-wide ${statusClasses}`}>
                                         {statusLabel}

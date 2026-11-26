@@ -20,6 +20,15 @@ interface Assignment {
     status: string;
     updatedAt: string;
     username?: string;
+    user?: { accountType?: string };
+}
+
+function workspaceHref(assignment: Assignment): string {
+    const params = new URLSearchParams();
+    params.set('videoId', assignment.video.id);
+    if (assignment.labelType) params.set('labelType', assignment.labelType);
+    params.set('assignmentId', assignment.id);
+    return `/workspace?${params.toString()}`;
 }
 
 interface SidebarProps {
@@ -303,11 +312,7 @@ const Sidebar = ({ isOpen, toggle, mobileOpen = false, onMobileClose }: SidebarP
                                         filteredAwaitingQC.map((assignment) => (
                                             <Link
                                                 key={assignment.id}
-                                                href={
-                                                    assignment.labelType === 'PUNCH_TAG'
-                                                        ? `/workspace?videoId=${assignment.video.id}&labelType=PUNCH_TAG`
-                                                        : `/workspace?videoId=${assignment.video.id}`
-                                                }
+                                                href={workspaceHref(assignment)}
                                                 className={`w-full flex flex-col gap-1.5 px-3 py-2 rounded-lg text-sm hover:bg-white/5 transition-colors cursor-pointer ${!expanded && 'hidden'}`}
                                             >
                                                 <div className="flex items-center gap-2">
@@ -330,7 +335,12 @@ const Sidebar = ({ isOpen, toggle, mobileOpen = false, onMobileClose }: SidebarP
                                                     </span>
                                                     {assignment.username && (
                                                         <span className="text-[9px] text-foreground-secondary truncate">
-                                                            {assignment.username}
+                                                            Labeled by {assignment.username}
+                                                        </span>
+                                                    )}
+                                                    {assignment.user?.accountType === 'MODEL' && (
+                                                        <span className="px-1.5 py-0.5 text-[9px] font-bold rounded border uppercase bg-fuchsia-500/10 text-fuchsia-300 border-fuchsia-500/20">
+                                                            Model
                                                         </span>
                                                     )}
                                                     <span className="text-[9px] text-foreground-tertiary">
@@ -387,11 +397,7 @@ const Sidebar = ({ isOpen, toggle, mobileOpen = false, onMobileClose }: SidebarP
                                             return (
                                                 <Link
                                                     key={assignment.id}
-                                                    href={
-                                                        assignment.labelType === 'PUNCH_TAG'
-                                                            ? `/workspace?videoId=${assignment.video.id}&labelType=PUNCH_TAG`
-                                                            : `/workspace?videoId=${assignment.video.id}`
-                                                    }
+                                                    href={workspaceHref(assignment)}
                                                     className={`w-full flex flex-col gap-1.5 px-3 py-2 rounded-lg text-sm hover:bg-white/5 transition-colors cursor-pointer ${!expanded && 'hidden'}`}
                                                 >
                                                     <div className="flex items-center gap-2">
@@ -412,7 +418,12 @@ const Sidebar = ({ isOpen, toggle, mobileOpen = false, onMobileClose }: SidebarP
                                                         </span>
                                                         {assignment.username && (
                                                             <span className="text-[9px] text-foreground-secondary truncate">
-                                                                {assignment.username}
+                                                                Labeled by {assignment.username}
+                                                            </span>
+                                                        )}
+                                                        {assignment.user?.accountType === 'MODEL' && (
+                                                            <span className="px-1.5 py-0.5 text-[9px] font-bold rounded border uppercase bg-fuchsia-500/10 text-fuchsia-300 border-fuchsia-500/20">
+                                                                Model
                                                             </span>
                                                         )}
                                                         <span className="text-[9px] text-foreground-tertiary">

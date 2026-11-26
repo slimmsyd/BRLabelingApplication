@@ -18,6 +18,7 @@ enum AccountType {
   LABELER
   QUALITY_CONTROL
   ADMIN
+  MODEL
 }
 
 enum VideoStatus {

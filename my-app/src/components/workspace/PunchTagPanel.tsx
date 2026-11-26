@@ -72,7 +72,11 @@ export function HotkeySessionTip() {
           <span className="font-mono font-bold">U</span> Uppercut,{' '}
           <span className="font-mono font-bold">O</span> Overhand, or{' '}
           <span className="font-mono font-bold">S</span> Screwshot.
-          Backspace removes the last one. Start Recording first.
+          Then <span className="font-mono font-bold">L</span>/<span className="font-mono font-bold">R</span> hand,{' '}
+          <span className="font-mono font-bold">I</span> impact or <span className="font-mono font-bold">M</span> missed,{' '}
+          <span className="font-mono font-bold">1</span> head or <span className="font-mono font-bold">2</span> body.
+          Those still apply to the latest punch after the window closes.
+          Backspace removes the latest punch. Start Recording first.
         </p>
         <button
           type="button"
@@ -87,14 +91,23 @@ export function HotkeySessionTip() {
   );
 }
 
-const KEY_LEGEND: { letter: string; name: string; wide?: boolean }[] = [
-  { letter: 'P', name: 'Punch happened', wide: true },
-  { letter: 'J', name: 'Jab' },
-  { letter: 'C', name: 'Cross' },
-  { letter: 'H', name: 'Hook' },
-  { letter: 'U', name: 'Uppercut' },
-  { letter: 'O', name: 'Overhand' },
-  { letter: 'S', name: 'Screwshot' },
+const KEY_LEGEND: { letter: string; name: string; code: string; wide?: boolean }[] = [
+  { letter: 'P', name: 'Punch happened', code: 'KeyP', wide: true },
+  { letter: 'J', name: 'Jab', code: 'KeyJ' },
+  { letter: 'C', name: 'Cross', code: 'KeyC' },
+  { letter: 'H', name: 'Hook', code: 'KeyH' },
+  { letter: 'U', name: 'Uppercut', code: 'KeyU' },
+  { letter: 'O', name: 'Overhand', code: 'KeyO' },
+  { letter: 'S', name: 'Screwshot', code: 'KeyS' },
+];
+
+const FIELD_LEGEND: { letter: string; name: string; code: string }[] = [
+  { letter: 'L', name: 'Left hand', code: 'KeyL' },
+  { letter: 'R', name: 'Right hand', code: 'KeyR' },
+  { letter: 'I', name: 'Impact', code: 'KeyI' },
+  { letter: 'M', name: 'Missed', code: 'KeyM' },
+  { letter: '1', name: 'Head', code: 'Digit1' },
+  { letter: '2', name: 'Body', code: 'Digit2' },
 ];
 
 interface PunchTagPanelProps {
@@ -103,6 +116,13 @@ interface PunchTagPanelProps {
   recording: boolean;
   readOnly?: boolean;
   nowMs?: number;
+  /** Same path as the keyboard, so the on-screen keys tag the latest punch. */
+  onDispatchCode?: (code: string) => void;
+}
+
+function fieldSummary(state: PunchTagHotkeyState): string {
+  const bits = [state.lastHand, state.lastResult, state.lastTarget].filter(Boolean);
+  return bits.join(' ');
 }
 
 export default function PunchTagPanel({
@@ -111,6 +131,7 @@ export default function PunchTagPanel({
   recording,
   readOnly = false,
   nowMs,
+  onDispatchCode,
 }: PunchTagPanelProps) {
   const [tick, setTick] = useState(0);
 
@@ -149,14 +170,17 @@ export default function PunchTagPanel({
             <span className="font-mono text-3xl font-bold leading-none">{lastKey}</span>
             <span className="text-foreground-tertiary text-lg">→</span>
             <span className="text-xl font-semibold">{lastType}</span>
+            {fieldSummary(hotkeyState) && (
+              <span className="text-sm font-medium text-foreground-secondary">{fieldSummary(hotkeyState)}</span>
+            )}
           </div>
         ) : (
           <p className="text-xs text-foreground-secondary">Press P when a punch happens</p>
         )}
         <p className="text-xs text-foreground-secondary">
           {windowOpen
-            ? `Type a letter to set the punch. ${(remainingMs / 1000).toFixed(1)}s left.`
-            : hotkeyState.hint || (lastType ? 'Window closed. Press P for the next punch.' : '')}
+            ? `Type a letter to set the punch. L/R hand, I/M result, 1 head, 2 body. ${(remainingMs / 1000).toFixed(1)}s left.`
+            : hotkeyState.hint || (lastType ? 'Window closed. L/R, I/M, 1, and 2 still edit the latest punch. Press P for the next one.' : '')}
         </p>
         {windowOpen && (
           <div className="h-1 rounded-full bg-border overflow-hidden">
@@ -170,9 +194,12 @@ export default function PunchTagPanel({
 
       <div className="grid grid-cols-3 gap-2">
         {KEY_LEGEND.map((item) => (
-          <div
+          <button
             key={item.letter}
-            className={`rounded-lg border border-border bg-surface px-2 py-2.5 ${
+            type="button"
+            disabled={!recording || readOnly}
+            onClick={() => onDispatchCode?.(item.code)}
+            className={`rounded-lg border border-border bg-surface px-2 py-2.5 text-left cursor-pointer disabled:cursor-default ${
               item.wide ? 'col-span-3' : ''
             } ${lastKey === item.letter && windowOpen ? 'border-accent-primary bg-accent-glow' : ''} ${
               !recording || readOnly ? 'opacity-40' : ''
@@ -180,8 +207,31 @@ export default function PunchTagPanel({
           >
             <span className="font-mono text-sm font-bold text-accent-primary">{item.letter}</span>
             <span className="block text-[11px] text-foreground-secondary mt-0.5">{item.name}</span>
-          </div>
+          </button>
         ))}
+      </div>
+      <div className="grid grid-cols-3 gap-2">
+        {FIELD_LEGEND.map((item) => {
+          const selected =
+            hotkeyState.lastHand === item.letter ||
+            hotkeyState.lastResult === item.letter ||
+            (item.letter === '1' && hotkeyState.lastTarget === 'Head') ||
+            (item.letter === '2' && hotkeyState.lastTarget === 'Body');
+          return (
+            <button
+              key={item.letter}
+              type="button"
+              disabled={!recording || readOnly || hotkeyState.tagStack.length === 0}
+              onClick={() => onDispatchCode?.(item.code)}
+              className={`rounded-lg border border-border bg-surface px-2 py-2 text-left cursor-pointer disabled:cursor-default ${
+                selected ? 'border-accent-primary bg-accent-glow' : ''
+              } ${!recording || readOnly ? 'opacity-40' : ''}`}
+            >
+              <span className="font-mono text-sm font-bold text-accent-primary">{item.letter}</span>
+              <span className="block text-[11px] text-foreground-secondary mt-0.5">{item.name}</span>
+            </button>
+          );
+        })}
       </div>
 
       <p className="text-xs text-foreground-secondary">

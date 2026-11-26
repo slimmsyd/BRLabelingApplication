@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { Trash2, Clock, ArrowUpDown } from 'lucide-react';
 import { isLandedPunchResult } from '@/lib/event-helpers';
+import { handBadgeText, resultLabel } from '@/lib/punch-fields';
 
 export interface EventData {
     id: string;
@@ -93,13 +94,16 @@ const EventRow = ({
     punchTagMode?: boolean,
 }) => (
     <div
-        onClick={() => !readOnly && !punchTagMode && onSelectEvent?.(event)}
+        onClick={() => {
+            if (readOnly) return;
+            onSelectEvent?.(event);
+        }}
         className={`group relative transition-all duration-200 p-3 flex items-start gap-4 rounded-lg ${isEditing
             ? 'bg-gradient-to-r from-orange-500/20 to-red-500/20 border-2 border-orange-500 ring-2 ring-orange-500/30 shadow-lg shadow-orange-500/10'
             : isLatest
                 ? 'bg-accent-primary/10 border border-accent-primary/30 ring-1 ring-accent-primary/20'
                 : 'hover:bg-white/5 border border-transparent'
-            } ${!readOnly && !punchTagMode ? 'cursor-pointer' : ''}`}
+            } ${!readOnly ? 'cursor-pointer' : ''}`}
     >
         {/* Editing badge - takes priority over Latest */}
         {isEditing && (
@@ -117,7 +121,7 @@ const EventRow = ({
         <div className="flex-1 min-w-0">
             {punchTagMode ? (
                 <>
-                    <div className="flex items-baseline gap-2 mb-2">
+                    <div className="flex items-baseline gap-2 mb-2 flex-wrap">
                         <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-semibold ${
                             event.punchType === 'Punch'
                                 ? 'bg-white/10 text-foreground'
@@ -125,8 +129,25 @@ const EventRow = ({
                         }`}>
                             {event.punchType}
                         </span>
+                        {event.hand && (
+                            <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-blue-500/20 text-blue-300 border border-blue-500/30">
+                                {event.hand}
+                            </span>
+                        )}
+                        {event.target && (
+                            <span className="text-foreground-secondary text-sm">{event.target}</span>
+                        )}
                     </div>
                     <div className="flex flex-wrap gap-1.5 mb-2">
+                        {(event.punchResult === 'I' || event.punchResult === 'M') && (
+                            <span className={`text-[10px] font-bold px-2 py-0.5 rounded uppercase tracking-wider ${
+                                event.punchResult === 'I'
+                                    ? 'bg-green-500/20 text-green-400 border border-green-500/30'
+                                    : 'bg-orange-500/20 text-orange-400 border border-orange-500/30'
+                            }`}>
+                                {event.punchResult === 'I' ? 'I impact' : 'M missed'}
+                            </span>
+                        )}
                         {event.cam && (
                             <span className="text-[10px] font-medium px-2 py-0.5 rounded bg-purple-500/20 text-purple-400 border border-purple-500/30">
                                 {event.cam}
@@ -140,25 +161,20 @@ const EventRow = ({
             <div className="flex items-baseline gap-2 mb-2">
                 <span className="font-bold text-foreground text-sm">{event.punchType}</span>
                 <span className="text-foreground-secondary text-xs">•</span>
-                <span className="text-foreground-secondary text-sm">{event.target}</span>
+                <span className="text-foreground-secondary text-sm">
+                    {event.target || <span className="text-amber-400/80 italic">No target</span>}
+                </span>
             </div>
 
             {/* Badges Row 1: Hand, CAM, Stance */}
             <div className="flex flex-wrap gap-1.5 mb-2">
                 {/* Hand Badge */}
-                <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${event.hand === 'Left'
+                <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${
+                    event.hand === 'L' || event.hand === 'Left'
                     ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30'
                     : 'bg-red-500/20 text-red-400 border border-red-500/30'
                     }`}>
-                    {(() => {
-                        const stance = event.stance || 'Orthodox';
-                        const hand = event.hand;
-                        if (stance === 'Orthodox') {
-                            return hand === 'Left' ? 'Lead (L)' : 'Rear (R)';
-                        } else {
-                            return hand === 'Right' ? 'Lead (R)' : 'Rear (L)';
-                        }
-                    })()}
+                    {handBadgeText(event.hand, event.stance)}
                 </span>
 
                 {/* CAM Badge */}
@@ -176,7 +192,7 @@ const EventRow = ({
                 )}
 
                 {/* Quality Badge - Only show if Landed */}
-                {(isLandedPunchResult(event.punchResult, event.landed)) && (
+                {isLandedPunchResult(event.punchResult, event.landed) && event.punchQuality && (
                     <span className={`text-[10px] font-medium px-2 py-0.5 rounded ${event.punchQuality === '5' ? 'bg-accent-primary/20 text-accent-primary border border-accent-primary/30' :
                         event.punchQuality === '4' ? 'bg-green-500/20 text-green-400 border border-green-500/30' :
                             'bg-white/5 text-foreground-secondary border border-white/10'
@@ -186,15 +202,25 @@ const EventRow = ({
                 )}
 
                 {/* Punch Result Badge */}
-                <span className={`text-[10px] font-bold px-2 py-0.5 rounded uppercase tracking-wider ${event.punchResult === 'Landed' || (!event.punchResult && event.landed !== false) ? 'bg-green-500/20 text-green-400 border border-green-500/30' :
-                    event.punchResult === 'Missed' || (!event.punchResult && event.landed === false) ? 'bg-orange-500/20 text-orange-400 border border-orange-500/30' :
+                {resultLabel(event.punchResult, event.landed) && (
+                <span className={`text-[10px] font-bold px-2 py-0.5 rounded uppercase tracking-wider ${
+                    event.punchResult === 'Landed' || event.punchResult === 'I' || (!event.punchResult && event.landed === true) ? 'bg-green-500/20 text-green-400 border border-green-500/30' :
+                    event.punchResult === 'Missed' || event.punchResult === 'M' || (!event.punchResult && event.landed === false) ? 'bg-orange-500/20 text-orange-400 border border-orange-500/30' :
                         event.punchResult === 'Defended' ? 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/30' :
                             event.punchResult === 'Unseen' ? 'bg-gray-500/20 text-gray-400 border border-gray-500/30' :
                                 event.punchResult === 'Illegal' ? 'bg-rose-500/20 text-rose-400 border border-rose-500/30' :
                                 'bg-white/10 text-foreground-secondary'
                     }`}>
-                    {event.punchResult || (event.landed !== false ? 'Landed' : 'Missed')}
+                    {event.punchResult === 'I' ? 'I impact' : event.punchResult === 'M' ? 'M missed' : resultLabel(event.punchResult, event.landed)}
                 </span>
+                )}
+
+                {/* A P-hotkey punch starts with no result until I or M is pressed */}
+                {!resultLabel(event.punchResult, event.landed) && (
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded uppercase tracking-wider bg-amber-500/10 text-amber-300 border border-amber-500/30">
+                        No result
+                    </span>
+                )}
 
                 {/* Defense Type Badge */}
                 {event.defenseType && event.punchResult === 'Defended' && (

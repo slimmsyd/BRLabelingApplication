@@ -1,6 +1,7 @@
 import React from 'react';
 import { Check, Clock, Plus } from 'lucide-react';
 import { PUNCH_RESULTS } from '@/lib/event-helpers';
+import { handChoice, parseHand } from '@/lib/punch-fields';
 
 interface SidebarControlsProps {
     onLogEvent: (eventData: any) => void;
@@ -115,7 +116,8 @@ const SidebarControls = ({
         const finalEnd = endTime || currentT;
 
         // Generate details string including visibility flags if any
-        let detailsStr = `${punchType} (${hand === 'Left' ? 'L' : 'R'}) - ${target} [${stance}]`;
+        const handCode = parseHand(hand);
+        let detailsStr = `${punchType} (${handCode || '?'}) - ${target} [${stance}]`;
         if (visibilityFlags.length > 0) {
             detailsStr += ` [${visibilityFlags.join(', ')}]`;
         }
@@ -299,11 +301,18 @@ const SidebarControls = ({
                             value={punchResult}
                             onChange={(e) => {
                                 setPunchResult(e.target.value);
-                                setLanded(e.target.value === 'Landed');
+                                setLanded(e.target.value === 'Landed' || e.target.value === 'I');
                             }}
                             disabled={readOnly}
                             className="flex-1 bg-background border border-border rounded-lg px-2 py-1.5 text-xs text-foreground focus:outline-none focus:border-accent-primary"
                         >
+                            {!punchResult && <option value="">Unset</option>}
+                            {(punchResult === 'I' || punchResult === 'M') && (
+                                <>
+                                    <option value="I">I · Impact</option>
+                                    <option value="M">M · Missed</option>
+                                </>
+                            )}
                             {PUNCH_RESULTS.map(res => (
                                 <option key={res} value={res}>{res}</option>
                             ))}
@@ -350,8 +359,8 @@ const SidebarControls = ({
                         <select
                             value={punchQuality}
                             onChange={(e) => setPunchQuality(e.target.value)}
-                            disabled={punchResult !== 'Landed' || readOnly}
-                            className={`w-full bg-background border border-border rounded-lg px-2 py-1.5 text-xs text-foreground focus:outline-none focus:border-accent-primary ${punchResult !== 'Landed' ? 'opacity-50 cursor-not-allowed' : ''}`}
+                            disabled={(punchResult !== 'Landed' && punchResult !== 'I') || readOnly}
+                            className={`w-full bg-background border border-border rounded-lg px-2 py-1.5 text-xs text-foreground focus:outline-none focus:border-accent-primary ${punchResult !== 'Landed' && punchResult !== 'I' ? 'opacity-50 cursor-not-allowed' : ''}`}
                         >
                             {['1', '2'].map(q => (
                                 <option key={q} value={q}>{q}</option>
@@ -369,16 +378,16 @@ const SidebarControls = ({
                             </label>
                             <div className={`flex bg-background rounded-lg p-0.5 border border-border ${isHandLocked ? 'opacity-60' : ''}`}>
                                 <button
-                                    onClick={() => setHand('Left')}
+                                    onClick={() => setHand(handChoice('Left', hand))}
                                     disabled={readOnly || isHandLocked}
-                                    className={`flex-1 py-1.5 text-[10px] font-medium rounded transition-colors truncate ${isHandLocked ? 'cursor-not-allowed' : 'cursor-pointer'} ${hand === 'Left' ? 'bg-white/10 text-foreground' : 'text-foreground-secondary hover:text-foreground'}`}
+                                    className={`flex-1 py-1.5 text-[10px] font-medium rounded transition-colors truncate ${isHandLocked ? 'cursor-not-allowed' : 'cursor-pointer'} ${parseHand(hand) === 'L' ? 'bg-white/10 text-foreground' : 'text-foreground-secondary hover:text-foreground'}`}
                                 >
                                     {getHandLabel('Left')}
                                 </button>
                                 <button
-                                    onClick={() => setHand('Right')}
+                                    onClick={() => setHand(handChoice('Right', hand))}
                                     disabled={readOnly || isHandLocked}
-                                    className={`flex-1 py-1.5 text-[10px] font-medium rounded transition-colors truncate ${isHandLocked ? 'cursor-not-allowed' : 'cursor-pointer'} ${hand === 'Right' ? 'bg-white/10 text-foreground' : 'text-foreground-secondary hover:text-foreground'}`}
+                                    className={`flex-1 py-1.5 text-[10px] font-medium rounded transition-colors truncate ${isHandLocked ? 'cursor-not-allowed' : 'cursor-pointer'} ${parseHand(hand) === 'R' ? 'bg-white/10 text-foreground' : 'text-foreground-secondary hover:text-foreground'}`}
                                 >
                                     {getHandLabel('Right')}
                                 </button>

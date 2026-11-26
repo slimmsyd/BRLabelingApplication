@@ -159,7 +159,7 @@ const AssignmentModal = ({ isOpen, onClose, videoId, videoTitle, onAssignmentSuc
                                     className="w-full px-4 py-2.5 bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-accent-primary/50 transition-all"
                                 >
                                     <option value="">Select a user...</option>
-                                    {users.map((user) => (
+                                    {users.filter((user) => user.accountType !== 'MODEL').map((user) => (
                                         <option key={user.id} value={user.id}>
                                             {user.username} ({user.email}) - {user.accountType}
                                         </option>

@@ -6,7 +6,9 @@ import { Loader2, ArrowLeft, Shield, User, Mail, Lock } from 'lucide-react';
 import Link from 'next/link';
 import ExportReportsSection from '@/components/ExportReportsSection';
 import ClipExportPanel from '@/components/ClipExportPanel';
+import { ModelLabelImport } from '@/components/ModelLabelImport';
 import { useCurrentUser } from '@/lib/hooks/useCurrentUser';
+import { canAssignRounds } from '@/lib/permissions';
 
 export default function SettingsPage() {
     const router = useRouter();
@@ -115,6 +117,10 @@ export default function SettingsPage() {
                             </button>
                         </div>
                     </div>
+
+                    {(user.accountType === 'ADMIN' || canAssignRounds(user.email)) && (
+                        <ModelLabelImport />
+                    )}
 
                     {/* Export Reports - Admin/QC Only */}
                     {(user.accountType === 'ADMIN' || user.accountType === 'QUALITY_CONTROL') && (

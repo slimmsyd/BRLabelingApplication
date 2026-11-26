@@ -73,8 +73,10 @@ console.log('5. Backspace undoes');
   let r = nextPunchTagState(state, 'KeyP', 1000, 'tag-5');
   state = r.state;
   r = nextPunchTagState(state, 'Backspace', 1100);
-  assert(r.action.kind === 'undo', 'Backspace is undo');
+  assert(r.action.kind === 'undo' && r.action.tagId === 'tag-5', 'Backspace undoes that tag');
   assert(r.state.refineWindow === null, 'window cleared');
+  r = nextPunchTagState(r.state, 'Backspace', 1200);
+  assert(r.action.kind === 'ignore', 'Backspace with no tag does nothing');
 }
 
 console.log('6. Letter with no P is a hint');
@@ -89,6 +91,38 @@ console.log('7. Unknown key is ignore');
   const state = createInitialPunchTagState();
   const r = nextPunchTagState(state, 'KeyX', 1000);
   assert(r.action.kind === 'ignore', 'KeyX ignored');
+}
+
+console.log('8. L R I M 1 2 set hand, result, and target on the latest tag');
+{
+  let state = createInitialPunchTagState();
+  let r = nextPunchTagState(state, 'KeyP', 1000, 'tag-8');
+  state = r.state;
+  r = nextPunchTagState(state, 'KeyL', 1100);
+  assert(r.action.kind === 'setHand' && r.action.hand === 'L' && r.action.tagId === 'tag-8', 'L sets left hand');
+  state = r.state;
+  r = nextPunchTagState(state, 'KeyR', 1200);
+  assert(r.action.kind === 'setHand' && r.action.hand === 'R', 'R replaces the hand');
+  state = r.state;
+  r = nextPunchTagState(state, 'KeyI', 1300);
+  assert(r.action.kind === 'setResult' && r.action.result === 'I', 'I is impact');
+  state = r.state;
+  r = nextPunchTagState(state, 'KeyM', 1400);
+  assert(r.action.kind === 'setResult' && r.action.result === 'M', 'M is missed');
+  state = r.state;
+  r = nextPunchTagState(state, 'Digit1', 1500);
+  assert(r.action.kind === 'setTarget' && r.action.target === 'Head', '1 is head');
+  state = r.state;
+  state = expirePunchTagWindow(state, 1000 + PUNCH_TAG_REFINE_WINDOW_MS + 1);
+  r = nextPunchTagState(state, 'Digit2', 1000 + PUNCH_TAG_REFINE_WINDOW_MS + 20);
+  assert(r.action.kind === 'setTarget' && r.action.target === 'Body' && r.action.tagId === 'tag-8', '2 still sets body after the type window');
+}
+
+console.log('9. Hand key with no punch hints');
+{
+  const state = createInitialPunchTagState();
+  const r = nextPunchTagState(state, 'KeyL', 1000);
+  assert(r.action.kind === 'hint', 'L alone hints Press P first');
 }
 
 console.log(`\n${passed} passed, ${failed} failed`);

@@ -7,6 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
+    "test": "tsx --test src/lib/punch-fields.test.ts src/lib/model-labels/model-label-import.test.ts src/lib/model-labels/import-access.test.ts src/lib/model-labels/assignment-lookup.test.ts src/lib/model-labels/write-imported-labels.test.ts src/lib/punch-tag/offense-hotkey-fields.test.ts",
     "generate-icons": "./scripts/generate-icons.sh",
     "postinstall": "prisma generate"
   },
@@ -43,6 +44,7 @@
     "eslint-config-next": "^16.0.8",
     "prisma": "^6.19.0",
     "tailwindcss": "^4",
+    "tsx": "^4.20.6",
     "typescript": "^5"
   }
 }
