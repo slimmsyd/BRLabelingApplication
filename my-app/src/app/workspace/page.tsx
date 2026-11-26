@@ -19,6 +19,13 @@ import {
     createInitialPunchTagState,
     type PunchTagHotkeyState,
 } from '@/lib/punch-tag/punch-tag-state';
+import {
+    freshHotkeyPunchFields,
+    hotkeyEditMirrorsForm,
+    offenseKeyTarget,
+    withHotkeyResult,
+    withHotkeyTarget,
+} from '@/lib/punch-tag/offense-hotkey-fields';
 import type { PunchTagType } from '@/lib/event-helpers';
 import {
     formatPunchTagDetails,
@@ -127,6 +134,8 @@ function WorkspacePage() {
     const { user } = useCurrentUser();
 
     const [events, setEvents] = useState<EventData[]>([]);
+    const eventsRef = useRef<EventData[]>(events);
+    eventsRef.current = events;
     const videoRef = useRef<HTMLVideoElement>(null);
     const flagControlRef = useRef<HTMLDivElement>(null);
     const filterBarRef = useRef<HTMLDivElement>(null);
@@ -169,6 +178,10 @@ function WorkspacePage() {
     const punchTagModeRef = useRef(false);
     const seedPunchTagsRef = useRef<(ids: string[]) => void>(() => {});
     const lastHotkeyIdRef = useRef<string | null>(null);
+    // Offense: the punch L/R, I/M, and 1/2 edit. Newest P punch, or the punch open in the sidebar.
+    const offenseKeyTargetRef = useRef<string | null>(null);
+    const selectedEventIdRef = useRef<string | null>(null);
+    selectedEventIdRef.current = selectedEventId;
 
     // Resizable sidebar state
     const [sidebarWidth, setSidebarWidth] = useState(320);
@@ -452,6 +465,7 @@ function WorkspacePage() {
         ));
 
         // Clear selection and reset form after update
+        offenseKeyTargetRef.current = null;
         setSelectedEventId(null);
         setStartTime('');
         setEndTime('');
@@ -470,6 +484,7 @@ function WorkspacePage() {
     };
 
     const handleCancelEdit = () => {
+        offenseKeyTargetRef.current = null;
         setSelectedEventId(null);
         setStartTime('');
         setEndTime('');
@@ -527,6 +542,7 @@ function WorkspacePage() {
     };
 
     const handleDeleteEvent = (eventId: string) => {
+        if (offenseKeyTargetRef.current === eventId) offenseKeyTargetRef.current = null;
         setEvents(events.filter(event => event.id !== eventId));
         if (selectedEventId === eventId) {
             handleCancelEdit();
@@ -556,6 +572,7 @@ function WorkspacePage() {
     };
 
     const populateEventFormForEdit = (event: EventData) => {
+        offenseKeyTargetRef.current = event.id;
         setSelectedEventId(event.id);
         setBoxer(event.boxer);
         setPunchType(event.punchType);
@@ -1110,23 +1127,27 @@ function WorkspacePage() {
         if (!punchTagModeRef.current) {
             const form = labelingFormRef.current;
             const nextHand = handForPunchType(form.punchType, form.stance, form.hand);
+            // Result and target start unset on every new punch. Copying them from the
+            // form made the previous punch's I/M and 1/2 carry over to this one.
+            const fresh = freshHotkeyPunchFields();
+            offenseKeyTargetRef.current = tagId;
             const newEvent: EventData = {
                 id: tagId,
-                details: offenseEventDetails(form.punchType, nextHand, form.target, form.stance, form.visibilityFlags),
+                details: offenseEventDetails(form.punchType, nextHand, fresh.target, form.stance, form.visibilityFlags),
                 startTime: time,
                 endTime: time,
                 boxer: form.boxer,
                 punchType: form.punchType,
                 hand: nextHand,
-                target: form.target,
+                target: fresh.target,
                 visibilityFlags: form.visibilityFlags,
                 knockdown: form.knockdown,
                 punchQuality: form.punchQuality,
                 cam: activeCam,
                 stance: form.stance,
-                landed: form.landed,
-                punchResult: form.punchResult,
-                defenseType: form.punchResult === 'Defended' ? form.defenseType : undefined,
+                landed: fresh.landed,
+                punchResult: fresh.punchResult,
+                defenseType: undefined,
                 flagged: form.flagged,
                 labeledBy: user?.userId,
                 labeledByEmail: user?.email,
@@ -1176,10 +1197,16 @@ function WorkspacePage() {
             patchPunchTag(tagId, { hand });
             return;
         }
+        const id = offenseKeyTarget(tagId, offenseKeyTargetRef.current);
+        const handFor = (current: string) =>
+            current === 'L' || current === 'R' ? hand : (hand === 'L' ? 'Left' : 'Right');
+        if (hotkeyEditMirrorsForm(id, selectedEventIdRef.current)) {
+            const open = eventsRef.current.find((e) => e.id === id);
+            if (open) setHand(handFor(open.hand));
+        }
         setEvents((prev) => prev.map((event) => {
-            if (event.id !== tagId) return event;
-            const nextHand = event.hand === 'L' || event.hand === 'R' ? hand : (hand === 'L' ? 'Left' : 'Right');
-            setHand(nextHand);
+            if (event.id !== id) return event;
+            const nextHand = handFor(event.hand);
             return {
                 ...event,
                 hand: nextHand,
@@ -1193,15 +1220,18 @@ function WorkspacePage() {
             patchPunchTag(tagId, { punchResult: result, landed: result === 'I' });
             return;
         }
-        setEvents((prev) => prev.map((event) => {
-            if (event.id !== tagId) return event;
-            const usesCode = event.punchResult === 'I' || event.punchResult === 'M';
-            const punchResult = result === 'I' ? (usesCode ? 'I' : 'Landed') : (usesCode ? 'M' : 'Missed');
-            const landed = result === 'I';
-            setPunchResult(punchResult);
-            setLanded(landed);
-            return { ...event, punchResult, landed };
-        }));
+        // Edit only this punch. Writing into the form here is what made the
+        // result stick to every later punch.
+        const id = offenseKeyTarget(tagId, offenseKeyTargetRef.current);
+        if (hotkeyEditMirrorsForm(id, selectedEventIdRef.current)) {
+            const open = eventsRef.current.find((e) => e.id === id);
+            if (open) {
+                const next = withHotkeyResult(open, result);
+                setPunchResult(next.punchResult || '');
+                setLanded(next.landed === true);
+            }
+        }
+        setEvents((prev) => prev.map((e) => (e.id === id ? withHotkeyResult(e, result) : e)));
     }, [patchPunchTag]);
 
     const handleSetPunchTagTarget = React.useCallback((tagId: string, target: TargetName) => {
@@ -1209,13 +1239,14 @@ function WorkspacePage() {
             patchPunchTag(tagId, { target });
             return;
         }
-        setTarget(target);
+        const id = offenseKeyTarget(tagId, offenseKeyTargetRef.current);
+        if (hotkeyEditMirrorsForm(id, selectedEventIdRef.current)) setTarget(target);
         setEvents((prev) => prev.map((event) => {
-            if (event.id !== tagId) return event;
+            if (event.id !== id) return event;
+            const next = withHotkeyTarget(event, target);
             return {
-                ...event,
-                target,
-                details: offenseEventDetails(event.punchType, event.hand, target, event.stance || 'Orthodox', event.visibilityFlags),
+                ...next,
+                details: offenseEventDetails(next.punchType, next.hand, target, next.stance || 'Orthodox', next.visibilityFlags),
             };
         }));
     }, [patchPunchTag]);
@@ -1260,6 +1291,7 @@ function WorkspacePage() {
         if (!punchTagModeRef.current) {
             const hotkeyId = lastHotkeyIdRef.current;
             lastHotkeyIdRef.current = null;
+            if (hotkeyId && offenseKeyTargetRef.current === hotkeyId) offenseKeyTargetRef.current = null;
             if (hotkeyId) setEvents((prev) => prev.filter((event) => event.id !== hotkeyId));
             return;
         }

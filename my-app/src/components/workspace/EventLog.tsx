@@ -161,7 +161,9 @@ const EventRow = ({
             <div className="flex items-baseline gap-2 mb-2">
                 <span className="font-bold text-foreground text-sm">{event.punchType}</span>
                 <span className="text-foreground-secondary text-xs">•</span>
-                <span className="text-foreground-secondary text-sm">{event.target}</span>
+                <span className="text-foreground-secondary text-sm">
+                    {event.target || <span className="text-amber-400/80 italic">No target</span>}
+                </span>
             </div>
 
             {/* Badges Row 1: Hand, CAM, Stance */}
@@ -211,6 +213,13 @@ const EventRow = ({
                     }`}>
                     {event.punchResult === 'I' ? 'I impact' : event.punchResult === 'M' ? 'M missed' : resultLabel(event.punchResult, event.landed)}
                 </span>
+                )}
+
+                {/* A P-hotkey punch starts with no result until I or M is pressed */}
+                {!resultLabel(event.punchResult, event.landed) && (
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded uppercase tracking-wider bg-amber-500/10 text-amber-300 border border-amber-500/30">
+                        No result
+                    </span>
                 )}
 
                 {/* Defense Type Badge */}
