@@ -34,7 +34,7 @@ export type PunchTagAction =
   | { kind: 'setHand'; tagId: string; hand: HandCode }
   | { kind: 'setResult'; tagId: string; result: ResultCode }
   | { kind: 'setTarget'; tagId: string; target: TargetName }
-  | { kind: 'undo' }
+  | { kind: 'undo'; tagId: string }
   | { kind: 'ignore' }
   | { kind: 'hint'; message: string };
 
@@ -156,6 +156,8 @@ export function nextPunchTagState(
   }
 
   if (code === 'Backspace') {
+    const tagId = state.tagStack[state.tagStack.length - 1];
+    if (!tagId) return { state, action: { kind: 'ignore' } };
     return {
       state: {
         ...state,
@@ -168,7 +170,7 @@ export function nextPunchTagState(
         lastTarget: null,
         hint: null,
       },
-      action: { kind: 'undo' },
+      action: { kind: 'undo', tagId },
     };
   }
 

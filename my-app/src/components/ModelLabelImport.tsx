@@ -8,6 +8,7 @@ interface ReplacedLabeler {
   email: string | null;
   labelType: string;
   count: number;
+  status: string | null;
 }
 
 interface FightPreview {
@@ -118,14 +119,20 @@ export function ModelLabelImport() {
                 <p className="text-foreground-secondary">
                   {fight.incoming} labels from {fight.labeledBy.join(', ')} ({fight.labelTypes.join(', ')}).
                 </p>
-                {fight.replaced > 0 ? (
-                  <p>
-                    This replaces {fight.replaced} existing {fight.replaced === 1 ? 'label' : 'labels'}
-                    {fight.replacedBy.length > 0 && (
-                      <> ({fight.replacedBy.map((item) => `${item.username} ${item.count}`).join(', ')})</>
-                    )}
-                    . The fight is updated in one step, so a failed import does not leave it half-cleared.
-                  </p>
+                {fight.replacedBy.length > 0 ? (
+                  <div className="space-y-1">
+                    <p>
+                      This removes {fight.replacedBy.length} {fight.replacedBy.length === 1 ? 'assignment' : 'assignments'} and replaces {fight.replaced} existing {fight.replaced === 1 ? 'label' : 'labels'}.
+                      The fight is updated in one step, so a failed import does not leave it half-cleared.
+                    </p>
+                    <ul className="text-foreground-secondary">
+                      {fight.replacedBy.map((item) => (
+                        <li key={`${item.username}-${item.labelType}-${item.status}`}>
+                          {item.username} · {item.labelType} · {item.status || 'no status'} · {item.count} {item.count === 1 ? 'label' : 'labels'}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
                 ) : (
                   <p>No existing labels of this type on the fight. These will be added and sent to QC.</p>
                 )}

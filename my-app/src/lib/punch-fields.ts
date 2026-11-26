@@ -159,6 +159,21 @@ export function isImpactResult(punchResult?: string | null, landed?: boolean | n
   return landed === true;
 }
 
+/**
+ * Persist an offense result without inventing Landed.
+ * A blank result and a blank landed flag stay blank.
+ * An explicit landed true/false is kept, and I/M/Landed/Missed still force the flag.
+ */
+export function offenseFieldsForSave(
+  punchResult: string | null | undefined,
+  landed: boolean | null | undefined,
+): { punchResult: string | null; landed: boolean | null } {
+  const result = punchResult?.trim() || null;
+  if (result) return { punchResult: result, landed: landedMatchingResult(result, landed) };
+  if (landed === true || landed === false) return { punchResult: null, landed };
+  return { punchResult: null, landed: null };
+}
+
 /** Keep the boolean aligned when a result code is present. Otherwise leave it. */
 export function landedMatchingResult(
   punchResult: string | null | undefined,

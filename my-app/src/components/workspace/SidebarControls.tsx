@@ -306,6 +306,7 @@ const SidebarControls = ({
                             disabled={readOnly}
                             className="flex-1 bg-background border border-border rounded-lg px-2 py-1.5 text-xs text-foreground focus:outline-none focus:border-accent-primary"
                         >
+                            {!punchResult && <option value="">Unset</option>}
                             {(punchResult === 'I' || punchResult === 'M') && (
                                 <>
                                     <option value="I">I · Impact</option>

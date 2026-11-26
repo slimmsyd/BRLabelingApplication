@@ -80,6 +80,13 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ preview: true, ...preview.preview });
     }
 
+    if (input.expectedReplaced === undefined || !Number.isInteger(input.expectedReplaced)) {
+      return NextResponse.json(
+        { error: 'Confirm needs the replacement count from Check fight. Nothing was imported.' },
+        { status: 400 },
+      );
+    }
+
     const committed = await commitModelLabels(input.csv, input.expectedReplaced);
     if (!committed.ok) {
       return NextResponse.json({ error: committed.error }, { status: committed.status });
@@ -92,7 +99,13 @@ export async function POST(request: NextRequest) {
     });
   } catch (error) {
     console.error('[Model labels] import failed', error);
-    const message = error instanceof Error ? error.message : 'Import failed';
-    return NextResponse.json({ error: `${message} Nothing was imported.` }, { status: 500 });
+    const message = error instanceof Error ? error.message : '';
+    const missingModelEnum =
+      /invalid input value for enum/i.test(message) ||
+      (/AccountType/i.test(message) && /MODEL/i.test(message));
+    const clientMessage = missingModelEnum
+      ? 'Apply the MODEL account migration before importing. Nothing was imported.'
+      : 'Import failed. Nothing was imported.';
+    return NextResponse.json({ error: clientMessage }, { status: 500 });
   }
 }

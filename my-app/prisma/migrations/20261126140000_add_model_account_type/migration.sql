@@ -1,4 +1,5 @@
--- Model labeler accounts.
--- Sydney: apply this migration before anyone uses model-label import.
--- This change is not applied to production by the pull request.
-ALTER TYPE "AccountType" ADD VALUE 'MODEL';
+-- AlterEnum
+-- Model labeler accounts. Apply with prisma migrate deploy from my-app.
+-- IF NOT EXISTS lets that deploy record the migration even if the value
+-- was added earlier. Do not paste this statement into the SQL editor by itself.
+ALTER TYPE "AccountType" ADD VALUE IF NOT EXISTS 'MODEL';

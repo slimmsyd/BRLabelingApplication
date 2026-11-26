@@ -4,6 +4,7 @@ import {
   formatPunchTagDetails,
   handFilterValues,
   landedMatchingResult,
+  offenseFieldsForSave,
   mapPunchResult,
   parseHand,
   parseTarget,
@@ -62,6 +63,12 @@ describe('punch field codes', () => {
     assert.equal(toExternalPunchResult('M', false), 'Missed');
     assert.equal(toExternalPunchResult(null, null), null);
     assert.equal(toExternalPunchResult(null, null, true), 'Landed');
+  });
+
+  it('leaves a blank offense result blank', () => {
+    assert.deepEqual(offenseFieldsForSave(null, null), { punchResult: null, landed: null });
+    assert.deepEqual(offenseFieldsForSave('', undefined), { punchResult: null, landed: null });
+    assert.deepEqual(offenseFieldsForSave('I', false), { punchResult: 'I', landed: true });
   });
 
   it('forces the landed flag to follow I and M', () => {

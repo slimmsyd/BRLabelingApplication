@@ -23,7 +23,7 @@ export interface UsePunchTagHotkeysOptions {
   onSetHand?: (tagId: string, hand: HandCode) => void;
   onSetResult?: (tagId: string, result: ResultCode) => void;
   onSetTarget?: (tagId: string, target: TargetName) => void;
-  onUndoTag: () => void;
+  onUndoTag: (tagId: string) => void;
   onStateChange?: (state: PunchTagHotkeyState) => void;
 }
 
@@ -42,7 +42,7 @@ export function usePunchTagHotkeys({
   onSetTarget,
   onUndoTag,
   onStateChange,
-}: UsePunchTagHotkeysOptions): { dispatchCode: (code: string) => void } {
+}: UsePunchTagHotkeysOptions): { dispatchCode: (code: string) => void; seedTags: (ids: string[]) => void } {
   const stateRef = useRef(createInitialPunchTagState());
   const callbacksRef = useRef({
     onCreateTag,
@@ -108,7 +108,7 @@ export function usePunchTagHotkeys({
       } else if (action.kind === 'setTarget') {
         callbacksRef.current.onSetTarget?.(action.tagId, action.target);
       } else if (action.kind === 'undo') {
-        callbacksRef.current.onUndoTag();
+        callbacksRef.current.onUndoTag(action.tagId);
       }
     };
 
@@ -139,7 +139,18 @@ export function usePunchTagHotkeys({
     };
   }, [enabled]);
 
+  const seedTags = (ids: string[]) => {
+    const next: PunchTagHotkeyState = {
+      ...createInitialPunchTagState(),
+      tagStack: ids.filter(Boolean),
+      hint: ids.length ? 'L/R, I/M, 1, and 2 edit the latest saved punch.' : null,
+    };
+    stateRef.current = next;
+    callbacksRef.current.onStateChange?.(next);
+  };
+
   return {
     dispatchCode: (code: string) => dispatchRef.current(code),
+    seedTags,
   };
 }

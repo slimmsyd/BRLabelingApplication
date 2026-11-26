@@ -5,6 +5,7 @@
 
 import { randomBytes } from 'node:crypto';
 import bcrypt from 'bcryptjs';
+import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
 import {
   modelAccountEmail,
@@ -81,6 +82,7 @@ export async function buildModelLabelPlan(csv: string): Promise<
     select: {
       videoId: true,
       labelType: true,
+      status: true,
       username: true,
       userEmail: true,
       _count: { select: { events: true } },
@@ -95,6 +97,7 @@ export async function buildModelLabelPlan(csv: string): Promise<
       username: assignment.username,
       email: assignment.userEmail,
       eventCount: assignment._count.events,
+      status: assignment.status,
     })),
   );
   if (!plan.ok) {
@@ -105,13 +108,7 @@ export async function buildModelLabelPlan(csv: string): Promise<
 
 async function assertModelAccounts(fights: ImportFightPlan[]): Promise<string | null> {
   const names = [...new Set(fights.flatMap((fight) => fight.labeledBy))];
-  const emails = [
-    ...new Set(
-      fights.flatMap((fight) =>
-        fight.rows.map((row) => modelAccountEmail(row.labeledBy, row.labeledByEmail)),
-      ),
-    ),
-  ];
+  const emails = [...new Set(names.map((name) => modelAccountEmail(name)))];
   const users = await prisma.user.findMany({
     where: { OR: [{ username: { in: names } }, { email: { in: emails } }] },
     select: { username: true, email: true, accountType: true },
@@ -124,13 +121,11 @@ async function assertModelAccounts(fights: ImportFightPlan[]): Promise<string | 
     }
   }
 
-  for (const fight of fights) {
-    for (const row of fight.rows) {
-      const email = modelAccountEmail(row.labeledBy, row.labeledByEmail);
-      const byEmail = users.find((user) => user.email.toLowerCase() === email);
-      if (byEmail && byEmail.username !== row.labeledBy) {
-        return `Email ${email} already belongs to ${byEmail.username}. Nothing was imported.`;
-      }
+  for (const name of names) {
+    const email = modelAccountEmail(name);
+    const byEmail = users.find((user) => user.email.toLowerCase() === email);
+    if (byEmail && byEmail.username !== name) {
+      return `Email ${email} already belongs to ${byEmail.username}. Nothing was imported.`;
     }
   }
   return null;
@@ -177,6 +172,15 @@ export async function commitModelLabels(
     const written = await prisma.$transaction(async (tx) => {
       let replaced = 0;
       for (const fight of built.fights) {
+        await tx.$queryRaw`SELECT id FROM "Video" WHERE id = ${fight.video.id} FOR UPDATE`;
+        if (fight.labelTypes.length > 0) {
+          await tx.$queryRaw`
+            SELECT id FROM "VideoAssignment"
+            WHERE "videoId" = ${fight.video.id}
+              AND "labelType"::text IN (${Prisma.join(fight.labelTypes)})
+            FOR UPDATE
+          `;
+        }
         replaced += await tx.event.count({
           where: {
             assignment: {
@@ -202,13 +206,10 @@ export async function commitModelLabels(
           accountByName.set(name, existing);
           continue;
         }
-        const sample = built.fights
-          .flatMap((fight) => fight.rows)
-          .find((row) => row.labeledBy === name);
         const created = await tx.user.create({
           data: {
             username: name,
-            email: modelAccountEmail(name, sample?.labeledByEmail ?? ''),
+            email: modelAccountEmail(name),
             password: passwordByName.get(name) || (await bcrypt.hash(randomBytes(24).toString('hex'), 10)),
             accountType: 'MODEL',
           },

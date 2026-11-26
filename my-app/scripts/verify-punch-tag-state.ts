@@ -73,8 +73,10 @@ console.log('5. Backspace undoes');
   let r = nextPunchTagState(state, 'KeyP', 1000, 'tag-5');
   state = r.state;
   r = nextPunchTagState(state, 'Backspace', 1100);
-  assert(r.action.kind === 'undo', 'Backspace is undo');
+  assert(r.action.kind === 'undo' && r.action.tagId === 'tag-5', 'Backspace undoes that tag');
   assert(r.state.refineWindow === null, 'window cleared');
+  r = nextPunchTagState(r.state, 'Backspace', 1200);
+  assert(r.action.kind === 'ignore', 'Backspace with no tag does nothing');
 }
 
 console.log('6. Letter with no P is a hint');

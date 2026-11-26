@@ -23,7 +23,7 @@ import type { PunchTagType } from '@/lib/event-helpers';
 import {
     formatPunchTagDetails,
     handMark,
-    landedMatchingResult,
+    offenseFieldsForSave,
     storedPunchTagFields,
     toExternalHand,
     toExternalPunchResult,
@@ -166,6 +166,7 @@ function WorkspacePage() {
         boxer, punchType, hand, target, visibilityFlags, knockdown, punchQuality, stance, landed, punchResult, defenseType, flagged,
     };
     const punchTagModeRef = useRef(false);
+    const seedPunchTagsRef = useRef<(ids: string[]) => void>(() => {});
     const lastHotkeyIdRef = useRef<string | null>(null);
 
     // Resizable sidebar state
@@ -234,11 +235,13 @@ function WorkspacePage() {
                     ...e,
                     id: e.id || generateId(),
                     landed: e.landed !== undefined ? e.landed : (labelTypeParam === 'PUNCH_TAG' ? undefined : true),
-                    punchResult: e.punchResult || (labelTypeParam === 'PUNCH_TAG'
-                        ? undefined
-                        : (e.landed !== false ? 'Landed' : 'Missed')),
+                    punchResult: e.punchResult || undefined,
                 }));
                 setEvents(eventsWithIds);
+                if (labelTypeParam === 'PUNCH_TAG') {
+                    const ids = [...eventsWithIds].reverse().map((event) => event.id);
+                    setTimeout(() => seedPunchTagsRef.current(ids), 0);
+                }
             }
         }
 
@@ -368,6 +371,10 @@ function WorkspacePage() {
                             updatedAt: e.updatedAt,
                         }));
                         setEvents(dbEvents);
+                        if (labelTypeParam === 'PUNCH_TAG') {
+                            const ids = dbEvents.map((event) => event.id);
+                            setTimeout(() => seedPunchTagsRef.current(ids), 0);
+                        }
                         // Note: Don't set isSubmitted here - that's determined by assignment.status
                         // Having events in DB just means progress was saved, not necessarily submitted
                         console.log(`Loaded ${dbEvents.length} events from database`);
@@ -429,9 +436,19 @@ function WorkspacePage() {
         if (!selectedEventId) return;
 
         // Merge so labeledBy/createdAt/etc. are not wiped by form-only payload
+        const kept = offenseFieldsForSave(
+            updatedEventData.punchResult,
+            updatedEventData.punchResult ? updatedEventData.landed : null,
+        );
         setEvents(events.map(event =>
             event.id === selectedEventId
-                ? { ...event, ...updatedEventData, id: selectedEventId }
+                ? {
+                    ...event,
+                    ...updatedEventData,
+                    punchResult: kept.punchResult || undefined,
+                    landed: kept.landed ?? undefined,
+                    id: selectedEventId,
+                }
                 : event
         ));
 
@@ -549,8 +566,8 @@ function WorkspacePage() {
         setKnockdown(event.knockdown);
         setPunchQuality(event.punchQuality);
         setStance(event.stance || 'Orthodox');
-        setLanded(event.landed !== undefined ? event.landed : true);
-        setPunchResult(event.punchResult || (event.landed !== false ? 'Landed' : 'Missed'));
+        setLanded(event.landed === true);
+        setPunchResult(event.punchResult || '');
         setDefenseType(event.defenseType || 'Guard');
         setFlagged(event.flagged ?? false);
         setStartTime(event.startTime);
@@ -648,8 +665,7 @@ function WorkspacePage() {
                                 punchQuality: event.punchQuality,
                                 cam: event.cam,
                                 stance: event.stance || 'Orthodox',
-                                landed: landedMatchingResult(event.punchResult, event.landed ?? null),
-                                punchResult: event.punchResult || (event.landed !== false ? 'Landed' : 'Missed'),
+                                ...offenseFieldsForSave(event.punchResult, event.landed ?? null),
                                 defenseType: event.punchResult === 'Defended' ? event.defenseType : null,
                                 flagged: event.flagged ?? false,
                                 labeledBy: event.labeledBy || user?.userId,
@@ -732,7 +748,7 @@ function WorkspacePage() {
                 stoppageKo: false,
                 visibility: visibilityFlagsToMatrix(event.visibilityFlags),
                 stance: event.stance || 'Orthodox',
-                punchResult: toExternalPunchResult(event.punchResult, event.landed ?? null, true),
+                punchResult: toExternalPunchResult(event.punchResult, event.landed ?? null),
                 defenseType: event.punchResult === 'Defended' ? event.defenseType : null,
                 // Use original labeler (from assignment), not current user (QC person)
                 labeledBy: event.labeledBy || assignment?.userId || user?.userId,
@@ -855,8 +871,7 @@ function WorkspacePage() {
                                 punchQuality: event.punchQuality,
                                 cam: event.cam,
                                 stance: event.stance || 'Orthodox',
-                                landed: landedMatchingResult(event.punchResult, event.landed ?? null),
-                                punchResult: event.punchResult || (event.landed !== false ? 'Landed' : 'Missed'),
+                                ...offenseFieldsForSave(event.punchResult, event.landed ?? null),
                                 defenseType: event.punchResult === 'Defended' ? event.defenseType : null,
                                 flagged: event.flagged ?? false,
                                 labeledBy: event.labeledBy || user?.userId,
@@ -1208,20 +1223,18 @@ function WorkspacePage() {
         );
     }, []);
 
-    const handleUndoPunchTag = React.useCallback(() => {
-        const hotkeyId = lastHotkeyIdRef.current;
-        lastHotkeyIdRef.current = null;
-        if (!punchTagModeRef.current && hotkeyId) {
-            setEvents((prev) => prev.filter((event) => event.id !== hotkeyId));
+    const handleUndoPunchTag = React.useCallback((tagId: string) => {
+        if (!punchTagModeRef.current) {
+            const hotkeyId = lastHotkeyIdRef.current;
+            lastHotkeyIdRef.current = null;
+            if (hotkeyId) setEvents((prev) => prev.filter((event) => event.id !== hotkeyId));
             return;
         }
-        setEvents((prev) => {
-            if (prev.length === 0) return prev;
-            return prev.slice(1);
-        });
+        if (!tagId) return;
+        setEvents((prev) => prev.filter((event) => event.id !== tagId));
     }, []);
 
-    const { dispatchCode: dispatchPunchTagCode } = usePunchTagHotkeys({
+    const { dispatchCode: dispatchPunchTagCode, seedTags: seedPunchTags } = usePunchTagHotkeys({
         enabled: !isReadOnly,
         modifiersEnabled: isPunchTagMode,
         onCreateTag: handleCreatePunchTag,
@@ -1232,6 +1245,9 @@ function WorkspacePage() {
         onUndoTag: handleUndoPunchTag,
         onStateChange: setPunchTagHotkeyState,
     });
+    useEffect(() => {
+        seedPunchTagsRef.current = seedPunchTags;
+    }, [seedPunchTags]);
 
     // Parse video sources from videoData
     const videoSources = React.useMemo(() => {

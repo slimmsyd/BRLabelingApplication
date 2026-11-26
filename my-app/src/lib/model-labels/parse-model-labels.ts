@@ -56,6 +56,7 @@ export interface ExistingAssignmentSummary {
   username: string | null;
   email: string | null;
   eventCount: number;
+  status?: string | null;
 }
 
 export interface ReplacedLabeler {
@@ -63,6 +64,7 @@ export interface ReplacedLabeler {
   email: string | null;
   labelType: string;
   count: number;
+  status: string | null;
 }
 
 export interface ImportFightPlan {
@@ -85,9 +87,8 @@ export interface UnmatchedFight {
   rows: number;
 }
 
-export function modelAccountEmail(labeledBy: string, labeledByEmail: string): string {
-  const provided = labeledByEmail.trim();
-  if (provided.includes('@')) return provided.toLowerCase();
+/** Always a synthetic address. A CSV email is not used, so it cannot block a person from signing up. */
+export function modelAccountEmail(labeledBy: string): string {
   const slug = labeledBy
     .trim()
     .toLowerCase()
@@ -150,12 +151,13 @@ export function normalizeClock(value: string): string | null {
   if (!trimmed) return null;
   const match = trimmed.match(/^(\d{1,2}):(\d{2})(?:\.(\d{1,3}))?$/);
   if (!match) return null;
-  const minutes = match[1].padStart(2, '0');
-  const seconds = match[2];
+  const minutes = Number(match[1]);
+  const seconds = Number(match[2]);
+  if (minutes > 99 || seconds > 59) return null;
   let fraction = match[3] ?? '00';
   if (fraction.length === 1) fraction = `${fraction}0`;
   if (fraction.length > 2) fraction = fraction.slice(0, 2);
-  return `${minutes}:${seconds}.${fraction}`;
+  return `${match[1].padStart(2, '0')}:${match[2]}.${fraction}`;
 }
 
 function cell(record: Record<string, string>, key: string): string {
@@ -193,6 +195,12 @@ export function parseModelLabelCsv(text: string): ParseModelLabelCsvResult {
   }
 
   const headers = table[0].map((header) => header.trim());
+  if (!headers.includes('labelType')) {
+    return {
+      ok: false,
+      errors: ['The CSV has no labelType column, so it cannot choose which labels to replace. Nothing was imported.'],
+    };
+  }
   const errors: string[] = [];
   const rows: ImportedLabelRow[] = [];
 
@@ -231,8 +239,9 @@ export function parseModelLabelCsv(text: string): ParseModelLabelCsvResult {
     if (!mapped.ok) rowErrors.push(mapped.error);
 
     const labelRaw = cell(record, 'labelType');
-    const labelType = (labelRaw || 'OFFENSE').toUpperCase();
-    if (!LABEL_TYPES.includes(labelType as ImportLabelType)) {
+    const labelType = labelRaw.toUpperCase();
+    if (!labelRaw) rowErrors.push('labelType is empty');
+    else if (!LABEL_TYPES.includes(labelType as ImportLabelType)) {
       rowErrors.push(`labelType "${labelRaw}" is not a known label type`);
     }
 
@@ -313,13 +322,43 @@ function fightsMatchingTitle(row: ImportedLabelRow, fights: FightCandidate[]): F
   });
 }
 
+function titleAgrees(value: string, fight: FightCandidate): boolean {
+  const key = normTitle(value);
+  if (!key) return true;
+  const names = [fight.title, fight.externalFightTitle || ''].map(normTitle).filter(Boolean);
+  return names.includes(key);
+}
+
+/** An existing videoId must agree with every title and the round the row actually filled in. */
+function disagreement(row: ImportedLabelRow, fight: FightCandidate): string | null {
+  const problems: string[] = [];
+  if (row.round != null && row.round !== fight.round) {
+    problems.push(`CSV round ${row.round}, video round ${fight.round}`);
+  }
+  for (const [label, value] of [
+    ['fightTitle', row.fightTitle],
+    ['videoTitle', row.videoTitle],
+    ['externalFightTitle', row.externalFightTitle],
+  ] as const) {
+    if (value && !titleAgrees(value, fight)) {
+      problems.push(`CSV ${label} "${value}" does not match "${fight.title}"`);
+    }
+  }
+  if (problems.length === 0) return null;
+  return `videoId ${row.videoId} is "${fight.title}" round ${fight.round}, but the row disagrees (${problems.join('; ')}). Nothing was imported.`;
+}
+
 function matchFight(
   row: ImportedLabelRow,
   fights: FightCandidate[],
 ): { fight: FightCandidate } | { error: string } {
   if (row.videoId) {
     const byId = fights.find((fight) => fight.id === row.videoId);
-    if (byId) return { fight: byId };
+    if (byId) {
+      const conflict = disagreement(row, byId);
+      if (conflict) return { error: conflict };
+      return { fight: byId };
+    }
   }
   const byTitle = fightsMatchingTitle(row, fights);
   if (byTitle.length === 1) return { fight: byTitle[0] };
@@ -379,18 +418,31 @@ export function planModelLabelImport(
   const plans: ImportFightPlan[] = [];
   for (const bucket of buckets.values()) {
     const labelTypes = [...new Set(bucket.rows.map((row) => row.labelType))];
+    for (const labelType of labelTypes) {
+      const names = [
+        ...new Set(bucket.rows.filter((row) => row.labelType === labelType).map((row) => row.labeledBy)),
+      ];
+      if (names.length > 1) {
+        return {
+          ok: false,
+          error: `${bucket.video.title} round ${bucket.video.round} has more than one labeledBy for ${labelType} (${names.join(', ')}). Import one labeler per label type so QC opens that assignment. Nothing was imported.`,
+          fights: [],
+          unmatched: [],
+        };
+      }
+    }
     const labeledBy = [...new Set(bucket.rows.map((row) => row.labeledBy))];
     const relevant = existing.filter(
       (assignment) =>
         assignment.videoId === bucket.video.id &&
-        labelTypes.includes(assignment.labelType as ImportLabelType) &&
-        assignment.eventCount > 0,
+        labelTypes.includes(assignment.labelType as ImportLabelType),
     );
     const replacedBy = relevant.map((assignment) => ({
       username: assignment.username || 'Unknown',
       email: assignment.email,
       labelType: assignment.labelType,
       count: assignment.eventCount,
+      status: assignment.status ?? null,
     }));
     plans.push({
       video: bucket.video,

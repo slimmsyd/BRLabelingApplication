@@ -85,13 +85,33 @@ describe('model label CSV mapping', () => {
 
   it('rejects the file when a row has no labeler, and imports nothing', () => {
     const csv = [
-      'videoId,fightTitle,round,labeledBy,punchType,startTime',
-      'vid-1,Fight A,1,,Jab,00:01.00',
+      'videoId,fightTitle,round,labeledBy,punchType,startTime,labelType',
+      'vid-1,Fight A,1,,Jab,00:01.00,OFFENSE',
     ].join('\n');
     const parsed = parseModelLabelCsv(csv);
     assert.equal(parsed.ok, false);
     if (parsed.ok) return;
     assert.match(parsed.errors[0], /labeledBy/);
+  });
+
+  it('rejects a file with no labelType column', () => {
+    const csv = [
+      'videoId,fightTitle,round,labeledBy,punchType,startTime',
+      'vid-1,Fight A,1,Modelv18,Jab,00:01.00',
+    ].join('\n');
+    const parsed = parseModelLabelCsv(csv);
+    assert.equal(parsed.ok, false);
+    if (parsed.ok) return;
+    assert.match(parsed.errors[0], /labelType/);
+  });
+
+  it('rejects a clock whose seconds are 60 or more', () => {
+    const csv = [
+      'videoId,labeledBy,punchType,startTime,labelType',
+      'vid-1,Modelv18,Jab,00:60.00,OFFENSE',
+    ].join('\n');
+    const parsed = parseModelLabelCsv(csv);
+    assert.equal(parsed.ok, false);
   });
 });
 
@@ -183,8 +203,103 @@ describe('matching a model CSV to an existing fight', () => {
     assert.equal(plan.ok, false);
   });
 
-  it('builds a stable model account email from labeledBy', () => {
-    assert.equal(modelAccountEmail('Modelv18', ''), 'modelv18@models.boxraw.local');
-    assert.equal(modelAccountEmail('Modelv18', 'Modelv18@boxraw.com'), 'modelv18@boxraw.com');
+  it('builds a stable model account email from labeledBy and ignores a real address', () => {
+    assert.equal(modelAccountEmail('Modelv18'), 'modelv18@models.boxraw.local');
+  });
+
+  it('refuses a videoId that disagrees with the title or round, including a repeated id', () => {
+    const round1: FightCandidate = {
+      id: 'round-1-id',
+      title: 'Real Fight - R1',
+      round: 1,
+      externalFightTitle: null,
+    };
+    const round2: FightCandidate = { ...round1, id: 'round-2-id', title: 'Real Fight - R2', round: 2 };
+    const header = 'videoId,fightTitle,videoTitle,round,labeledBy,punchType,startTime,labelType';
+    const disagree = parseModelLabelCsv(
+      [
+        header,
+        'round-1-id,Other Fight - R2,Other Fight - R2,2,Modelv18,Jab,00:01.00,OFFENSE',
+      ].join('\n'),
+    );
+    assert.equal(disagree.ok, true);
+    if (!disagree.ok) return;
+    const wrong = planModelLabelImport(disagree.rows, [round1, round2], [
+      {
+        videoId: 'round-1-id',
+        labelType: 'OFFENSE',
+        username: 'Ali',
+        email: 'ali@boxraw.com',
+        eventCount: 40,
+        status: 'SUBMITTED',
+      },
+    ]);
+    assert.equal(wrong.ok, false);
+    if (wrong.ok) return;
+    assert.equal(wrong.fights.length, 0);
+    assert.match(wrong.error, /round-1-id/);
+    assert.match(wrong.error, /Real Fight - R1/);
+    assert.match(wrong.error, /round 2/);
+
+    const repeated = parseModelLabelCsv(
+      [
+        header,
+        'round-1-id,Real Fight - R1,Real Fight - R1,1,Modelv18,Jab,00:01.00,OFFENSE',
+        'round-1-id,Real Fight - R2,Real Fight - R2,2,Modelv18,Cross,00:02.00,OFFENSE',
+      ].join('\n'),
+    );
+    assert.equal(repeated.ok, true);
+    if (!repeated.ok) return;
+    const folded = planModelLabelImport(repeated.rows, [round1, round2]);
+    assert.equal(folded.ok, false);
+    if (folded.ok) return;
+    assert.equal(folded.fights.length, 0);
+  });
+
+  it('rejects two labelers on the same label type and lists empty assignments', () => {
+    const header = 'videoId,fightTitle,round,labeledBy,punchType,startTime,labelType';
+    const parsed = parseModelLabelCsv(
+      [
+        header,
+        'vid-1,Fight A - R1,1,Modelv18,Jab,00:01.00,OFFENSE',
+        'vid-1,Fight A - R1,1,Modelv19,Cross,00:02.00,OFFENSE',
+      ].join('\n'),
+    );
+    assert.equal(parsed.ok, true);
+    if (!parsed.ok) return;
+    const fight: FightCandidate = { id: 'vid-1', title: 'Fight A - R1', round: 1, externalFightTitle: null };
+    const two = planModelLabelImport(parsed.rows, [fight]);
+    assert.equal(two.ok, false);
+
+    const one = parseModelLabelCsv(
+      [header, 'vid-1,Fight A - R1,1,Modelv18,Jab,00:01.00,OFFENSE'].join('\n'),
+    );
+    assert.equal(one.ok, true);
+    if (!one.ok) return;
+    const plan = planModelLabelImport(one.rows, [fight], [
+      {
+        videoId: 'vid-1',
+        labelType: 'OFFENSE',
+        username: 'Ali',
+        email: 'ali@boxraw.com',
+        eventCount: 0,
+        status: 'IN_PROGRESS',
+      },
+      {
+        videoId: 'vid-1',
+        labelType: 'OFFENSE',
+        username: 'Sam',
+        email: 'sam@boxraw.com',
+        eventCount: 3,
+        status: 'REVIEWED',
+      },
+    ]);
+    assert.equal(plan.ok, true);
+    if (!plan.ok) return;
+    assert.equal(plan.totalReplaced, 3);
+    assert.equal(plan.fights[0].replacedBy.length, 2);
+    assert.equal(plan.fights[0].replacedBy[0].status, 'IN_PROGRESS');
+    assert.equal(plan.fights[0].replacedBy[0].count, 0);
+    assert.equal(plan.fights[0].replacedBy[1].status, 'REVIEWED');
   });
 });

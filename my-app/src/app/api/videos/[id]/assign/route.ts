@@ -55,6 +55,25 @@ export async function POST(
       );
     }
 
+    const assigneeUser = await prisma.user.findUnique({
+      where: { id: assigneeUserId },
+      select: { email: true, username: true, accountType: true },
+    });
+
+    if (!assigneeUser) {
+      return NextResponse.json(
+        { error: 'Assignee user not found' },
+        { status: 404 }
+      );
+    }
+
+    if (assigneeUser.accountType === 'MODEL') {
+      return NextResponse.json(
+        { error: 'Model accounts cannot be assigned rounds.' },
+        { status: 400 }
+      );
+    }
+
     // IMPORTANT: Delete any existing assignments for this video and label type
     // This ensures when reassigning to a different user, we remove the old assignment
     const existingAssignments = await prisma.videoAssignment.findMany({
@@ -73,19 +92,6 @@ export async function POST(
           labelType,
         },
       });
-    }
-
-    // Fetch the assignee user to get their email and username
-    const assigneeUser = await prisma.user.findUnique({
-      where: { id: assigneeUserId },
-      select: { email: true, username: true },
-    });
-
-    if (!assigneeUser) {
-      return NextResponse.json(
-        { error: 'Assignee user not found' },
-        { status: 404 }
-      );
     }
 
     // Create new assignment
