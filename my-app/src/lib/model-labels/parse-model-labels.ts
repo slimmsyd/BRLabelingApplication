@@ -67,6 +67,17 @@ export interface ReplacedLabeler {
   status: string | null;
 }
 
+export interface ImportConflictView {
+  csvTitle: string;
+  csvRound: number | null;
+  videoId: string;
+  videoIdFightTitle: string;
+  videoIdFightRound: number;
+  writeTitle: string;
+  writeRound: number;
+  writeVideoId: string;
+}
+
 export interface ImportFightPlan {
   video: FightCandidate;
   labelTypes: ImportLabelType[];
@@ -74,10 +85,17 @@ export interface ImportFightPlan {
   rows: ImportedLabelRow[];
   replaced: number;
   replacedBy: ReplacedLabeler[];
+  /** Set when videoId names a different fight than the row title and round. */
+  conflict: ImportConflictView | null;
+}
+
+/** Events plus one for each assignment that would be removed with no events yet. */
+export function replacementWeight(items: { count: number }[]): number {
+  return items.reduce((sum, item) => sum + item.count + (item.count === 0 ? 1 : 0), 0);
 }
 
 export type PlanModelLabelImportResult =
-  | { ok: true; fights: ImportFightPlan[]; totalIncoming: number; totalReplaced: number }
+  | { ok: true; fights: ImportFightPlan[]; totalIncoming: number; totalReplaced: number; needsOverride: boolean }
   | { ok: false; error: string; fights: []; unmatched: UnmatchedFight[] };
 
 export interface UnmatchedFight {
@@ -348,30 +366,81 @@ function disagreement(row: ImportedLabelRow, fight: FightCandidate): string | nu
   return `videoId ${row.videoId} is "${fight.title}" round ${fight.round}, but the row disagrees (${problems.join('; ')}). Nothing was imported.`;
 }
 
-function matchFight(
-  row: ImportedLabelRow,
+function groupKey(row: ImportedLabelRow): string {
+  const title = normTitle(row.fightTitle || row.videoTitle || row.externalFightTitle);
+  return `${title}|${row.round ?? ''}`;
+}
+
+function uniqueFights(fights: FightCandidate[]): FightCandidate[] {
+  const seen = new Set<string>();
+  return fights.filter((fight) => {
+    if (seen.has(fight.id)) return false;
+    seen.add(fight.id);
+    return true;
+  });
+}
+
+/**
+ * Rows are already one title + round. videoId is checked against that title and round.
+ * A repeated id across rounds does not pull every row onto the id's fight.
+ */
+function resolveGroup(
+  rows: ImportedLabelRow[],
   fights: FightCandidate[],
-): { fight: FightCandidate } | { error: string } {
-  if (row.videoId) {
-    const byId = fights.find((fight) => fight.id === row.videoId);
-    if (byId) {
-      const conflict = disagreement(row, byId);
-      if (conflict) return { error: conflict };
-      return { fight: byId };
-    }
-  }
-  const byTitle = fightsMatchingTitle(row, fights);
-  if (byTitle.length === 1) return { fight: byTitle[0] };
+): { fight: FightCandidate; conflict: ImportConflictView | null } | { error: string } {
+  const sample = rows[0];
+  const byTitle = fightsMatchingTitle(sample, fights);
   if (byTitle.length > 1) {
     return {
-      error: `More than one fight matches "${row.fightTitle || row.videoTitle}" round ${row.round}. Nothing was imported.`,
+      error: `More than one fight matches "${sample.fightTitle || sample.videoTitle}" round ${sample.round}. Nothing was imported.`,
     };
   }
-  const title = row.fightTitle || row.videoTitle || row.externalFightTitle || '(no title)';
-  const idBit = row.videoId ? `videoId ${row.videoId}` : 'no videoId';
-  const roundBit = row.round == null ? 'no round' : `round ${row.round}`;
+  const titleMatch = byTitle[0] ?? null;
+  const idFights = uniqueFights(
+    rows
+      .map((row) => fights.find((fight) => row.videoId && fight.id === row.videoId))
+      .filter((fight): fight is FightCandidate => Boolean(fight)),
+  );
+  const disagreeing = idFights.filter((fight) => disagreement(sample, fight));
+  const csvTitle = sample.fightTitle || sample.videoTitle || sample.externalFightTitle || '(no title)';
+
+  if (titleMatch && disagreeing.length === 0) {
+    const agreed = idFights.find((fight) => !disagreement(sample, fight));
+    return { fight: agreed && agreed.id === titleMatch.id ? agreed : titleMatch, conflict: null };
+  }
+
+  if (titleMatch && disagreeing.length > 0) {
+    const other = disagreeing[0];
+    return {
+      fight: titleMatch,
+      conflict: {
+        csvTitle,
+        csvRound: sample.round,
+        videoId: sample.videoId || other.id,
+        videoIdFightTitle: other.title,
+        videoIdFightRound: other.round,
+        writeTitle: titleMatch.title,
+        writeRound: titleMatch.round,
+        writeVideoId: titleMatch.id,
+      },
+    };
+  }
+
+  if (!titleMatch && disagreeing.length > 0) {
+    const other = disagreeing[0];
+    return {
+      error: `videoId ${sample.videoId || other.id} is "${other.title}" round ${other.round}, but the CSV says "${csvTitle}" round ${sample.round ?? '?'}, and that fight is not in the app. Nothing was imported.`,
+    };
+  }
+
+  if (!titleMatch && idFights.length === 1 && disagreeing.length === 0) {
+    return { fight: idFights[0], conflict: null };
+  }
+
+  const idBit = sample.videoId ? `videoId ${sample.videoId}` : 'no videoId';
+  const roundBit = sample.round == null ? 'no round' : `round ${sample.round}`;
   return {
-    error: `No fight matches ${idBit}, "${title}", ${roundBit}. Nothing was imported.`,
+    error: `No fight matches ${idBit}, "${csvTitle}", ${roundBit}. Nothing was imported.`,
   };
 }
 
@@ -380,30 +449,43 @@ export function planModelLabelImport(
   fights: FightCandidate[],
   existing: ExistingAssignmentSummary[] = [],
 ): PlanModelLabelImportResult {
-  const buckets = new Map<string, { video: FightCandidate; rows: ImportedLabelRow[] }>();
+  const groups = new Map<string, ImportedLabelRow[]>();
+  for (const row of rows) {
+    const key = groupKey(row);
+    const list = groups.get(key) ?? [];
+    list.push(row);
+    groups.set(key, list);
+  }
+
+  const buckets = new Map<string, { video: FightCandidate; rows: ImportedLabelRow[]; conflict: ImportConflictView | null }>();
   const unmatched = new Map<string, UnmatchedFight>();
   let matchError = '';
 
-  for (const row of rows) {
-    const matched = matchFight(row, fights);
-    if ('error' in matched) {
-      matchError = matchError || matched.error;
-      const key = `${row.videoId}|${row.fightTitle}|${row.videoTitle}|${row.round ?? ''}`;
-      const prior = unmatched.get(key);
-      if (prior) prior.rows += 1;
-      else {
-        unmatched.set(key, {
-          videoId: row.videoId,
-          title: row.fightTitle || row.videoTitle,
-          round: row.round,
-          rows: 1,
-        });
-      }
+  for (const groupRows of groups.values()) {
+    const resolved = resolveGroup(groupRows, fights);
+    if ('error' in resolved) {
+      matchError = matchError || resolved.error;
+      const sample = groupRows[0];
+      const key = `${sample.videoId}|${sample.fightTitle}|${sample.videoTitle}|${sample.round ?? ''}`;
+      unmatched.set(key, {
+        videoId: sample.videoId,
+        title: sample.fightTitle || sample.videoTitle,
+        round: sample.round,
+        rows: groupRows.length,
+      });
       continue;
     }
-    const bucket = buckets.get(matched.fight.id);
-    if (bucket) bucket.rows.push(row);
-    else buckets.set(matched.fight.id, { video: matched.fight, rows: [row] });
+    const bucket = buckets.get(resolved.fight.id);
+    if (bucket) {
+      bucket.rows.push(...groupRows);
+      bucket.conflict = bucket.conflict ?? resolved.conflict;
+    } else {
+      buckets.set(resolved.fight.id, {
+        video: resolved.fight,
+        rows: [...groupRows],
+        conflict: resolved.conflict,
+      });
+    }
   }
 
   if (unmatched.size > 0) {
@@ -418,19 +500,6 @@ export function planModelLabelImport(
   const plans: ImportFightPlan[] = [];
   for (const bucket of buckets.values()) {
     const labelTypes = [...new Set(bucket.rows.map((row) => row.labelType))];
-    for (const labelType of labelTypes) {
-      const names = [
-        ...new Set(bucket.rows.filter((row) => row.labelType === labelType).map((row) => row.labeledBy)),
-      ];
-      if (names.length > 1) {
-        return {
-          ok: false,
-          error: `${bucket.video.title} round ${bucket.video.round} has more than one labeledBy for ${labelType} (${names.join(', ')}). Import one labeler per label type so QC opens that assignment. Nothing was imported.`,
-          fights: [],
-          unmatched: [],
-        };
-      }
-    }
     const labeledBy = [...new Set(bucket.rows.map((row) => row.labeledBy))];
     const relevant = existing.filter(
       (assignment) =>
@@ -449,8 +518,9 @@ export function planModelLabelImport(
       labelTypes,
       labeledBy,
       rows: bucket.rows,
-      replaced: replacedBy.reduce((sum, item) => sum + item.count, 0),
+      replaced: replacementWeight(replacedBy),
       replacedBy,
+      conflict: bucket.conflict,
     });
   }
 
@@ -459,5 +529,6 @@ export function planModelLabelImport(
     fights: plans,
     totalIncoming: rows.length,
     totalReplaced: plans.reduce((sum, fight) => sum + fight.replaced, 0),
+    needsOverride: plans.some((fight) => fight.conflict != null),
   };
 }

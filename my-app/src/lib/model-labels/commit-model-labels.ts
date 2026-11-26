@@ -14,6 +14,7 @@ import {
   type ImportFightPlan,
   type ImportLabelType,
 } from './parse-model-labels';
+import { writeImportedLabels } from './write-imported-labels';
 
 export class ImportConflictError extends Error {
   constructor(message: string) {
@@ -26,6 +27,7 @@ export interface ModelLabelPreview {
   ok: true;
   totalIncoming: number;
   totalReplaced: number;
+  needsOverride: boolean;
   fights: Array<{
     videoId: string;
     title: string;
@@ -35,6 +37,7 @@ export interface ModelLabelPreview {
     incoming: number;
     replaced: number;
     replacedBy: ImportFightPlan['replacedBy'];
+    conflict: ImportFightPlan['conflict'];
   }>;
 }
 
@@ -42,11 +45,12 @@ export type ModelLabelPlanResult =
   | ModelLabelPreview
   | { ok: false; status: number; error: string };
 
-function presentPlan(plan: { fights: ImportFightPlan[]; totalIncoming: number; totalReplaced: number }): ModelLabelPreview {
+function presentPlan(plan: { fights: ImportFightPlan[]; totalIncoming: number; totalReplaced: number; needsOverride: boolean }): ModelLabelPreview {
   return {
     ok: true,
     totalIncoming: plan.totalIncoming,
     totalReplaced: plan.totalReplaced,
+    needsOverride: plan.needsOverride,
     fights: plan.fights.map((fight) => ({
       videoId: fight.video.id,
       title: fight.video.title,
@@ -56,6 +60,7 @@ function presentPlan(plan: { fights: ImportFightPlan[]; totalIncoming: number; t
       incoming: fight.rows.length,
       replaced: fight.replaced,
       replacedBy: fight.replacedBy,
+      conflict: fight.conflict,
     })),
   };
 }
@@ -134,12 +139,21 @@ async function assertModelAccounts(fights: ImportFightPlan[]): Promise<string | 
 export async function commitModelLabels(
   csv: string,
   expectedReplaced?: number,
+  overrideDisagreement = false,
 ): Promise<
   | { ok: true; imported: number; replaced: number; preview: ModelLabelPreview }
   | { ok: false; status: number; error: string }
 > {
   const built = await buildModelLabelPlan(csv);
   if (!built.ok) return built;
+
+  if (built.preview.needsOverride && !overrideDisagreement) {
+    return {
+      ok: false,
+      status: 409,
+      error: 'The CSV videoId names a different fight than the title and round. Confirm that override to import. Nothing was imported.',
+    };
+  }
 
   if (expectedReplaced !== undefined && expectedReplaced !== built.preview.totalReplaced) {
     return {
@@ -181,7 +195,7 @@ export async function commitModelLabels(
             FOR UPDATE
           `;
         }
-        replaced += await tx.event.count({
+        const eventCount = await tx.event.count({
           where: {
             assignment: {
               videoId: fight.video.id,
@@ -189,6 +203,14 @@ export async function commitModelLabels(
             },
           },
         });
+        const emptyAssignments = await tx.videoAssignment.count({
+          where: {
+            videoId: fight.video.id,
+            labelType: { in: fight.labelTypes },
+            events: { none: {} },
+          },
+        });
+        replaced += eventCount + emptyAssignments;
       }
       if (expectedReplaced !== undefined && replaced !== expectedReplaced) {
         throw new ImportConflictError(
@@ -198,12 +220,18 @@ export async function commitModelLabels(
 
       const accountByName = new Map<string, { id: string; email: string; username: string }>();
       for (const name of names) {
-        const existing = await tx.user.findUnique({ where: { username: name } });
+        const existing =
+          (await tx.user.findUnique({ where: { username: name } })) ||
+          (await tx.user.findUnique({ where: { id: name } }));
         if (existing) {
           if (existing.accountType !== 'MODEL') {
             throw new Error(`"${name}" is already a ${existing.accountType} account. Nothing was imported.`);
           }
-          accountByName.set(name, existing);
+          accountByName.set(name, {
+            id: existing.id,
+            email: existing.email,
+            username: existing.username,
+          });
           continue;
         }
         const created = await tx.user.create({
@@ -217,64 +245,7 @@ export async function commitModelLabels(
         accountByName.set(name, created);
       }
 
-      let imported = 0;
-      for (const fight of built.fights) {
-        await tx.videoAssignment.deleteMany({
-          where: { videoId: fight.video.id, labelType: { in: fight.labelTypes } },
-        });
-
-        const buckets = new Map<string, typeof fight.rows>();
-        for (const row of fight.rows) {
-          const key = `${row.labeledBy}\0${row.labelType}`;
-          const list = buckets.get(key) ?? [];
-          list.push(row);
-          buckets.set(key, list);
-        }
-
-        for (const bucket of buckets.values()) {
-          const first = bucket[0];
-          const account = accountByName.get(first.labeledBy);
-          if (!account) throw new Error(`Missing model account for ${first.labeledBy}`);
-          const assignment = await tx.videoAssignment.create({
-            data: {
-              videoId: fight.video.id,
-              userId: account.id,
-              videoTitle: fight.video.title,
-              labelType: first.labelType,
-              status: 'SUBMITTED',
-              userEmail: account.email,
-              username: account.username,
-              submittedAt: new Date(),
-              notes: `Imported model labels for ${account.username}`,
-            },
-          });
-          await tx.event.createMany({
-            data: bucket.map((row) => ({
-              assignmentId: assignment.id,
-              startTime: row.event.startTime,
-              endTime: row.event.endTime,
-              boxer: row.event.boxer,
-              punchType: row.event.punchType,
-              hand: row.event.hand,
-              target: row.event.target,
-              visibilityFlags: row.event.visibilityFlags,
-              knockdown: row.event.knockdown,
-              punchQuality: row.event.punchQuality,
-              cam: row.event.cam,
-              stance: row.event.stance,
-              landed: row.event.landed,
-              punchResult: row.event.punchResult,
-              defenseType: row.event.defenseType,
-              flagged: false,
-              labeledBy: account.id,
-              labeledByEmail: account.email,
-              fightTitle: fight.video.title,
-              ...(row.event.createdAt ? { createdAt: new Date(row.event.createdAt) } : {}),
-            })),
-          });
-          imported += bucket.length;
-        }
-      }
+      const imported = await writeImportedLabels(tx as unknown as Parameters<typeof writeImportedLabels>[0], built.fights, accountByName);
 
       return { imported, replaced };
     }, { timeout: 20_000 });

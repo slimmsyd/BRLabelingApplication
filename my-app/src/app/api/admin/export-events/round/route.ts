@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getSession } from '@/lib/session';
+import { exportHand, exportPunchResult, exportTarget } from '@/lib/punch-fields';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -137,10 +138,10 @@ export async function GET(request: NextRequest) {
       fps: e.assignment.video.fps,
       boxer: e.boxer,
       punchType: e.punchType,
-      hand: e.hand,
+      hand: exportHand(e.hand),
       stance: e.stance,
-      target: e.target,
-      punchResult: e.punchResult,
+      target: exportTarget(e.target),
+      punchResult: exportPunchResult(e.punchResult, e.landed),
       defenseType: e.defenseType,
       punchQuality: e.punchQuality,
       knockdown: e.knockdown,
@@ -151,7 +152,7 @@ export async function GET(request: NextRequest) {
       endTime: e.endTime,
       labelType: e.assignment.labelType,
       labeledByEmail: e.labeledByEmail,
-      labeledBy: e.labeledBy,
+      labeledBy: e.assignment.username || e.labeledBy,
       assignmentStatus: e.assignment.status,
       createdAt: e.createdAt.toISOString(),
       updatedAt: e.updatedAt.toISOString(),

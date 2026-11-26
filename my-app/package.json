@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test": "tsx --test src/lib/punch-fields.test.ts src/lib/model-labels/model-label-import.test.ts",
+    "test": "tsx --test src/lib/punch-fields.test.ts src/lib/model-labels/model-label-import.test.ts src/lib/model-labels/import-access.test.ts src/lib/model-labels/assignment-lookup.test.ts src/lib/model-labels/write-imported-labels.test.ts",
     "generate-icons": "./scripts/generate-icons.sh",
     "postinstall": "prisma generate"
   },

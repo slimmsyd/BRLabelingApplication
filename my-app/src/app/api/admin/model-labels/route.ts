@@ -1,18 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getSession } from '@/lib/session';
-import { canAssignRounds } from '@/lib/permissions';
 import { buildModelLabelPlan, commitModelLabels } from '@/lib/model-labels/commit-model-labels';
+import { canImportModelLabels } from '@/lib/model-labels/import-access';
 
 export const dynamic = 'force-dynamic';
 
 const MAX_CSV_CHARS = 2_000_000;
 
-function canImportModelLabels(user: { accountType: string; email: string }): boolean {
-  return user.accountType === 'ADMIN' || canAssignRounds(user.email);
-}
-
-async function readCsv(request: NextRequest): Promise<{ csv: string; confirm: boolean; expectedReplaced?: number } | { error: string }> {
+async function readCsv(request: NextRequest): Promise<{ csv: string; confirm: boolean; expectedReplaced?: number; overrideDisagreement: boolean } | { error: string }> {
   const contentType = request.headers.get('content-type') || '';
   if (contentType.includes('application/json')) {
     const body = await request.json();
@@ -22,6 +18,7 @@ async function readCsv(request: NextRequest): Promise<{ csv: string; confirm: bo
       csv,
       confirm: body.confirm === true,
       expectedReplaced: typeof expected === 'number' ? expected : undefined,
+      overrideDisagreement: body.overrideDisagreement === true,
     };
   }
 
@@ -38,6 +35,7 @@ async function readCsv(request: NextRequest): Promise<{ csv: string; confirm: bo
     csv,
     confirm: form.get('confirm') === 'true',
     expectedReplaced: expectedReplaced !== undefined && Number.isFinite(expectedReplaced) ? expectedReplaced : undefined,
+    overrideDisagreement: form.get('overrideDisagreement') === 'true',
   };
 }
 
@@ -87,7 +85,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const committed = await commitModelLabels(input.csv, input.expectedReplaced);
+    const committed = await commitModelLabels(input.csv, input.expectedReplaced, input.overrideDisagreement);
     if (!committed.ok) {
       return NextResponse.json({ error: committed.error }, { status: committed.status });
     }

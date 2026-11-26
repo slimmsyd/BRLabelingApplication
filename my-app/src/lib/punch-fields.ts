@@ -217,6 +217,35 @@ export function toExternalPunchResult(
   return emptyMeansLanded ? 'Landed' : null;
 }
 
+/**
+ * Admin CSV columns. Codes are what the importer reads back:
+ * hand L/R, result I/M (other offense results stay as written), target Head/Body.
+ * labeledBy in those CSVs is the account username, not the internal id.
+ */
+export function exportHand(hand: string | null | undefined): string {
+  return parseHand(hand) || (hand ?? '').trim();
+}
+
+export function exportTarget(target: string | null | undefined): string {
+  return parseTarget(target) || (target ?? '').trim();
+}
+
+export function exportPunchResult(
+  punchResult: string | null | undefined,
+  landed?: boolean | null,
+): string {
+  const mapped = mapPunchResult(punchResult, punchResult ? null : landed);
+  if (!mapped.ok) return (punchResult ?? '').trim();
+  return mapped.punchResult ?? '';
+}
+
+export function exportResultWord(punchResult: string | null | undefined, landed?: boolean | null): string {
+  const code = exportPunchResult(punchResult, landed);
+  if (code === 'I') return 'landed';
+  if (code === 'M') return 'missed';
+  return code.toLowerCase();
+}
+
 /** Clip filters ask for Left/Right. Match the L/R codes as well. */
 export function handFilterValues(hand: string): string[] | null {
   const code = parseHand(hand);

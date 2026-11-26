@@ -250,13 +250,23 @@ describe('matching a model CSV to an existing fight', () => {
     );
     assert.equal(repeated.ok, true);
     if (!repeated.ok) return;
-    const folded = planModelLabelImport(repeated.rows, [round1, round2]);
-    assert.equal(folded.ok, false);
-    if (folded.ok) return;
-    assert.equal(folded.fights.length, 0);
+    const split = planModelLabelImport(repeated.rows, [round1, round2]);
+    assert.equal(split.ok, true);
+    if (!split.ok) return;
+    assert.equal(split.fights.length, 2);
+    assert.equal(split.needsOverride, true);
+    const first = split.fights.find((fight) => fight.video.id === 'round-1-id');
+    const second = split.fights.find((fight) => fight.video.id === 'round-2-id');
+    assert.equal(first?.rows.length, 1);
+    assert.equal(first?.conflict, null);
+    assert.equal(second?.rows.length, 1);
+    assert.equal(second?.rows[0].event.punchType, 'Cross');
+    assert.equal(second?.conflict?.videoIdFightTitle, 'Real Fight - R1');
+    assert.equal(second?.conflict?.writeTitle, 'Real Fight - R2');
+    assert.equal(second?.conflict?.csvRound, 2);
   });
 
-  it('rejects two labelers on the same label type and lists empty assignments', () => {
+  it('keeps two labelers on one fight and counts an empty assignment', () => {
     const header = 'videoId,fightTitle,round,labeledBy,punchType,startTime,labelType';
     const parsed = parseModelLabelCsv(
       [
@@ -269,7 +279,9 @@ describe('matching a model CSV to an existing fight', () => {
     if (!parsed.ok) return;
     const fight: FightCandidate = { id: 'vid-1', title: 'Fight A - R1', round: 1, externalFightTitle: null };
     const two = planModelLabelImport(parsed.rows, [fight]);
-    assert.equal(two.ok, false);
+    assert.equal(two.ok, true);
+    if (!two.ok) return;
+    assert.deepEqual(two.fights[0].labeledBy.sort(), ['Modelv18', 'Modelv19']);
 
     const one = parseModelLabelCsv(
       [header, 'vid-1,Fight A - R1,1,Modelv18,Jab,00:01.00,OFFENSE'].join('\n'),
@@ -296,7 +308,7 @@ describe('matching a model CSV to an existing fight', () => {
     ]);
     assert.equal(plan.ok, true);
     if (!plan.ok) return;
-    assert.equal(plan.totalReplaced, 3);
+    assert.equal(plan.totalReplaced, 4);
     assert.equal(plan.fights[0].replacedBy.length, 2);
     assert.equal(plan.fights[0].replacedBy[0].status, 'IN_PROGRESS');
     assert.equal(plan.fights[0].replacedBy[0].count, 0);

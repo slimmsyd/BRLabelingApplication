@@ -94,13 +94,16 @@ const EventRow = ({
     punchTagMode?: boolean,
 }) => (
     <div
-        onClick={() => !readOnly && !punchTagMode && onSelectEvent?.(event)}
+        onClick={() => {
+            if (readOnly) return;
+            onSelectEvent?.(event);
+        }}
         className={`group relative transition-all duration-200 p-3 flex items-start gap-4 rounded-lg ${isEditing
             ? 'bg-gradient-to-r from-orange-500/20 to-red-500/20 border-2 border-orange-500 ring-2 ring-orange-500/30 shadow-lg shadow-orange-500/10'
             : isLatest
                 ? 'bg-accent-primary/10 border border-accent-primary/30 ring-1 ring-accent-primary/20'
                 : 'hover:bg-white/5 border border-transparent'
-            } ${!readOnly && !punchTagMode ? 'cursor-pointer' : ''}`}
+            } ${!readOnly ? 'cursor-pointer' : ''}`}
     >
         {/* Editing badge - takes priority over Latest */}
         {isEditing && (

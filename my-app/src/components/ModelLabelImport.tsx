@@ -20,12 +20,22 @@ interface FightPreview {
   incoming: number;
   replaced: number;
   replacedBy: ReplacedLabeler[];
+  conflict: {
+    csvTitle: string;
+    csvRound: number | null;
+    videoId: string;
+    videoIdFightTitle: string;
+    videoIdFightRound: number;
+    writeTitle: string;
+    writeRound: number;
+  } | null;
 }
 
 interface PreviewResponse {
   preview: true;
   totalIncoming: number;
   totalReplaced: number;
+  needsOverride: boolean;
   fights: FightPreview[];
 }
 
@@ -51,7 +61,10 @@ export function ModelLabelImport() {
       const body = new FormData();
       body.set('file', file);
       body.set('confirm', confirm ? 'true' : 'false');
-      if (confirm && preview) body.set('expectedReplaced', String(preview.totalReplaced));
+      if (confirm && preview) {
+        body.set('expectedReplaced', String(preview.totalReplaced));
+        if (preview.needsOverride) body.set('overrideDisagreement', 'true');
+      }
       const response = await fetch('/api/admin/model-labels', { method: 'POST', body });
       const data = await response.json();
       if (!response.ok) {
@@ -119,6 +132,13 @@ export function ModelLabelImport() {
                 <p className="text-foreground-secondary">
                   {fight.incoming} labels from {fight.labeledBy.join(', ')} ({fight.labelTypes.join(', ')}).
                 </p>
+                {fight.conflict && (
+                  <div className="rounded-md border border-border bg-background/60 p-2 space-y-1">
+                    <p>CSV fight: {fight.conflict.csvTitle} · round {fight.conflict.csvRound ?? '?'}</p>
+                    <p>videoId {fight.conflict.videoId} is {fight.conflict.videoIdFightTitle} · round {fight.conflict.videoIdFightRound}</p>
+                    <p>Write target: {fight.conflict.writeTitle} · round {fight.conflict.writeRound}. The videoId fight is not overwritten.</p>
+                  </div>
+                )}
                 {fight.replacedBy.length > 0 ? (
                   <div className="space-y-1">
                     <p>

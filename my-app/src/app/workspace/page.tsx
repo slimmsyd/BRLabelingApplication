@@ -119,6 +119,7 @@ function WorkspacePage() {
     const searchParams = useSearchParams();
     const videoId = searchParams.get('videoId');
     const labelTypeParam = searchParams.get('labelType') || 'OFFENSE';
+    const assignmentIdParam = searchParams.get('assignmentId');
     const [videoData, setVideoData] = useState<VideoData | null>(null);
     const [videoLoading, setVideoLoading] = useState(true);
     const [videoError, setVideoError] = useState<string | null>(null);
@@ -238,10 +239,8 @@ function WorkspacePage() {
                     punchResult: e.punchResult || undefined,
                 }));
                 setEvents(eventsWithIds);
-                if (labelTypeParam === 'PUNCH_TAG') {
-                    const ids = [...eventsWithIds].reverse().map((event) => event.id);
-                    setTimeout(() => seedPunchTagsRef.current(ids), 0);
-                }
+                const ids = [...eventsWithIds].reverse().map((event) => event.id);
+                setTimeout(() => seedPunchTagsRef.current(ids), 0);
             }
         }
 
@@ -302,8 +301,10 @@ function WorkspacePage() {
             if (!videoId) return;
 
             try {
+                const assignmentQuery = new URLSearchParams({ labelType: labelTypeParam });
+                if (assignmentIdParam) assignmentQuery.set('assignmentId', assignmentIdParam);
                 const response = await fetch(
-                    `/api/videos/${videoId}/assignment?labelType=${encodeURIComponent(labelTypeParam)}`,
+                    `/api/videos/${videoId}/assignment?${assignmentQuery.toString()}`,
                 );
                 if (response.ok) {
                     const data = await response.json();
@@ -328,7 +329,7 @@ function WorkspacePage() {
         };
 
         fetchAssignment();
-    }, [videoId, labelTypeParam]); // Removed user dependency to allow fetching before user loads, and to get global state
+    }, [videoId, labelTypeParam, assignmentIdParam]); // Removed user dependency to allow fetching before user loads, and to get global state
 
     // Fetch saved events from database when assignment is loaded
     useEffect(() => {
@@ -371,10 +372,8 @@ function WorkspacePage() {
                             updatedAt: e.updatedAt,
                         }));
                         setEvents(dbEvents);
-                        if (labelTypeParam === 'PUNCH_TAG') {
-                            const ids = dbEvents.map((event) => event.id);
-                            setTimeout(() => seedPunchTagsRef.current(ids), 0);
-                        }
+                        const ids = dbEvents.map((event) => event.id);
+                        setTimeout(() => seedPunchTagsRef.current(ids), 0);
                         // Note: Don't set isSubmitted here - that's determined by assignment.status
                         // Having events in DB just means progress was saved, not necessarily submitted
                         console.log(`Loaded ${dbEvents.length} events from database`);
@@ -1173,18 +1172,52 @@ function WorkspacePage() {
     }, []);
 
     const handleSetPunchTagHand = React.useCallback((tagId: string, hand: HandCode) => {
-        if (!punchTagModeRef.current) return;
-        patchPunchTag(tagId, { hand });
+        if (punchTagModeRef.current) {
+            patchPunchTag(tagId, { hand });
+            return;
+        }
+        setEvents((prev) => prev.map((event) => {
+            if (event.id !== tagId) return event;
+            const nextHand = event.hand === 'L' || event.hand === 'R' ? hand : (hand === 'L' ? 'Left' : 'Right');
+            setHand(nextHand);
+            return {
+                ...event,
+                hand: nextHand,
+                details: offenseEventDetails(event.punchType, nextHand, event.target, event.stance || 'Orthodox', event.visibilityFlags),
+            };
+        }));
     }, [patchPunchTag]);
 
     const handleSetPunchTagResult = React.useCallback((tagId: string, result: ResultCode) => {
-        if (!punchTagModeRef.current) return;
-        patchPunchTag(tagId, { punchResult: result, landed: result === 'I' });
+        if (punchTagModeRef.current) {
+            patchPunchTag(tagId, { punchResult: result, landed: result === 'I' });
+            return;
+        }
+        setEvents((prev) => prev.map((event) => {
+            if (event.id !== tagId) return event;
+            const usesCode = event.punchResult === 'I' || event.punchResult === 'M';
+            const punchResult = result === 'I' ? (usesCode ? 'I' : 'Landed') : (usesCode ? 'M' : 'Missed');
+            const landed = result === 'I';
+            setPunchResult(punchResult);
+            setLanded(landed);
+            return { ...event, punchResult, landed };
+        }));
     }, [patchPunchTag]);
 
     const handleSetPunchTagTarget = React.useCallback((tagId: string, target: TargetName) => {
-        if (!punchTagModeRef.current) return;
-        patchPunchTag(tagId, { target });
+        if (punchTagModeRef.current) {
+            patchPunchTag(tagId, { target });
+            return;
+        }
+        setTarget(target);
+        setEvents((prev) => prev.map((event) => {
+            if (event.id !== tagId) return event;
+            return {
+                ...event,
+                target,
+                details: offenseEventDetails(event.punchType, event.hand, target, event.stance || 'Orthodox', event.visibilityFlags),
+            };
+        }));
     }, [patchPunchTag]);
 
     const handleRefinePunchTag = React.useCallback((tagId: string, type: PunchTagType) => {
@@ -1234,9 +1267,9 @@ function WorkspacePage() {
         setEvents((prev) => prev.filter((event) => event.id !== tagId));
     }, []);
 
-    const { dispatchCode: dispatchPunchTagCode, seedTags: seedPunchTags } = usePunchTagHotkeys({
+    const { dispatchCode: dispatchPunchTagCode, seedTags: seedPunchTags, selectTag: selectPunchTag } = usePunchTagHotkeys({
         enabled: !isReadOnly,
-        modifiersEnabled: isPunchTagMode,
+        modifiersEnabled: true,
         onCreateTag: handleCreatePunchTag,
         onRefineTag: handleRefinePunchTag,
         onSetHand: handleSetPunchTagHand,
@@ -1533,7 +1566,7 @@ function WorkspacePage() {
                                 readOnly={isReadOnly}
                                 onSeek={handleSeek}
                                 onSeekEnd={handleSeekEnd}
-                                onSelectEvent={isPunchTagMode ? undefined : handleSelectEvent}
+                                onSelectEvent={isPunchTagMode ? (event) => selectPunchTag(event.id) : handleSelectEvent}
                                 boxerNames={boxerNames}
                                 selectedEventId={selectedEventId}
                                 filterBarRef={filterBarRef}

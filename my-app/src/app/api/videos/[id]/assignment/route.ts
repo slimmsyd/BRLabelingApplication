@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { assignmentLookup } from '@/lib/model-labels/assignment-lookup';
 
 /**
  * GET /api/videos/[id]/assignment
@@ -13,21 +14,14 @@ export async function GET(
     const { id: videoId } = await params;
     const { searchParams } = new URL(request.url);
     const userId = searchParams.get('userId');
-    const labelType = searchParams.get('labelType') as any || 'OFFENSE';
+    const assignmentId = searchParams.get('assignmentId');
+    const labelType = searchParams.get('labelType') || 'OFFENSE';
+    const lookup = assignmentLookup({ videoId, labelType, assignmentId, userId });
 
-    const whereClause: any = {
-      videoId,
-      labelType, // Default to OFFENSE to check main assignment
-    };
-
-    // If userId provided, check specifically for that user
-    if (userId) {
-      whereClause.userId = userId;
-    }
-
-    // Get assignment with explicit field selection
+    // Get assignment with explicit field selection. Newest wins when no id is given.
     const assignment = await prisma.videoAssignment.findFirst({
-      where: whereClause,
+      where: lookup.where,
+      orderBy: lookup.orderBy,
       select: {
         id: true,
         videoId: true,

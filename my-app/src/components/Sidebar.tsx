@@ -23,6 +23,14 @@ interface Assignment {
     user?: { accountType?: string };
 }
 
+function workspaceHref(assignment: Assignment): string {
+    const params = new URLSearchParams();
+    params.set('videoId', assignment.video.id);
+    if (assignment.labelType) params.set('labelType', assignment.labelType);
+    params.set('assignmentId', assignment.id);
+    return `/workspace?${params.toString()}`;
+}
+
 interface SidebarProps {
     isOpen: boolean;
     toggle: () => void;
@@ -304,11 +312,7 @@ const Sidebar = ({ isOpen, toggle, mobileOpen = false, onMobileClose }: SidebarP
                                         filteredAwaitingQC.map((assignment) => (
                                             <Link
                                                 key={assignment.id}
-                                                href={
-                                                    assignment.labelType === 'PUNCH_TAG'
-                                                        ? `/workspace?videoId=${assignment.video.id}&labelType=PUNCH_TAG`
-                                                        : `/workspace?videoId=${assignment.video.id}`
-                                                }
+                                                href={workspaceHref(assignment)}
                                                 className={`w-full flex flex-col gap-1.5 px-3 py-2 rounded-lg text-sm hover:bg-white/5 transition-colors cursor-pointer ${!expanded && 'hidden'}`}
                                             >
                                                 <div className="flex items-center gap-2">
@@ -393,11 +397,7 @@ const Sidebar = ({ isOpen, toggle, mobileOpen = false, onMobileClose }: SidebarP
                                             return (
                                                 <Link
                                                     key={assignment.id}
-                                                    href={
-                                                        assignment.labelType === 'PUNCH_TAG'
-                                                            ? `/workspace?videoId=${assignment.video.id}&labelType=PUNCH_TAG`
-                                                            : `/workspace?videoId=${assignment.video.id}`
-                                                    }
+                                                    href={workspaceHref(assignment)}
                                                     className={`w-full flex flex-col gap-1.5 px-3 py-2 rounded-lg text-sm hover:bg-white/5 transition-colors cursor-pointer ${!expanded && 'hidden'}`}
                                                 >
                                                     <div className="flex items-center gap-2">

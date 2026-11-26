@@ -252,7 +252,11 @@ export default function ClipExportPanel() {
                     const blob = new Blob([data], { type: 'video/mp4' });
 
                     // Build a descriptive filename
-                    const resultStr = (event.punchResult || (event.landed === true ? 'landed' : 'missed')).toLowerCase();
+                    const resultStr = event.punchResult === 'I' || event.punchResult === 'Landed' || (!event.punchResult && event.landed === true)
+                        ? 'landed'
+                        : event.punchResult === 'M' || event.punchResult === 'Missed' || (!event.punchResult && event.landed === false)
+                            ? 'missed'
+                            : (event.punchResult || 'unset').toLowerCase();
                     // Resolve "Boxer A"/"Boxer B" to real names using video data
                     let boxerStr = event.boxer || 'unknown';
                     if (boxerStr === 'Boxer A' && event.boxer1) boxerStr = event.boxer1;

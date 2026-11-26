@@ -8,6 +8,7 @@ import {
   isPunchTagCode,
   isPunchTagModifierCode,
   nextPunchTagState,
+  selectPunchTag,
   type PunchTagHotkeyState,
 } from '@/lib/punch-tag/punch-tag-state';
 import { generateId } from '@/lib/client-utils';
@@ -34,7 +35,7 @@ export interface UsePunchTagHotkeysOptions {
  */
 export function usePunchTagHotkeys({
   enabled,
-  modifiersEnabled = false,
+  modifiersEnabled = true,
   onCreateTag,
   onRefineTag,
   onSetHand,
@@ -42,7 +43,11 @@ export function usePunchTagHotkeys({
   onSetTarget,
   onUndoTag,
   onStateChange,
-}: UsePunchTagHotkeysOptions): { dispatchCode: (code: string) => void; seedTags: (ids: string[]) => void } {
+}: UsePunchTagHotkeysOptions): {
+  dispatchCode: (code: string) => void;
+  seedTags: (ids: string[]) => void;
+  selectTag: (tagId: string) => void;
+} {
   const stateRef = useRef(createInitialPunchTagState());
   const callbacksRef = useRef({
     onCreateTag,
@@ -143,8 +148,15 @@ export function usePunchTagHotkeys({
     const next: PunchTagHotkeyState = {
       ...createInitialPunchTagState(),
       tagStack: ids.filter(Boolean),
-      hint: ids.length ? 'L/R, I/M, 1, and 2 edit the latest saved punch.' : null,
+      activeTagId: ids.filter(Boolean).at(-1) ?? null,
+      hint: ids.length ? 'L/R, I/M, 1, and 2 edit the latest saved punch. Click a punch to correct that one.' : null,
     };
+    stateRef.current = next;
+    callbacksRef.current.onStateChange?.(next);
+  };
+
+  const selectTag = (tagId: string) => {
+    const next = selectPunchTag(stateRef.current, tagId);
     stateRef.current = next;
     callbacksRef.current.onStateChange?.(next);
   };
@@ -152,5 +164,6 @@ export function usePunchTagHotkeys({
   return {
     dispatchCode: (code: string) => dispatchRef.current(code),
     seedTags,
+    selectTag,
   };
 }

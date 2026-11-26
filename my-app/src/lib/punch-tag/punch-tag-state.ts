@@ -18,8 +18,10 @@ export interface PunchTagWindow {
 
 export interface PunchTagHotkeyState {
   refineWindow: PunchTagWindow | null;
-  /** Newest tag last. Hand, result, and target keys edit the top of this stack. */
+  /** Creation order. The last id is the newest punch. Backspace removes that one. */
   tagStack: string[];
+  /** Tag that L/R, I/M, and 1/2 edit. A click can point this at an older saved punch. */
+  activeTagId: string | null;
   lastKey: string | null;
   lastType: PunchTagType | null;
   lastHand: HandCode | null;
@@ -73,6 +75,7 @@ export function createInitialPunchTagState(): PunchTagHotkeyState {
   return {
     refineWindow: null,
     tagStack: [],
+    activeTagId: null,
     lastKey: null,
     lastType: null,
     lastHand: null,
@@ -93,7 +96,7 @@ function modifierKeyLabel(code: string): string {
 }
 
 function withActiveTag(state: PunchTagHotkeyState, code: string): PunchTagReducerResult {
-  const tagId = state.tagStack[state.tagStack.length - 1];
+  const tagId = state.activeTagId || state.tagStack[state.tagStack.length - 1];
   const template = MODIFIER_CODES[code];
   if (!tagId || !template) {
     return {
@@ -145,6 +148,7 @@ export function nextPunchTagState(
         expiresAt: now + PUNCH_TAG_REFINE_WINDOW_MS,
       },
       tagStack: [...state.tagStack, tagId],
+      activeTagId: tagId,
       lastKey: 'P',
       lastType: 'Punch',
       lastHand: null,
@@ -158,11 +162,13 @@ export function nextPunchTagState(
   if (code === 'Backspace') {
     const tagId = state.tagStack[state.tagStack.length - 1];
     if (!tagId) return { state, action: { kind: 'ignore' } };
+    const tagStack = state.tagStack.slice(0, -1);
     return {
       state: {
         ...state,
         refineWindow: null,
-        tagStack: state.tagStack.slice(0, -1),
+        tagStack,
+        activeTagId: state.activeTagId === tagId ? (tagStack[tagStack.length - 1] ?? null) : state.activeTagId,
         lastKey: null,
         lastType: null,
         lastHand: null,
@@ -199,6 +205,7 @@ export function nextPunchTagState(
           // Keep the same expiry so later letters can still refine within the window
         },
         tagStack: state.tagStack,
+        activeTagId: state.activeTagId,
         lastKey: letter,
         lastType: type,
         lastHand: state.lastHand,
@@ -215,6 +222,12 @@ export function nextPunchTagState(
   }
 
   return { state, action: { kind: 'ignore' } };
+}
+
+/** Point hand, result, and target keys at a saved punch. Backspace still removes the newest. */
+export function selectPunchTag(state: PunchTagHotkeyState, tagId: string): PunchTagHotkeyState {
+  if (!state.tagStack.includes(tagId)) return state;
+  return { ...state, activeTagId: tagId, hint: null };
 }
 
 /** Clear the refine window once its timer has elapsed (call from a tick / effect). */
