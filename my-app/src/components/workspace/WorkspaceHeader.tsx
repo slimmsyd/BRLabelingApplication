@@ -170,8 +170,17 @@ const WorkspaceHeader = ({ onSave, onSubmit, readOnly = false, isQCMode = false,
                         <div className="flex items-center gap-2 px-4 py-2 bg-surface border border-border text-foreground-secondary text-sm font-medium rounded-lg">
                             <User size={16} />
                             <span>
-                                {isCurrentUserAssigned ? 'You' : assigneeName}
+                                {assignment?.user?.accountType === 'MODEL'
+                                    ? `Labeled by ${assigneeName}`
+                                    : isCurrentUserAssigned
+                                        ? 'You'
+                                        : `Labeled by ${assigneeName}`}
                             </span>
+                            {assignment?.user?.accountType === 'MODEL' && (
+                                <span className="px-1.5 py-0.5 text-[9px] font-bold rounded border uppercase bg-fuchsia-500/10 text-fuchsia-300 border-fuchsia-500/20">
+                                    Model
+                                </span>
+                            )}
                         </div>
                     )}
 

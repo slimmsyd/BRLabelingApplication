@@ -50,6 +50,7 @@ export async function GET() {
               select: {
                 username: true,
                 email: true,
+                accountType: true,
               },
             },
             status: true,

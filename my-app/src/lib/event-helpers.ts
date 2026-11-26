@@ -45,8 +45,9 @@ export function isLandedPunchResult(
   punchResult: string | null | undefined,
   landed?: boolean | null,
 ): boolean {
-  if (punchResult) return punchResult === 'Landed';
-  return landed !== false;
+  if (punchResult === 'Landed' || punchResult === 'I') return true;
+  if (punchResult) return false;
+  return landed === true;
 }
 
 export interface ExistingEvent {

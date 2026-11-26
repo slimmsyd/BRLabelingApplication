@@ -42,6 +42,7 @@ export async function GET(
           select: {
             email: true,
             username: true,
+            accountType: true,
           },
         },
       },

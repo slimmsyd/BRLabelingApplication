@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { computeEventRowsWithPreservedTimestamps, PUNCH_RESULTS, PUNCH_TAG_TYPES } from '@/lib/event-helpers';
+import { landedMatchingResult, storedPunchTagFields } from '@/lib/punch-fields';
 
 interface EventInput {
   startTime: string;
@@ -70,24 +71,42 @@ export async function POST(
       );
     }
 
-    for (const event of events) {
-      if (event.punchResult && !PUNCH_RESULTS.includes(event.punchResult as typeof PUNCH_RESULTS[number])) {
-        return NextResponse.json(
-          { error: `Invalid punchResult: ${event.punchResult}` },
-          { status: 400 }
-        );
-      }
-    }
+    const allowedResults = new Set<string>([...PUNCH_RESULTS, 'I', 'M']);
+    const isPunchTag = assignment.labelType === 'PUNCH_TAG';
+    const normalizedEvents: EventInput[] = [];
 
-    if (assignment.labelType === 'PUNCH_TAG') {
-      for (const event of events) {
+    for (const event of events) {
+      if (isPunchTag) {
+        const stored = storedPunchTagFields(event);
+        if (!stored.ok) {
+          return NextResponse.json({ error: stored.error }, { status: 400 });
+        }
         if (!PUNCH_TAG_TYPES.includes(event.punchType as typeof PUNCH_TAG_TYPES[number])) {
           return NextResponse.json(
             { error: `Invalid punchType for Punch Tag: ${event.punchType}` },
             { status: 400 }
           );
         }
+        normalizedEvents.push({
+          ...event,
+          hand: stored.hand,
+          target: stored.target,
+          punchResult: stored.punchResult ?? undefined,
+          landed: stored.landed ?? undefined,
+        });
+        continue;
       }
+
+      if (event.punchResult && !allowedResults.has(event.punchResult)) {
+        return NextResponse.json(
+          { error: `Invalid punchResult: ${event.punchResult}` },
+          { status: 400 }
+        );
+      }
+      normalizedEvents.push({
+        ...event,
+        landed: landedMatchingResult(event.punchResult, event.landed ?? null) ?? undefined,
+      });
     }
 
     // Get fight title from video
@@ -106,7 +125,7 @@ export async function POST(
 
     const rowsToCreate = computeEventRowsWithPreservedTimestamps(
       existingEvents,
-      events,
+      normalizedEvents,
       assignmentId,
       new Date(),
       fightTitle,

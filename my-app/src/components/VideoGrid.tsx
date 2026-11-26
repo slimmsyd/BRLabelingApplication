@@ -29,6 +29,7 @@ interface Video {
             id: string;
             username: string | null;
             email: string;
+            accountType?: string;
         };
         status: string;
     }>;

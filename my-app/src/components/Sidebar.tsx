@@ -20,6 +20,7 @@ interface Assignment {
     status: string;
     updatedAt: string;
     username?: string;
+    user?: { accountType?: string };
 }
 
 interface SidebarProps {
@@ -330,7 +331,12 @@ const Sidebar = ({ isOpen, toggle, mobileOpen = false, onMobileClose }: SidebarP
                                                     </span>
                                                     {assignment.username && (
                                                         <span className="text-[9px] text-foreground-secondary truncate">
-                                                            {assignment.username}
+                                                            Labeled by {assignment.username}
+                                                        </span>
+                                                    )}
+                                                    {assignment.user?.accountType === 'MODEL' && (
+                                                        <span className="px-1.5 py-0.5 text-[9px] font-bold rounded border uppercase bg-fuchsia-500/10 text-fuchsia-300 border-fuchsia-500/20">
+                                                            Model
                                                         </span>
                                                     )}
                                                     <span className="text-[9px] text-foreground-tertiary">
@@ -412,7 +418,12 @@ const Sidebar = ({ isOpen, toggle, mobileOpen = false, onMobileClose }: SidebarP
                                                         </span>
                                                         {assignment.username && (
                                                             <span className="text-[9px] text-foreground-secondary truncate">
-                                                                {assignment.username}
+                                                                Labeled by {assignment.username}
+                                                            </span>
+                                                        )}
+                                                        {assignment.user?.accountType === 'MODEL' && (
+                                                            <span className="px-1.5 py-0.5 text-[9px] font-bold rounded border uppercase bg-fuchsia-500/10 text-fuchsia-300 border-fuchsia-500/20">
+                                                                Model
                                                             </span>
                                                         )}
                                                         <span className="text-[9px] text-foreground-tertiary">

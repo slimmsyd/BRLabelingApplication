@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getSession } from '@/lib/session';
+import { handFilterValues } from '@/lib/punch-fields';
 
 /**
  * GET /api/export/events
@@ -41,7 +42,10 @@ export async function GET(request: Request) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const where: any = {};
     if (punchType && punchType !== 'any') where.punchType = punchType;
-    if (hand && hand !== 'any') where.hand = hand;
+    if (hand && hand !== 'any') {
+      const hands = handFilterValues(hand);
+      where.hand = hands ? { in: hands } : hand;
+    }
     if (target && target !== 'any') where.target = target;
     if (stance && stance !== 'any') where.stance = stance;
     if (landed === 'true') where.landed = true;

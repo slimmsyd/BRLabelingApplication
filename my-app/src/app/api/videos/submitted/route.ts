@@ -30,6 +30,7 @@ export async function GET() {
           labelType: true,
           updatedAt: true,
           username: true,
+          user: { select: { accountType: true } },
           video: {
             select: {
               id: true,
